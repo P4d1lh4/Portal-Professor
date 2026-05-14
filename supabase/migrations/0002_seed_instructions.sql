@@ -1,0 +1,13 @@
+-- =============================================================
+-- 0002_seed_instructions.sql
+-- Instruções de seed (executar VIA SCRIPT PYTHON, não diretamente aqui)
+--
+-- O seed real fica em: backend/scripts/seed.py
+-- Execute com:  python backend/scripts/seed.py
+--
+-- Este arquivo existe apenas para documentar a ordem das migrations.
+-- =============================================================
+
+-- Nenhuma instrução SQL direta neste arquivo.
+-- O seed é executado via supabase-py com a service role key
+-- para poder usar a Admin API do Supabase Auth.
