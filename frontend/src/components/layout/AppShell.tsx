@@ -1,18 +1,29 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { SidebarNav } from "./Sidebar";
-import { CommandPalette } from "@/components/shared/CommandPalette";
+import { CommandPaletteHost } from "@/components/shared/CommandPaletteHost";
 
 export function AppShell() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Se a sessão já chegou mas o profile ainda está sendo carregado
+  // (estado transiente após o signIn), mostra um loader em vez de
+  // renderizar uma tela em branco.
+  if (session && !profile) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
   if (!profile) return null;
 
   return (
@@ -61,7 +72,9 @@ export function AppShell() {
         </main>
       </div>
 
-      <CommandPalette />
+      <CommandPaletteHost />
     </div>
   );
 }
+
+export default AppShell;

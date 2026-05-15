@@ -90,7 +90,9 @@ function StatCard({
       </div>
       <div>
         <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
-        <p className="text-2xl font-bold tabular-nums mt-0.5">{value}</p>
+        <p className="font-display text-3xl font-medium tabular-nums tracking-tight mt-0.5">
+          {value}
+        </p>
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       </div>
     </div>
@@ -257,10 +259,10 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">
+          <h1 className="font-display text-3xl font-medium tracking-tight">
             Olá, {profile?.full_name.split(" ")[0]}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1.5">
             {ROLE_LABEL[profile?.role ?? ""] ?? ""}
           </p>
         </div>

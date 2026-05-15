@@ -3,8 +3,9 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 import { ProtectedRoute } from "./ProtectedRoute";
-import { AppShell } from "@/components/layout/AppShell";
-import { UnderConstruction } from "@/components/shared/UnderConstruction";
+
+// AppShell é pesado (Sidebar, Topbar, ícones, CommandPalette) — carrega só em rota protegida
+const AppShell = lazy(() => import("@/components/layout/AppShell"));
 
 // Carregamento lazy das páginas
 const LoginPage = lazy(() => import("@/features/auth/LoginPage"));
@@ -14,6 +15,8 @@ const ModulesPage = lazy(() => import("@/features/modules/ModulesPage"));
 const StudentsPage = lazy(() => import("@/features/students/StudentsPage"));
 const GradesPage = lazy(() => import("@/features/grades/GradesPage"));
 const ImportPage = lazy(() => import("@/features/import/ImportPage"));
+const ProfilePage = lazy(() => import("@/features/users/ProfilePage"));
+const UsersPage = lazy(() => import("@/features/users/UsersPage"));
 
 function PageLoader() {
   return (
@@ -37,7 +40,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <AppShell />,
+        element: wrap(<AppShell />),
         children: [
           {
             index: true,
@@ -47,18 +50,17 @@ export const router = createBrowserRouter([
             path: "dashboard",
             element: wrap(<DashboardPage />),
           },
+          {
+            path: "profile",
+            element: wrap(<ProfilePage />),
+          },
           // ---- Admin ----
           {
             element: <ProtectedRoute allowedRoles={["admin"]} />,
             children: [
               {
                 path: "users",
-                element: (
-                  <UnderConstruction
-                    title="Usuários"
-                    step="Passo 6"
-                  />
-                ),
+                element: wrap(<UsersPage />),
               },
             ],
           },

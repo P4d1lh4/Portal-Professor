@@ -120,7 +120,7 @@ def main() -> None:
             uid = create_auth_user(email, password, role, username, full_name)
             user_ids[username] = uid
             upsert_profile(uid, username, full_name, email, role)
-            print(f"  ✓ {role:12s} {email}")
+            print(f"  [OK] {role:12s} {email}")
         except Exception as exc:
             if "already registered" in str(exc).lower() or "already been registered" in str(exc).lower():
                 # Busca o ID existente
@@ -128,7 +128,7 @@ def main() -> None:
                 user_ids[username] = existing.data["id"]
                 print(f"  ~ {role:12s} {email}  (já existia)")
             else:
-                print(f"  ✗ {email}: {exc}")
+                print(f"  [ERRO] {email}: {exc}")
                 raise
 
     coord1_id = user_ids["coord1"]
@@ -161,7 +161,7 @@ def main() -> None:
         try:
             resp = supabase.table("academic_periods").upsert(pd, on_conflict="name").execute()
             period_ids.append(resp.data[0]["id"])
-            print(f"  ✓ Período '{pd['name']}'")
+            print(f"  [OK] Período '{pd['name']}'")
         except Exception as exc:
             existing = supabase.table("academic_periods").select("id").eq("name", pd["name"]).single().execute()
             period_ids.append(existing.data["id"])
@@ -190,7 +190,7 @@ def main() -> None:
                     module_payload, on_conflict="code,academic_period_id"
                 ).execute()
                 module_ids.append(resp.data[0]["id"])
-                print(f"  ✓ {mod_code} — {mod_name}")
+                print(f"  [OK] {mod_code} — {mod_name}")
             except Exception:
                 existing = (
                     supabase.table("modules")
@@ -228,7 +228,7 @@ def main() -> None:
                     student_payload, on_conflict="student_number"
                 ).execute()
                 student_ids.append(resp.data[0]["id"])
-                print(f"  ✓ {student_num} — {name}")
+                print(f"  [OK] {student_num} — {name}")
             except Exception:
                 existing = (
                     supabase.table("students")
@@ -294,7 +294,7 @@ def main() -> None:
                     grades_payload, on_conflict="enrollment_id"
                 ).execute()
 
-    print("\n✅ Seed concluído com sucesso!")
+    print("\n[CONCLUIDO] Seed concluído com sucesso!")
     print(f"\nCredenciais de acesso:")
     print(f"  admin@escola.com       — senha: {ADMIN_PASS}")
     print(f"  coord1@escola.com      — senha: {DEFAULT_PASS}")

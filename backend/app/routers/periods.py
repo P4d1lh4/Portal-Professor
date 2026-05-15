@@ -47,17 +47,40 @@ async def list_periods(
 
 @router.get("/periods/active", response_model=list[Period])
 async def list_active_periods(
-    _: Profile = Depends(get_current_user),
+    current_user: Profile = Depends(get_current_user),
 ) -> list[Period]:
-    """Lista períodos ativos. Qualquer usuário autenticado."""
+    """
+    Lista períodos ativos filtrados pelo papel — mesmo critério de
+    /api/periods, garantindo que selects/dropdowns não ofereçam
+    períodos aos quais o usuário não tem acesso (evita 403 silencioso).
+
+    - admin: todos os ativos
+    - coordinator: ativos sob sua coordenação
+    - professor: ativos onde tem ao menos um módulo
+    """
     db = get_admin_db()
-    resp = (
+    q = (
         db.table("academic_periods")
         .select(_SELECT)
         .eq("is_active", True)
         .order("name")
-        .execute()
     )
+
+    if current_user.role == "coordinator":
+        q = q.eq("coordinator_id", current_user.id)
+    elif current_user.role == "professor":
+        modules_resp = (
+            db.table("modules")
+            .select("academic_period_id")
+            .eq("professor_id", current_user.id)
+            .execute()
+        )
+        period_ids = list({m["academic_period_id"] for m in modules_resp.data})
+        if not period_ids:
+            return []
+        q = q.in_("id", period_ids)
+
+    resp = q.execute()
     return [_to_period(r) for r in resp.data]
 
 

@@ -16,6 +16,7 @@ interface NavItem {
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
+  prefetch?: () => Promise<unknown>;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -24,42 +25,49 @@ const NAV_ITEMS: NavItem[] = [
     to: "/dashboard",
     icon: LayoutDashboard,
     roles: ["admin", "coordinator", "professor"],
+    prefetch: () => import("@/features/dashboard/DashboardPage"),
   },
   {
     label: "Usuários",
     to: "/users",
     icon: Users,
     roles: ["admin"],
+    prefetch: () => import("@/features/users/UsersPage"),
   },
   {
     label: "Períodos Acadêmicos",
     to: "/periods",
     icon: CalendarRange,
     roles: ["admin", "coordinator"],
+    prefetch: () => import("@/features/periods/PeriodsPage"),
   },
   {
     label: "Módulos",
     to: "/modules",
     icon: BookOpen,
     roles: ["coordinator", "professor"],
+    prefetch: () => import("@/features/modules/ModulesPage"),
   },
   {
     label: "Alunos",
     to: "/students",
     icon: GraduationCap,
     roles: ["coordinator", "professor"],
+    prefetch: () => import("@/features/students/StudentsPage"),
   },
   {
     label: "Lançar Notas",
     to: "/grades",
     icon: ClipboardList,
     roles: ["coordinator", "professor"],
+    prefetch: () => import("@/features/grades/GradesPage"),
   },
   {
     label: "Importação",
     to: "/import",
     icon: Upload,
     roles: ["coordinator", "admin"],
+    prefetch: () => import("@/features/import/ImportPage"),
   },
 ];
 
@@ -80,6 +88,16 @@ export function SidebarNav({ role, collapsed, onNavigate }: SidebarNavProps) {
             <NavLink
               to={item.to}
               onClick={onNavigate}
+              onMouseEnter={() => {
+                item.prefetch?.().catch(() => {
+                  /* prefetch é best-effort; ignora falhas */
+                });
+              }}
+              onFocus={() => {
+                item.prefetch?.().catch(() => {
+                  /* prefetch é best-effort; ignora falhas */
+                });
+              }}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",

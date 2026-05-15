@@ -12,6 +12,7 @@ class Profile(BaseModel):
     email: str
     role: UserRole
     avatar_url: str | None = None
+    is_active: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -37,3 +38,9 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
     role: UserRole | None = None
     avatar_url: str | None = None
+    is_active: bool | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str

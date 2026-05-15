@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Mail, Hash, Calendar, Award, FileText, Pencil, UserX } from "lucide-react";
@@ -12,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MedicalCertificatesSheet } from "@/features/medical-certificates/MedicalCertificatesSheet";
 import { useStudentDetail } from "./useStudents";
 import type { StudentItem } from "./api";
 
@@ -64,6 +66,8 @@ export function StudentDetailSheet({
     studentId ?? undefined
   );
 
+  const [certificatesOpen, setCertificatesOpen] = useState(false);
+
   return (
     <Sheet open={!!studentId} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
@@ -109,7 +113,20 @@ export function StudentDetailSheet({
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Hash className="h-3.5 w-3.5 shrink-0" />
-                Certificados médicos: {student.medical_certificates}
+                <span className="flex-1">
+                  Atestados médicos: {student.medical_certificates}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-mr-2 h-7 gap-1 px-2 text-xs"
+                  onClick={() => setCertificatesOpen(true)}
+                  aria-label="Gerenciar atestados médicos"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Gerenciar
+                </Button>
               </div>
               {student.referral_info && (
                 <div className="flex items-start gap-2 text-muted-foreground">
@@ -210,6 +227,12 @@ export function StudentDetailSheet({
           </>
         )}
       </SheetContent>
+
+      <MedicalCertificatesSheet
+        studentId={certificatesOpen && student ? student.id : null}
+        studentName={student?.full_name}
+        onClose={() => setCertificatesOpen(false)}
+      />
     </Sheet>
   );
 }

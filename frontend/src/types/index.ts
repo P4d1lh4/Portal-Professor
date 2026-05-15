@@ -8,6 +8,7 @@ export interface Profile {
   email: string;
   role: UserRole;
   avatar_url?: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -75,4 +76,28 @@ export interface ImportResult {
   updated: number;
   skipped: number;
   errors: Array<{ row: number; error: string }>;
+}
+
+export interface MedicalCertificateAttachment {
+  id: string;
+  certificate_id: string;
+  file_name: string;
+  file_size: number;
+  mime_type: "application/pdf";
+  file_url: string;
+  uploaded_at: string;
+  uploaded_by?: string;
+}
+
+export interface MedicalCertificate {
+  id: string;
+  student_id: string;
+  reason: string;
+  start_date: string;
+  end_date: string;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  attachments: MedicalCertificateAttachment[];
 }

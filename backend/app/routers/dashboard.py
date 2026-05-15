@@ -5,6 +5,8 @@ GET /api/dashboard
   - admin/coordinator: visão geral do período selecionado
   - professor: visão dos seus módulos
 """
+import asyncio
+
 from fastapi import APIRouter, Depends, Query
 
 from ..db import get_admin_db
@@ -37,8 +39,8 @@ async def get_dashboard(
 
     # ── Professor ─────────────────────────────────────────────────────────────
     if role == "professor":
-        mods_resp = (
-            db.table("modules")
+        mods_resp = await asyncio.to_thread(
+            lambda: db.table("modules")
             .select("id, name, code, max_absences, is_active")
             .eq("professor_id", current_user.id)
             .execute()
@@ -54,8 +56,8 @@ async def get_dashboard(
 
         module_ids = [m["id"] for m in modules]
 
-        enroll_resp = (
-            db.table("enrollments")
+        enroll_resp = await asyncio.to_thread(
+            lambda: db.table("enrollments")
             .select("id, module_id, grade:grades!enrollment_id(final_grade, absences)")
             .in_("module_id", module_ids)
             .execute()
@@ -118,30 +120,28 @@ async def get_dashboard(
     # ── Coordinator / Admin ───────────────────────────────────────────────────
     # Determinar período a consultar
     if period_id:
-        periods_resp = (
+        periods_query = (
             db.table("academic_periods")
             .select("id, name, is_active")
             .eq("id", period_id)
-            .execute()
         )
     elif role == "coordinator":
-        periods_resp = (
+        periods_query = (
             db.table("academic_periods")
             .select("id, name, is_active")
             .eq("coordinator_id", current_user.id)
             .order("created_at", desc=True)
             .limit(1)
-            .execute()
         )
     else:
-        periods_resp = (
+        periods_query = (
             db.table("academic_periods")
             .select("id, name, is_active")
             .order("created_at", desc=True)
             .limit(1)
-            .execute()
         )
 
+    periods_resp = await asyncio.to_thread(periods_query.execute)
     periods_list = periods_resp.data or []
     if not periods_list:
         return {
@@ -155,23 +155,23 @@ async def get_dashboard(
     period = periods_list[0]
     pid = period["id"]
 
-    # Students
-    students_resp = (
-        db.table("students")
-        .select("id", count="exact")
-        .eq("academic_period_id", pid)
-        .eq("is_active", True)
-        .execute()
+    # Students COUNT + Modules: queries independentes — rodam em paralelo
+    students_resp, mods_resp = await asyncio.gather(
+        asyncio.to_thread(
+            lambda: db.table("students")
+            .select("id", count="exact")
+            .eq("academic_period_id", pid)
+            .eq("is_active", True)
+            .execute()
+        ),
+        asyncio.to_thread(
+            lambda: db.table("modules")
+            .select("id, name, code, max_absences, professor:profiles!professor_id(full_name)")
+            .eq("academic_period_id", pid)
+            .execute()
+        ),
     )
     student_count = students_resp.count or 0
-
-    # Modules
-    mods_resp = (
-        db.table("modules")
-        .select("id, name, code, max_absences, professor:profiles!professor_id(full_name)")
-        .eq("academic_period_id", pid)
-        .execute()
-    )
     modules = mods_resp.data or []
     module_ids = [m["id"] for m in modules]
 
@@ -184,8 +184,8 @@ async def get_dashboard(
             "grade_distribution": [],
         }
 
-    enroll_resp = (
-        db.table("enrollments")
+    enroll_resp = await asyncio.to_thread(
+        lambda: db.table("enrollments")
         .select("id, module_id, grade:grades!enrollment_id(final_grade, absences)")
         .in_("module_id", module_ids)
         .execute()

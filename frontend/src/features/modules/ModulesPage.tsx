@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, BookOpen, ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -31,7 +31,7 @@ export default function ModulesPage() {
   const canEdit = profile?.role !== "professor";
   const isProfessor = profile?.role === "professor";
 
-  const { data: modules = [], isLoading } = useModules();
+  const { data: modules = [], isLoading, isError, error } = useModules();
   const createMutation = useCreateModule();
   const updateMutation = useUpdateModule();
   const deleteMutation = useDeleteModule();
@@ -98,6 +98,15 @@ export default function ModulesPage() {
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <EmptyState
+          icon={AlertCircle}
+          title="Erro ao carregar módulos"
+          description={
+            (error as Error)?.message ??
+            "Verifique sua conexão e tente novamente."
+          }
+        />
       ) : modules.length === 0 ? (
         <EmptyState
           icon={BookOpen}

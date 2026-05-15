@@ -39,8 +39,10 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  const handleSignOut = async () => {
-    await signOut();
+  const handleSignOut = () => {
+    // Navega imediatamente; signOut limpa o estado sync e faz cleanup local
+    // em background — não bloqueamos a UI esperando rede.
+    void signOut();
     toast.success("Até logo!");
     navigate("/login", { replace: true });
   };

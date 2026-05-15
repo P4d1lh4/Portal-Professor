@@ -51,14 +51,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted/40 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/60 p-4">
       <div className="w-full max-w-sm">
         {/* Marca */}
         <div className="mb-8 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <GraduationCap className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="font-display text-3xl font-medium tracking-tight">
             Aplicação Professor
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -68,7 +68,7 @@ export default function LoginPage() {
 
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Entrar</CardTitle>
+            <CardTitle className="text-xl">Entrar</CardTitle>
             <CardDescription>
               Use seu e-mail institucional para acessar
             </CardDescription>

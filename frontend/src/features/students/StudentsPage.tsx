@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GraduationCap, Plus, Search } from "lucide-react";
+import { AlertCircle, GraduationCap, Plus, Search } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useActivePeriods } from "@/features/periods/usePeriods";
+import { usePeriods } from "@/features/periods/usePeriods";
 import {
   useStudentsByPeriod,
   useProfessorStudents,
@@ -70,9 +70,12 @@ export default function StudentsPage() {
   const isProfessor = profile?.role === "professor";
   const isCoordinator = profile?.role === "coordinator";
 
-  const { data: activePeriods = [] } = useActivePeriods();
+  // Lista TODOS os períodos que o usuário pode acessar (ativos e inativos),
+  // não apenas os ativos — coord/admin frequentemente precisam consultar
+  // alunos de períodos passados. O backend já filtra por papel.
+  const { data: availablePeriods = [] } = usePeriods();
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
-  const periodId = selectedPeriodId || activePeriods[0]?.id;
+  const periodId = selectedPeriodId || availablePeriods[0]?.id;
 
   const coordinatorQuery = useStudentsByPeriod(
     isCoordinator || profile?.role === "admin" ? periodId : undefined
@@ -86,6 +89,10 @@ export default function StudentsPage() {
   const isLoading = isProfessor
     ? professorQuery.isLoading
     : coordinatorQuery.isLoading;
+  const isError = isProfessor
+    ? professorQuery.isError
+    : coordinatorQuery.isError;
+  const error = isProfessor ? professorQuery.error : coordinatorQuery.error;
 
   const createInPeriod = useCreateStudentInPeriod(periodId ?? "");
   const createProfessor = useCreateProfessorStudent();
@@ -167,9 +174,10 @@ export default function StudentsPage() {
               <SelectValue placeholder="Selecione um período" />
             </SelectTrigger>
             <SelectContent>
-              {activePeriods.map((p) => (
+              {availablePeriods.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
+                  {!p.is_active && " (inativo)"}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -195,6 +203,15 @@ export default function StudentsPage() {
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <EmptyState
+          icon={AlertCircle}
+          title="Erro ao carregar alunos"
+          description={
+            (error as Error)?.message ??
+            "Verifique sua conexão e tente novamente."
+          }
+        />
       ) : !periodId && !isProfessor ? (
         <EmptyState
           icon={GraduationCap}

@@ -8,7 +8,9 @@ interface UnderConstructionProps {
 export function UnderConstruction({ title, step }: UnderConstructionProps) {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{title}</h1>
+      <h1 className="font-display text-3xl font-medium tracking-tight">
+        {title}
+      </h1>
       <div className="flex flex-col items-center justify-center gap-4 rounded-xl border bg-card p-16 text-center">
         <Construction className="h-12 w-12 text-muted-foreground/50" />
         <div>

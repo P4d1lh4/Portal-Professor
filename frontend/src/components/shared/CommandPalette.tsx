@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -35,27 +34,20 @@ interface CommandEntry {
   keywords?: string;
 }
 
-export function CommandPalette() {
-  const [open, setOpen] = useState(false);
+interface CommandPaletteProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const role = profile?.role as UserRole | undefined;
 
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setOpen((v) => !v);
-      }
-    };
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
-
   const go = (path: string) => {
     navigate(path);
-    setOpen(false);
+    onOpenChange(false);
   };
 
   const navItems: CommandEntry[] = [
@@ -112,7 +104,7 @@ export function CommandPalette() {
       icon: theme === "dark" ? Sun : Moon,
       action: () => {
         setTheme(theme === "dark" ? "light" : "dark");
-        setOpen(false);
+        onOpenChange(false);
       },
       roles: ["admin", "coordinator", "professor"],
     },
@@ -120,7 +112,7 @@ export function CommandPalette() {
       label: "Sair",
       icon: LogOut,
       action: async () => {
-        setOpen(false);
+        onOpenChange(false);
         await signOut();
         toast.success("Até logo!");
         navigate("/login", { replace: true });
@@ -133,7 +125,7 @@ export function CommandPalette() {
     role ? items.filter((i) => i.roles.includes(role)) : [];
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput placeholder="Pesquisar página ou ação…" />
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
@@ -164,3 +156,4 @@ export function CommandPalette() {
 }
 
 export { Command };
+export default CommandPalette;

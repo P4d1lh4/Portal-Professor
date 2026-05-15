@@ -8,15 +8,18 @@ import { router } from "@/routes";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 3, // 3 minutos
+      staleTime: 1000 * 60 * 3, // 3 minutos: cache fresco
+      gcTime: 1000 * 60 * 10, // 10 minutos: mantém em memória após sair da tela
       retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     },
   },
 });
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
         <Toaster

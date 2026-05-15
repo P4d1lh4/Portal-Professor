@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, ClipboardList, Loader2, Search } from "lucide-react";
+import { toast } from "sonner";
+import { AlertCircle, CheckCircle2, ClipboardList, Loader2, Search } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -133,6 +134,7 @@ function useRowStatuses(moduleId: string) {
         );
       } catch {
         setStatuses((prev) => ({ ...prev, [enrollmentId]: "idle" }));
+        toast.error("Erro ao salvar nota. Verifique a conexão e tente novamente.");
       }
     },
     [update]
@@ -152,7 +154,12 @@ export default function GradesPage() {
   const [selectedModuleId, setSelectedModuleId] = useState(urlModuleId);
   const [search, setSearch] = useState("");
 
-  const { data: modules = [], isLoading: modulesLoading } = useModules();
+  const {
+    data: modules = [],
+    isLoading: modulesLoading,
+    isError: modulesError,
+    error: modulesErrorObj,
+  } = useModules();
 
   // Once modules load, default to URL param or first module
   useEffect(() => {
@@ -281,6 +288,15 @@ export default function GradesPage() {
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : modulesError ? (
+        <EmptyState
+          icon={AlertCircle}
+          title="Erro ao carregar módulos"
+          description={
+            (modulesErrorObj as Error)?.message ??
+            "Verifique sua conexão e tente novamente."
+          }
+        />
       ) : !activeModuleId || modules.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
