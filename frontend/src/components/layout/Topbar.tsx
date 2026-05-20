@@ -65,9 +65,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       <button
         className="hidden sm:flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
         onClick={() =>
-          document.dispatchEvent(
-            new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
-          )
+          document.dispatchEvent(new CustomEvent("command-palette:open"))
         }
         aria-label="Abrir paleta de comandos"
       >

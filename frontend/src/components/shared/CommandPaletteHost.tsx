@@ -18,8 +18,18 @@ export function CommandPaletteHost() {
         setOpen((v) => !v);
       }
     };
+    // Clique no botão "Pesquisar…" da Topbar dispara este evento dedicado —
+    // mais confiável que simular um KeyboardEvent.
+    const openPalette = () => {
+      setMounted(true);
+      setOpen(true);
+    };
     document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
+    document.addEventListener("command-palette:open", openPalette);
+    return () => {
+      document.removeEventListener("keydown", down);
+      document.removeEventListener("command-palette:open", openPalette);
+    };
   }, []);
 
   if (!mounted) return null;
