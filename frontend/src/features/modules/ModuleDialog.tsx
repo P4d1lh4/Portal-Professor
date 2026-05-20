@@ -56,7 +56,13 @@ export function ModuleDialog({
   const isEdit = !!mod;
   const canChangeProfessor = profile?.role !== "professor";
 
-  const { data: professors = [] } = useQuery({
+  const {
+    data: professors = [],
+    isLoading: isLoadingProfessors,
+    isError: isProfessorsError,
+    error: professorsError,
+    refetch: refetchProfessors,
+  } = useQuery({
     queryKey: ["professors"],
     queryFn: () =>
       api
@@ -65,7 +71,13 @@ export function ModuleDialog({
     enabled: open && canChangeProfessor,
   });
 
-  const { data: periods = [] } = useQuery({
+  const {
+    data: periods = [],
+    isLoading: isLoadingPeriods,
+    isError: isPeriodsError,
+    error: periodsError,
+    refetch: refetchPeriods,
+  } = useQuery({
     queryKey: ["periods-active"],
     queryFn: () =>
       api
@@ -171,10 +183,16 @@ export function ModuleDialog({
             <Select
               value={watch("academic_period_id")}
               onValueChange={(v) => setValue("academic_period_id", v)}
-              disabled={isEdit}
+              disabled={isEdit || isLoadingPeriods || isPeriodsError}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione o período" />
+                <SelectValue
+                  placeholder={
+                    isLoadingPeriods
+                      ? "Carregando períodos..."
+                      : "Selecione o período"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {periods.map((p) => (
@@ -184,6 +202,27 @@ export function ModuleDialog({
                 ))}
               </SelectContent>
             </Select>
+            {isPeriodsError && (
+              <p className="text-xs text-destructive">
+                Não foi possível carregar os períodos
+                {periodsError instanceof Error
+                  ? `: ${periodsError.message}`
+                  : "."}{" "}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={() => refetchPeriods()}
+                >
+                  Tentar novamente
+                </button>
+              </p>
+            )}
+            {!isLoadingPeriods && !isPeriodsError && periods.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Nenhum período ativo. Crie um período acadêmico ativo antes de
+                cadastrar módulos.
+              </p>
+            )}
             {errors.academic_period_id && (
               <p className="text-xs text-destructive">
                 {errors.academic_period_id.message}
@@ -198,9 +237,16 @@ export function ModuleDialog({
               <Select
                 value={watch("professor_id")}
                 onValueChange={(v) => setValue("professor_id", v)}
+                disabled={isLoadingProfessors || isProfessorsError}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o professor" />
+                  <SelectValue
+                    placeholder={
+                      isLoadingProfessors
+                        ? "Carregando professores..."
+                        : "Selecione o professor"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {professors.map((p) => (
@@ -210,6 +256,29 @@ export function ModuleDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {isProfessorsError && (
+                <p className="text-xs text-destructive">
+                  Não foi possível carregar os professores
+                  {professorsError instanceof Error
+                    ? `: ${professorsError.message}`
+                    : "."}{" "}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2 hover:text-foreground"
+                    onClick={() => refetchProfessors()}
+                  >
+                    Tentar novamente
+                  </button>
+                </p>
+              )}
+              {!isLoadingProfessors &&
+                !isProfessorsError &&
+                professors.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Nenhum professor cadastrado. Cadastre um usuário com o papel
+                    &ldquo;Professor&rdquo; na página de Usuários.
+                  </p>
+                )}
               {errors.professor_id && (
                 <p className="text-xs text-destructive">
                   {errors.professor_id.message}
