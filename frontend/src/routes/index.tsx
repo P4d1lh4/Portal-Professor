@@ -94,6 +94,10 @@ export const router = createBrowserRouter([
                 path: "periods",
                 element: wrap(<PeriodsPage />),
               },
+              {
+                path: "import",
+                element: wrap(<ImportPage />),
+              },
             ],
           },
           // ---- Coordenador + Professor ----
@@ -117,10 +121,6 @@ export const router = createBrowserRouter([
               {
                 path: "attendance",
                 element: wrap(<AttendancePage />),
-              },
-              {
-                path: "import",
-                element: wrap(<ImportPage />),
               },
             ],
           },
