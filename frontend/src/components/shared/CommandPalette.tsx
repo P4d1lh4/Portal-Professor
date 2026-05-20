@@ -48,8 +48,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const role = profile?.role as UserRole | undefined;
 
   const go = (path: string) => {
-    navigate(path);
+    // Fecha o diálogo primeiro e navega no próximo tick. Navegar no mesmo
+    // instante em que o Radix Dialog desmonta pode deixar o <body> travado
+    // com `pointer-events: none`, fazendo o clique no resultado "não ir".
     onOpenChange(false);
+    setTimeout(() => navigate(path), 0);
   };
 
   const navItems: CommandEntry[] = [
