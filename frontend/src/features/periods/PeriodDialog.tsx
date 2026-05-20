@@ -51,7 +51,13 @@ export function PeriodDialog({
 }: PeriodDialogProps) {
   const isEdit = !!period;
 
-  const { data: coordinators = [] } = useQuery({
+  const {
+    data: coordinators = [],
+    isLoading: isLoadingCoordinators,
+    isError: isCoordinatorsError,
+    error: coordinatorsError,
+    refetch: refetchCoordinators,
+  } = useQuery({
     queryKey: ["coordinators"],
     queryFn: () =>
       api.get<{ id: string; full_name: string }[]>("/api/coordinators").then(
@@ -124,9 +130,16 @@ export function PeriodDialog({
             <Select
               value={watch("coordinator_id")}
               onValueChange={(v) => setValue("coordinator_id", v)}
+              disabled={isLoadingCoordinators || isCoordinatorsError}
             >
               <SelectTrigger id="coordinator">
-                <SelectValue placeholder="Selecione um coordenador" />
+                <SelectValue
+                  placeholder={
+                    isLoadingCoordinators
+                      ? "Carregando coordenadores..."
+                      : "Selecione um coordenador"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {coordinators.map((c) => (
@@ -136,6 +149,35 @@ export function PeriodDialog({
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Falha ao carregar: mostra o erro em vez de um dropdown vazio
+                silencioso, com opção de tentar novamente. */}
+            {isCoordinatorsError && (
+              <p className="text-xs text-destructive">
+                Não foi possível carregar os coordenadores
+                {coordinatorsError instanceof Error
+                  ? `: ${coordinatorsError.message}`
+                  : "."}{" "}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={() => refetchCoordinators()}
+                >
+                  Tentar novamente
+                </button>
+              </p>
+            )}
+
+            {/* Lista vazia (sem erro): orienta o usuário a cadastrar um. */}
+            {!isLoadingCoordinators &&
+              !isCoordinatorsError &&
+              coordinators.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum coordenador cadastrado. Cadastre um usuário com o papel
+                  &ldquo;Coordenador&rdquo; na página de Usuários.
+                </p>
+              )}
+
             {errors.coordinator_id && (
               <p className="text-xs text-destructive">
                 {errors.coordinator_id.message}
