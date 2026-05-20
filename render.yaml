@@ -1,0 +1,31 @@
+# Blueprint do Render — backend FastAPI da Aplicação Professor.
+# Importe via Render Dashboard → New → Blueprint, apontando para este repositório.
+# As chaves marcadas com `sync: false` devem ser preenchidas manualmente no
+# painel (são segredos e não ficam versionados).
+services:
+  - type: web
+    name: portal-backend
+    runtime: docker
+    repo: https://github.com/SEU_USUARIO/SEU_REPO
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    healthCheckPath: /api/healthz
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      # Definir com a URL da Vercel após o deploy do frontend.
+      # Aceita múltiplas origens separadas por vírgula.
+      - key: CORS_ORIGINS
+        sync: false
+      # Número de workers uvicorn. No plano free (512MB), mantenha 1.
+      - key: WEB_CONCURRENCY
+        value: "1"
