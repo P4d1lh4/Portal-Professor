@@ -8,6 +8,7 @@ export interface ModuleProfessor {
 export interface ModulePeriod {
   id: string;
   name: string;
+  is_active?: boolean;
 }
 
 export interface ModuleItem {

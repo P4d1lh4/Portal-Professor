@@ -1,14 +1,28 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
-import { studentsApi, type StudentCreate, type StudentUpdate } from "./api";
+import {
+  studentsApi,
+  type ListPeriodStudentsParams,
+  type StudentCreate,
+  type StudentUpdate,
+} from "./api";
 
 export const STUDENTS_KEY = ["students"] as const;
 
-export function useStudentsByPeriod(periodId: string | undefined) {
+export function useStudentsByPeriod(
+  periodId: string | undefined,
+  params: ListPeriodStudentsParams = {},
+) {
   return useQuery({
-    queryKey: [...STUDENTS_KEY, { periodId }],
-    queryFn: () => studentsApi.listByPeriod(periodId!),
+    queryKey: [...STUDENTS_KEY, { periodId, ...params }],
+    queryFn: () => studentsApi.listByPeriod(periodId!, params),
     enabled: !!periodId,
+    placeholderData: keepPreviousData,
   });
 }
 

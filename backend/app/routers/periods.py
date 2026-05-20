@@ -4,6 +4,7 @@ from ..db import get_admin_db
 from ..deps import get_current_user, require_role
 from ..schemas.periods import Period, PeriodCreate, PeriodUpdate
 from ..schemas.users import Profile
+from ..services.audit import write_audit_log
 
 router = APIRouter(prefix="/api", tags=["períodos"])
 
@@ -195,7 +196,7 @@ async def update_period(
 @router.delete("/periods/{period_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_period(
     period_id: str,
-    _: Profile = Depends(require_role("admin")),
+    current_user: Profile = Depends(require_role("admin")),
 ) -> None:
     db = get_admin_db()
 
@@ -222,4 +223,24 @@ async def delete_period(
             ),
         )
 
+    before = (
+        db.table("academic_periods")
+        .select("*")
+        .eq("id", period_id)
+        .maybe_single()
+        .execute()
+    )
+
     db.table("academic_periods").delete().eq("id", period_id).execute()
+
+    period_name = (before.data or {}).get("name", period_id)
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="delete",
+        entity="periods",
+        entity_id=period_id,
+        summary=f"Período excluído: {period_name}",
+        before={"name": period_name, "is_active": (before.data or {}).get("is_active")},
+        after=None,
+    )

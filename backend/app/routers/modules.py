@@ -4,13 +4,24 @@ from ..db import get_admin_db
 from ..deps import get_current_user, require_role
 from ..schemas.modules import Module, ModuleCreate, ModuleUpdate, StudentGradeInfo
 from ..schemas.users import Profile
+from ..services.audit import write_audit_log
+
+
+_MODULE_AUDIT_FIELDS = (
+    "name",
+    "code",
+    "professor_id",
+    "credits",
+    "max_absences",
+    "is_active",
+)
 
 router = APIRouter(prefix="/api", tags=["módulos"])
 
 _SELECT = (
     "*, "
     "professor:profiles!professor_id(id, full_name), "
-    "academic_period:academic_periods!academic_period_id(id, name)"
+    "academic_period:academic_periods!academic_period_id(id, name, is_active)"
 )
 
 
@@ -218,8 +229,25 @@ async def update_module(
     if not update_data:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar.")
 
+    before = (
+        db.table("modules").select("*").eq("id", module_id).single().execute()
+    )
+
     db.table("modules").update(update_data).eq("id", module_id).execute()
-    return _fetch_module(db, module_id)
+    fetched = _fetch_module(db, module_id)
+
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="update",
+        entity="modules",
+        entity_id=module_id,
+        summary=f"Módulo atualizado: {fetched.name}",
+        before={k: before.data.get(k) for k in _MODULE_AUDIT_FIELDS},
+        after={k: getattr(fetched, k, None) for k in _MODULE_AUDIT_FIELDS},
+    )
+
+    return fetched
 
 
 @router.delete("/modules/{module_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -252,7 +280,22 @@ async def delete_module(
             detail="Não é possível excluir este módulo pois há alunos matriculados.",
         )
 
+    before = (
+        db.table("modules").select("*").eq("id", module_id).single().execute()
+    )
+
     db.table("modules").delete().eq("id", module_id).execute()
+
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="delete",
+        entity="modules",
+        entity_id=module_id,
+        summary=f"Módulo excluído: {before.data.get('name', '')}",
+        before={k: before.data.get(k) for k in _MODULE_AUDIT_FIELDS},
+        after=None,
+    )
 
 
 # ---------------------------------------------------------------

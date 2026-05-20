@@ -1,8 +1,9 @@
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..db import get_admin_db
 from ..deps import get_current_user, require_role
+from ..schemas.common import Paginated
 from ..schemas.students import (
     AbsenceUpdate,
     ModuleGradeSummary,
@@ -12,6 +13,17 @@ from ..schemas.students import (
     StudentUpdate,
 )
 from ..schemas.users import Profile
+from ..services.audit import write_audit_log
+
+
+_STUDENT_AUDIT_FIELDS = (
+    "full_name",
+    "email",
+    "student_number",
+    "is_active",
+    "referral_info",
+    "observations",
+)
 
 router = APIRouter(prefix="/api", tags=["alunos"])
 
@@ -24,46 +36,51 @@ def _to_student(row: dict) -> Student:
     return Student(**row)
 
 
-def _build_detail(student_row: dict, db) -> StudentDetail:
-    """Constrói StudentDetail com módulos e notas agregadas."""
-    student_id = student_row["id"]
+_ENROLLMENT_DETAIL_SELECT = (
+    "id, status, student_id, "
+    "module:modules!module_id(id, name, code, max_absences), "
+    "grade:grades!enrollment_id(final_grade, absences)"
+)
 
-    enrollments = (
-        db.table("enrollments")
-        .select(
-            "id, status, "
-            "module:modules!module_id(id, name, code, max_absences), "
-            "grade:grades!enrollment_id(final_grade, absences)"
-        )
-        .eq("student_id", student_id)
-        .execute()
+
+def _enrollment_to_summary(enr: dict) -> tuple[ModuleGradeSummary, float, int]:
+    """Converte uma linha de enrollment (com joins) num ModuleGradeSummary.
+
+    Retorna também `(final_grade, absences)` para agregação em lote.
+    """
+    mod = enr.get("module") or {}
+    grade = enr.get("grade") or {}
+    final = float(grade.get("final_grade", 0))
+    absences = int(grade.get("absences", 0))
+    return (
+        ModuleGradeSummary(
+            module_id=mod.get("id", ""),
+            module_name=mod.get("name", ""),
+            module_code=mod.get("code", ""),
+            enrollment_id=enr["id"],
+            enrollment_status=enr["status"],
+            final_grade=final,
+            absences=absences,
+            max_absences=int(mod.get("max_absences", 10)),
+        ),
+        final,
+        absences,
     )
 
+
+def _assemble_detail(student_row: dict, enrollments: list[dict]) -> StudentDetail:
+    """Monta um StudentDetail a partir das enrollments já carregadas (sem novas queries)."""
     modules: list[ModuleGradeSummary] = []
     total_abs = 0
     grades_sum = 0.0
     count = 0
 
-    for enr in enrollments.data:
-        mod = enr.get("module") or {}
-        grade = enr.get("grade") or {}
-        final = float(grade.get("final_grade", 0))
-        absences = int(grade.get("absences", 0))
+    for enr in enrollments:
+        summary, final, absences = _enrollment_to_summary(enr)
+        modules.append(summary)
         total_abs += absences
         grades_sum += final
         count += 1
-        modules.append(
-            ModuleGradeSummary(
-                module_id=mod.get("id", ""),
-                module_name=mod.get("name", ""),
-                module_code=mod.get("code", ""),
-                enrollment_id=enr["id"],
-                enrollment_status=enr["status"],
-                final_grade=final,
-                absences=absences,
-                max_absences=int(mod.get("max_absences", 10)),
-            )
-        )
 
     avg = round(grades_sum / count, 2) if count > 0 else None
 
@@ -73,6 +90,37 @@ def _build_detail(student_row: dict, db) -> StudentDetail:
         total_absences=total_abs,
         avg_final_grade=avg,
     )
+
+
+def _build_details_batch(student_rows: list[dict], db) -> list[StudentDetail]:
+    """Versão em lote: 1 única query de enrollments para todos os alunos.
+
+    Substitui o padrão N+1 de chamar `_build_detail` em loop.
+    """
+    if not student_rows:
+        return []
+
+    student_ids = [s["id"] for s in student_rows]
+
+    resp = (
+        db.table("enrollments")
+        .select(_ENROLLMENT_DETAIL_SELECT)
+        .in_("student_id", student_ids)
+        .execute()
+    )
+
+    by_student: dict[str, list[dict]] = {sid: [] for sid in student_ids}
+    for enr in resp.data:
+        sid = enr.get("student_id")
+        if sid in by_student:
+            by_student[sid].append(enr)
+
+    return [_assemble_detail(s, by_student.get(s["id"], [])) for s in student_rows]
+
+
+def _build_detail(student_row: dict, db) -> StudentDetail:
+    """Versão singular — usa o batch internamente para garantir uma única implementação."""
+    return _build_details_batch([student_row], db)[0]
 
 
 def _auto_enroll(db, student_id: str, professor_id: str) -> None:
@@ -110,12 +158,15 @@ def _auto_enroll(db, student_id: str, professor_id: str) -> None:
 # Rotas de Coordenador — /api/periods/{period_id}/students
 # ---------------------------------------------------------------
 
-@router.get("/periods/{period_id}/students", response_model=list[Student])
+@router.get("/periods/{period_id}/students", response_model=Paginated[Student])
 async def list_period_students(
     period_id: str,
     active_only: bool = True,
+    search: str | None = Query(None, description="Busca por nome ou matrícula"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_user: Profile = Depends(require_role("admin", "coordinator")),
-) -> list[Student]:
+) -> Paginated[Student]:
     db = get_admin_db()
 
     if current_user.role == "coordinator":
@@ -130,11 +181,23 @@ async def list_period_students(
         if not period_chk.data:
             raise HTTPException(403, "Acesso negado a este período.")
 
-    q = db.table("students").select("*").eq("academic_period_id", period_id)
+    q = (
+        db.table("students")
+        .select("*", count="exact")
+        .eq("academic_period_id", period_id)
+    )
     if active_only:
         q = q.eq("is_active", True)
-    resp = q.order("full_name").execute()
-    return [_to_student(r) for r in resp.data]
+    if search:
+        term = search.strip()
+        if term:
+            ilike = f"%{term}%"
+            q = q.or_(f"full_name.ilike.{ilike},student_number.ilike.{ilike}")
+
+    resp = q.order("full_name").range(offset, offset + limit - 1).execute()
+    items = [_to_student(r) for r in resp.data]
+    total = resp.count if resp.count is not None else len(items)
+    return Paginated[Student](items=items, total=total, limit=limit, offset=offset)
 
 
 @router.post(
@@ -228,7 +291,8 @@ async def list_professor_students(
         .execute()
     )
 
-    return [_build_detail(s, db) for s in students.data]
+    # Uma única query de enrollments para TODOS os alunos (evita N+1)
+    return _build_details_batch(students.data, db)
 
 
 @router.post(
@@ -321,11 +385,27 @@ async def update_professor_student(
     if "enrollment_date" in update_data:
         update_data["enrollment_date"] = str(update_data["enrollment_date"])
 
+    before = (
+        db.table("students").select("*").eq("id", student_id).single().execute()
+    )
+
     db.table("students").update(update_data).eq("id", student_id).execute()
 
     resp = (
         db.table("students").select("*").eq("id", student_id).single().execute()
     )
+
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="update",
+        entity="students",
+        entity_id=student_id,
+        summary=f"Aluno atualizado: {resp.data.get('full_name', '')}",
+        before={k: before.data.get(k) for k in _STUDENT_AUDIT_FIELDS},
+        after={k: resp.data.get(k) for k in _STUDENT_AUDIT_FIELDS},
+    )
+
     return _to_student(resp.data)
 
 
@@ -363,7 +443,27 @@ async def deactivate_student(
                 "Solicite ao coordenador que o desative.",
             )
 
+    before = (
+        db.table("students")
+        .select("id, full_name, student_number, is_active")
+        .eq("id", student_id)
+        .maybe_single()
+        .execute()
+    )
+
     db.table("students").update({"is_active": False}).eq("id", student_id).execute()
+
+    student_name = (before.data or {}).get("full_name", student_id)
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="delete",
+        entity="students",
+        entity_id=student_id,
+        summary=f"Aluno desativado: {student_name}",
+        before={"is_active": True},
+        after={"is_active": False},
+    )
 
 
 # ---------------------------------------------------------------

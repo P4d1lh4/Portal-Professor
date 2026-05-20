@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
+  CalendarCheck,
   CalendarRange,
   ClipboardList,
   GraduationCap,
+  History,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -84,6 +86,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       keywords: "notas faltas grade",
     },
     {
+      label: "Chamada",
+      icon: CalendarCheck,
+      action: () => go("/attendance"),
+      roles: ["coordinator", "professor"],
+      keywords: "chamada frequencia presenca falta",
+    },
+    {
       label: "Importação CSV",
       icon: Upload,
       action: () => go("/import"),
@@ -95,6 +104,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       icon: Users,
       action: () => go("/users"),
       roles: ["admin"],
+    },
+    {
+      label: "Auditoria",
+      icon: History,
+      action: () => go("/audit-log"),
+      roles: ["admin"],
+      keywords: "audit log historico alteracoes",
     },
   ];
 

@@ -18,9 +18,24 @@ api.interceptors.request.use((config) => {
 // Traduz erros HTTP para mensagens legíveis
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    let data = error.response?.data;
+    // Em respostas binárias (responseType: 'blob'), o JSON de erro também
+    // vem como Blob — convertemos para texto e tentamos parsear.
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { detail: text || undefined };
+        }
+      } catch {
+        data = undefined;
+      }
+    }
     const detail: string =
-      error.response?.data?.detail ?? "Erro inesperado. Tente novamente.";
+      data?.detail ?? "Erro inesperado. Tente novamente.";
     return Promise.reject(new Error(detail));
   }
 );

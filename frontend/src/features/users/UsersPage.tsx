@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
   Pencil,
   Plus,
   RotateCcw,
@@ -10,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +44,9 @@ import {
   useUpdateUser,
   useUsers,
 } from "./useUsers";
+import type { ListUsersParams } from "./api";
+
+const PAGE_SIZE = 25;
 
 const ROLE_LABEL: Record<UserRole, string> = {
   admin: "Administrador",
@@ -62,32 +68,45 @@ type StatusFilter = "all" | "active" | "inactive";
 
 export default function UsersPage() {
   const { profile } = useAuth();
-  const { data: users = [], isLoading, isError, error } = useUsers();
+
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [page, setPage] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Profile | undefined>();
+
+  const debouncedSearch = useDebouncedValue(search, 300);
+
+  // Volta para a primeira página quando os filtros mudam
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, roleFilter, statusFilter]);
+
+  const queryParams = useMemo<ListUsersParams>(() => {
+    const params: ListUsersParams = {
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
+    };
+    if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+    if (roleFilter !== "all") params.role = roleFilter;
+    if (statusFilter === "active") params.is_active = true;
+    else if (statusFilter === "inactive") params.is_active = false;
+    return params;
+  }, [debouncedSearch, roleFilter, statusFilter, page]);
+
+  const { data, isLoading, isError, error, isPlaceholderData } =
+    useUsers(queryParams);
   const create = useCreateUser();
   const update = useUpdateUser();
   const deactivate = useDeactivateUser();
   const reactivate = useReactivateUser();
 
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Profile | undefined>();
-
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return users.filter((u) => {
-      if (roleFilter !== "all" && u.role !== roleFilter) return false;
-      if (statusFilter === "active" && !u.is_active) return false;
-      if (statusFilter === "inactive" && u.is_active) return false;
-      if (!term) return true;
-      return (
-        u.full_name.toLowerCase().includes(term) ||
-        u.email.toLowerCase().includes(term) ||
-        u.username.toLowerCase().includes(term)
-      );
-    });
-  }, [users, search, roleFilter, statusFilter]);
+  const users = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const canPrev = page > 0;
+  const canNext = page < totalPages - 1;
 
   const openCreate = () => {
     setEditing(undefined);
@@ -189,7 +208,7 @@ export default function UsersPage() {
             "Verifique sua conexão e tente novamente."
           }
         />
-      ) : filtered.length === 0 ? (
+      ) : users.length === 0 ? (
         <EmptyState
           icon={UsersIcon}
           title={
@@ -229,7 +248,7 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((u) => {
+                {users.map((u) => {
                   const isSelf = u.id === profile?.id;
                   return (
                     <TableRow key={u.id}>
@@ -311,7 +330,7 @@ export default function UsersPage() {
 
           {/* Cards — mobile */}
           <div className="grid gap-3 md:hidden">
-            {filtered.map((u) => {
+            {users.map((u) => {
               const isSelf = u.id === profile?.id;
               return (
                 <div
@@ -384,13 +403,41 @@ export default function UsersPage() {
             })}
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            {filtered.length} usuário{filtered.length !== 1 ? "s" : ""}{" "}
-            {search || roleFilter !== "all" || statusFilter !== "active"
-              ? "encontrado"
-              : "ativo"}
-            {filtered.length !== 1 ? "s" : ""}
-          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {total} usuário{total !== 1 ? "s" : ""}{" "}
+              {search || roleFilter !== "all" || statusFilter !== "active"
+                ? `encontrado${total !== 1 ? "s" : ""}`
+                : "no total"}
+              {totalPages > 1 &&
+                ` · página ${page + 1} de ${totalPages}`}
+            </p>
+
+            {totalPages > 1 && (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canPrev || isPlaceholderData}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canNext || isPlaceholderData}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Próxima
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         </>
       )}
 

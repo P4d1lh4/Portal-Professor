@@ -17,6 +17,10 @@ from .routers import (
     sheets,
     dashboard,
     medical_certificates,
+    attendance,
+    reports,
+    audit,
+    exports,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,6 +74,10 @@ app.include_router(import_csv.router)
 app.include_router(sheets.router)
 app.include_router(dashboard.router)
 app.include_router(medical_certificates.router)
+app.include_router(attendance.router)
+app.include_router(reports.router)
+app.include_router(audit.router)
+app.include_router(exports.router)
 
 
 # ---------------------------------------------------------------

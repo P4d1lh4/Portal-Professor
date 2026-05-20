@@ -10,6 +10,7 @@ class ProfessorRef(BaseModel):
 class PeriodRef(BaseModel):
     id: str
     name: str
+    is_active: bool | None = None
 
 
 class Module(BaseModel):

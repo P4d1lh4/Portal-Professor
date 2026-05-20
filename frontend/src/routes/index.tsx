@@ -9,14 +9,24 @@ const AppShell = lazy(() => import("@/components/layout/AppShell"));
 
 // Carregamento lazy das páginas
 const LoginPage = lazy(() => import("@/features/auth/LoginPage"));
+const ForgotPasswordPage = lazy(
+  () => import("@/features/auth/ForgotPasswordPage"),
+);
+const ResetPasswordPage = lazy(
+  () => import("@/features/auth/ResetPasswordPage"),
+);
 const DashboardPage = lazy(() => import("@/features/dashboard/DashboardPage"));
 const PeriodsPage = lazy(() => import("@/features/periods/PeriodsPage"));
 const ModulesPage = lazy(() => import("@/features/modules/ModulesPage"));
 const StudentsPage = lazy(() => import("@/features/students/StudentsPage"));
 const GradesPage = lazy(() => import("@/features/grades/GradesPage"));
+const AttendancePage = lazy(
+  () => import("@/features/attendance/AttendancePage"),
+);
 const ImportPage = lazy(() => import("@/features/import/ImportPage"));
 const ProfilePage = lazy(() => import("@/features/users/ProfilePage"));
 const UsersPage = lazy(() => import("@/features/users/UsersPage"));
+const AuditLogPage = lazy(() => import("@/features/audit/AuditLogPage"));
 
 function PageLoader() {
   return (
@@ -34,6 +44,14 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     element: wrap(<LoginPage />),
+  },
+  {
+    path: "/forgot-password",
+    element: wrap(<ForgotPasswordPage />),
+  },
+  {
+    path: "/reset-password",
+    element: wrap(<ResetPasswordPage />),
   },
   {
     // Área protegida — qualquer usuário autenticado
@@ -61,6 +79,10 @@ export const router = createBrowserRouter([
               {
                 path: "users",
                 element: wrap(<UsersPage />),
+              },
+              {
+                path: "audit-log",
+                element: wrap(<AuditLogPage />),
               },
             ],
           },
@@ -91,6 +113,10 @@ export const router = createBrowserRouter([
               {
                 path: "grades",
                 element: wrap(<GradesPage />),
+              },
+              {
+                path: "attendance",
+                element: wrap(<AttendancePage />),
               },
               {
                 path: "import",

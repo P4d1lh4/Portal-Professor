@@ -8,11 +8,18 @@ interface AuthState {
   session: Session | null;
   profile: Profile | null;
   isLoading: boolean;
+  /**
+   * true entre o clique no link de recuperação de senha e a definição
+   * efetiva da nova senha. Enquanto ativo, o ProtectedRoute desvia o
+   * usuário para /reset-password mesmo que ele tenha uma sessão válida.
+   */
+  isPasswordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   _setSession: (session: Session | null) => void;
   _setProfile: (profile: Profile | null) => void;
   _setLoading: (loading: boolean) => void;
+  _setPasswordRecovery: (flag: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -20,6 +27,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   profile: null,
   isLoading: true,
+  isPasswordRecovery: false,
 
   signIn: async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -51,6 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   _setProfile: (profile) => set({ profile }),
   _setLoading: (isLoading) => set({ isLoading }),
+  _setPasswordRecovery: (isPasswordRecovery) => set({ isPasswordRecovery }),
 }));
 
 async function fetchProfile(userId: string): Promise<Profile | null> {
@@ -119,6 +128,10 @@ function bootstrapAuth(): void {
     window.clearTimeout(safetyTimer);
     store._setSession(session);
 
+    if (event === "PASSWORD_RECOVERY") {
+      store._setPasswordRecovery(true);
+    }
+
     setTimeout(async () => {
       try {
         if (session?.user) {
@@ -149,6 +162,7 @@ export function useAuth() {
     session: store.session,
     profile: store.profile,
     isLoading: store.isLoading,
+    isPasswordRecovery: store.isPasswordRecovery,
     signIn: store.signIn,
     signOut: store.signOut,
   };

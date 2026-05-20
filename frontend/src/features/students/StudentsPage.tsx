@@ -1,7 +1,16 @@
-import { useState } from "react";
-import { AlertCircle, GraduationCap, Plus, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  FileSpreadsheet,
+  GraduationCap,
+  Plus,
+  Search,
+} from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -34,7 +43,10 @@ import {
 } from "./useStudents";
 import { StudentDialog } from "./StudentDialog";
 import { StudentDetailSheet } from "./StudentDetailSheet";
-import type { StudentItem } from "./api";
+import { useDownloadPeriodStudents } from "@/features/exports/useExports";
+import type { ListPeriodStudentsParams, StudentItem } from "./api";
+
+const PAGE_SIZE = 25;
 
 function AbsenceProgress({
   absences,
@@ -77,14 +89,58 @@ export default function StudentsPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
   const periodId = selectedPeriodId || availablePeriods[0]?.id;
 
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<StudentItem | undefined>();
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  const debouncedSearch = useDebouncedValue(search, 300);
+
+  // Reset de página quando filtros ou período mudam
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, periodId]);
+
+  const coordParams = useMemo<ListPeriodStudentsParams>(() => {
+    const params: ListPeriodStudentsParams = {
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
+    };
+    if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+    return params;
+  }, [debouncedSearch, page]);
+
   const coordinatorQuery = useStudentsByPeriod(
-    isCoordinator || profile?.role === "admin" ? periodId : undefined
+    isCoordinator || profile?.role === "admin" ? periodId : undefined,
+    coordParams,
   );
   const professorQuery = useProfessorStudents();
 
+  // Professor: lista já vem completa (sem paginação no backend ainda).
+  // Filtra/pagina no client.
+  const professorAll: StudentItem[] = professorQuery.data ?? [];
+  const professorFiltered = useMemo(() => {
+    const term = debouncedSearch.trim().toLowerCase();
+    if (!term) return professorAll;
+    return professorAll.filter(
+      (s) =>
+        s.full_name.toLowerCase().includes(term) ||
+        s.student_number.toLowerCase().includes(term),
+    );
+  }, [professorAll, debouncedSearch]);
+
   const students: StudentItem[] = isProfessor
-    ? (professorQuery.data ?? [])
-    : (coordinatorQuery.data ?? []);
+    ? professorFiltered
+    : (coordinatorQuery.data?.items ?? []);
+  const total = isProfessor
+    ? professorFiltered.length
+    : (coordinatorQuery.data?.total ?? 0);
+  const totalPages = isProfessor
+    ? 1
+    : Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const canPrev = !isProfessor && page > 0;
+  const canNext = !isProfessor && page < totalPages - 1;
 
   const isLoading = isProfessor
     ? professorQuery.isLoading
@@ -93,22 +149,13 @@ export default function StudentsPage() {
     ? professorQuery.isError
     : coordinatorQuery.isError;
   const error = isProfessor ? professorQuery.error : coordinatorQuery.error;
+  const isPlaceholderData = !isProfessor && coordinatorQuery.isPlaceholderData;
 
   const createInPeriod = useCreateStudentInPeriod(periodId ?? "");
   const createProfessor = useCreateProfessorStudent();
   const updateStudent = useUpdateStudent();
   const deactivate = useDeactivateStudent();
-
-  const [search, setSearch] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<StudentItem | undefined>();
-  const [detailId, setDetailId] = useState<string | null>(null);
-
-  const filtered = students.filter(
-    (s) =>
-      s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.student_number.includes(search)
-  );
+  const exportStudents = useDownloadPeriodStudents();
 
   const openCreate = () => {
     setEditing(undefined);
@@ -156,10 +203,29 @@ export default function StudentsPage() {
             : "Gerencie os alunos do período selecionado."
         }
         actions={
-          <Button onClick={openCreate}>
-            <Plus />
-            Novo aluno
-          </Button>
+          <>
+            {!isProfessor && periodId && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const period = availablePeriods.find((p) => p.id === periodId);
+                  if (!period) return;
+                  exportStudents.mutate({
+                    periodId: period.id,
+                    periodName: period.name,
+                  });
+                }}
+                disabled={exportStudents.isPending}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+            )}
+            <Button onClick={openCreate}>
+              <Plus />
+              Novo aluno
+            </Button>
+          </>
         }
       />
 
@@ -218,7 +284,7 @@ export default function StudentsPage() {
           title="Selecione um período"
           description="Escolha um período acadêmico para ver os alunos."
         />
-      ) : filtered.length === 0 ? (
+      ) : students.length === 0 ? (
         <EmptyState
           icon={GraduationCap}
           title={
@@ -250,7 +316,7 @@ export default function StudentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((student) => (
+                {students.map((student) => (
                   <TableRow
                     key={student.id}
                     className="cursor-pointer"
@@ -295,7 +361,7 @@ export default function StudentsPage() {
 
           {/* Cards — mobile */}
           <div className="grid gap-3 md:hidden">
-            {filtered.map((student) => (
+            {students.map((student) => (
               <button
                 key={student.id}
                 className="w-full rounded-xl border bg-card p-4 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -332,12 +398,39 @@ export default function StudentsPage() {
             ))}
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            {filtered.length} aluno
-            {filtered.length !== 1 ? "s" : ""}{" "}
-            {search ? "encontrado" : "no total"}
-            {filtered.length !== 1 && search ? "s" : ""}
-          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {total} aluno{total !== 1 ? "s" : ""}{" "}
+              {search ? `encontrado${total !== 1 ? "s" : ""}` : "no total"}
+              {totalPages > 1 &&
+                ` · página ${page + 1} de ${totalPages}`}
+            </p>
+
+            {totalPages > 1 && (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canPrev || isPlaceholderData}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canNext || isPlaceholderData}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Próxima
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         </>
       )}
 

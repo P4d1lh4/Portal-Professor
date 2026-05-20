@@ -1,7 +1,17 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Mail, Hash, Calendar, Award, FileText, Pencil, UserX } from "lucide-react";
+import {
+  Award,
+  Calendar,
+  Download,
+  FileText,
+  Hash,
+  Loader2,
+  Mail,
+  Pencil,
+  UserX,
+} from "lucide-react";
 
 import {
   Sheet,
@@ -14,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MedicalCertificatesSheet } from "@/features/medical-certificates/MedicalCertificatesSheet";
+import { useDownloadStudentReport } from "@/features/reports/useReports";
 import { useStudentDetail } from "./useStudents";
 import type { StudentItem } from "./api";
 
@@ -67,6 +78,7 @@ export function StudentDetailSheet({
   );
 
   const [certificatesOpen, setCertificatesOpen] = useState(false);
+  const downloadReport = useDownloadStudentReport();
 
   return (
     <Sheet open={!!studentId} onOpenChange={(o) => !o && onClose()}>
@@ -201,15 +213,29 @@ export function StudentDetailSheet({
             )}
 
             {/* Ações */}
-            {canEdit && student.is_active && (
-              <>
-                <Separator className="my-4" />
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => onEdit(student)}
-                  >
+            <Separator className="my-4" />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 min-w-[10rem]"
+                onClick={() =>
+                  downloadReport.mutate({
+                    studentId: student.id,
+                    studentName: student.full_name,
+                  })
+                }
+                disabled={downloadReport.isPending}
+              >
+                {downloadReport.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Baixar boletim
+              </Button>
+              {canEdit && student.is_active && (
+                <>
+                  <Button variant="outline" onClick={() => onEdit(student)}>
                     <Pencil className="h-4 w-4" />
                     Editar
                   </Button>
@@ -221,9 +247,9 @@ export function StudentDetailSheet({
                     <UserX className="h-4 w-4" />
                     Desativar
                   </Button>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </>
         )}
       </SheetContent>

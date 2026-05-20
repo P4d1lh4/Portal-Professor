@@ -1,14 +1,16 @@
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status  # noqa: I001
+from fastapi import APIRouter, Depends, HTTPException, Query, status  # noqa: I001
 
 from ..db import get_admin_db
 from ..deps import get_current_user, invalidate_profile_cache, require_role
+from ..schemas.common import Paginated
 from ..schemas.users import (
     ChangePasswordRequest,
     Profile,
     ProfilePublic,
     UserCreate,
     UserUpdate,
+    UserRole,
 )
 from ..config import settings
 from supabase import create_client
@@ -83,14 +85,37 @@ async def change_my_password(
 # Listagem (admin e helpers para dropdowns)
 # ---------------------------------------------------------------
 
-@router.get("/users", response_model=list[Profile])
+@router.get("/users", response_model=Paginated[Profile])
 async def list_users(
+    search: str | None = Query(None, description="Busca por nome, e-mail ou usuário"),
+    role: UserRole | None = Query(None, description="Filtra por papel"),
+    is_active: bool | None = Query(None, description="Filtra por ativo/inativo"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     _: Profile = Depends(require_role("admin")),
-) -> list[Profile]:
-    """Lista todos os usuários. Apenas admin."""
+) -> Paginated[Profile]:
+    """Lista usuários com busca + paginação. Apenas admin."""
     db = get_admin_db()
-    resp = db.table("profiles").select("*").order("full_name").execute()
-    return [Profile(**row) for row in resp.data]
+
+    q = db.table("profiles").select("*", count="exact").order("full_name")
+
+    if role is not None:
+        q = q.eq("role", role)
+    if is_active is not None:
+        q = q.eq("is_active", is_active)
+    if search:
+        term = search.strip()
+        if term:
+            # PostgREST `or` aceita lista de filtros separados por vírgula
+            ilike = f"%{term}%"
+            q = q.or_(
+                f"full_name.ilike.{ilike},email.ilike.{ilike},username.ilike.{ilike}"
+            )
+
+    resp = q.range(offset, offset + limit - 1).execute()
+    items = [Profile(**row) for row in resp.data]
+    total = resp.count if resp.count is not None else len(items)
+    return Paginated[Profile](items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/coordinators", response_model=list[ProfilePublic])

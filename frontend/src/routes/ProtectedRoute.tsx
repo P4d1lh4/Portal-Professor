@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const { isLoading, session, profile } = useAuth();
+  const { isLoading, session, profile, isPasswordRecovery } = useAuth();
 
   if (isLoading) {
     return (
@@ -16,6 +16,10 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
+  }
+
+  if (isPasswordRecovery) {
+    return <Navigate to="/reset-password" replace />;
   }
 
   if (!session) {

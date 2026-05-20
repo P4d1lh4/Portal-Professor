@@ -42,10 +42,24 @@ export interface StudentUpdate extends Partial<StudentCreate> {
   is_active?: boolean;
 }
 
+export interface ListPeriodStudentsParams {
+  search?: string;
+  active_only?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedStudents {
+  items: StudentItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export const studentsApi = {
-  listByPeriod: (periodId: string) =>
+  listByPeriod: (periodId: string, params: ListPeriodStudentsParams = {}) =>
     api
-      .get<StudentItem[]>(`/api/periods/${periodId}/students`)
+      .get<PaginatedStudents>(`/api/periods/${periodId}/students`, { params })
       .then((r) => r.data),
 
   listProfessor: () =>

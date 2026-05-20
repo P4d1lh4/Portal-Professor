@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   CalendarRange,
+  Download,
   Pencil,
   Plus,
   RefreshCw,
@@ -31,6 +32,7 @@ import {
 } from "./usePeriods";
 import { PeriodDialog } from "./PeriodDialog";
 import { SyncSheetsDialog } from "./SyncSheetsDialog";
+import { useDownloadPeriodReport } from "@/features/reports/useReports";
 import type { PeriodWithCoordinator } from "./api";
 
 function formatDate(d?: string | null) {
@@ -48,6 +50,7 @@ export default function PeriodsPage() {
   const createMutation = useCreatePeriod();
   const updateMutation = useUpdatePeriod();
   const deleteMutation = useDeletePeriod();
+  const downloadReport = useDownloadPeriodReport();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<PeriodWithCoordinator | undefined>();
@@ -159,6 +162,22 @@ export default function PeriodsPage() {
                   {(isAdmin || canSync) && (
                     <TableCell>
                       <div className="flex justify-end gap-1">
+                        {canSync && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Baixar relatório do período"
+                            onClick={() =>
+                              downloadReport.mutate({
+                                periodId: period.id,
+                                periodName: period.name,
+                              })
+                            }
+                            disabled={downloadReport.isPending}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
                         {canSync && (
                           <Button
                             variant="ghost"

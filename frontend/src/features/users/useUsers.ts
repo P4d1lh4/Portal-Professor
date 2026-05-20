@@ -1,14 +1,25 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { usersApi, type UserCreatePayload, type UserUpdatePayload } from "./api";
+import {
+  usersApi,
+  type ListUsersParams,
+  type UserCreatePayload,
+  type UserUpdatePayload,
+} from "./api";
 
 export const USERS_KEY = ["users"] as const;
 
-export function useUsers() {
+export function useUsers(params: ListUsersParams = {}) {
   return useQuery({
-    queryKey: USERS_KEY,
-    queryFn: usersApi.list,
+    queryKey: [...USERS_KEY, params],
+    queryFn: () => usersApi.list(params),
+    placeholderData: keepPreviousData,
   });
 }
 

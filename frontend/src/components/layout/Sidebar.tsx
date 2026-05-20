@@ -1,8 +1,10 @@
 import { NavLink } from "react-router-dom";
 import {
   BookOpen,
+  CalendarCheck,
   ClipboardList,
   GraduationCap,
+  History,
   LayoutDashboard,
   Upload,
   Users,
@@ -63,11 +65,25 @@ const NAV_ITEMS: NavItem[] = [
     prefetch: () => import("@/features/grades/GradesPage"),
   },
   {
+    label: "Chamada",
+    to: "/attendance",
+    icon: CalendarCheck,
+    roles: ["coordinator", "professor"],
+    prefetch: () => import("@/features/attendance/AttendancePage"),
+  },
+  {
     label: "Importação",
     to: "/import",
     icon: Upload,
     roles: ["coordinator", "admin"],
     prefetch: () => import("@/features/import/ImportPage"),
+  },
+  {
+    label: "Auditoria",
+    to: "/audit-log",
+    icon: History,
+    roles: ["admin"],
+    prefetch: () => import("@/features/audit/AuditLogPage"),
   },
 ];
 
