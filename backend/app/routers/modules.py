@@ -171,6 +171,9 @@ async def create_module(
                 detail="Você não pode criar módulos em períodos onde ainda não leciona.",
             )
         body.professor_id = current_user.id
+    else:
+        # admin/coordenador informam o professor_id — precisa ser validado
+        _assert_professor_exists(db, body.professor_id)
 
     _assert_code_unique(db, body.code, body.academic_period_id)
 
@@ -196,6 +199,7 @@ async def coordinator_create_module(
         _assert_coord_owns_period(db, current_user.id, period_id)
 
     body.academic_period_id = period_id
+    _assert_professor_exists(db, body.professor_id)
     _assert_code_unique(db, body.code, period_id)
 
     resp = db.table("modules").insert(body.model_dump()).execute()
@@ -336,6 +340,27 @@ def _assert_code_unique(db, code: str, period_id: str) -> None:
         raise HTTPException(
             status_code=409,
             detail=f"Já existe um módulo com o código '{code}' neste período.",
+        )
+
+
+def _assert_professor_exists(db, professor_id: str) -> None:
+    """Garante que professor_id existe e tem o papel professor.
+
+    O backend usa o service role (bypass de RLS) e o professor_id vem do
+    cliente; sem isso, admin/coordenador poderiam criar um módulo apontando
+    para um UUID inexistente ou para um usuário que não é professor.
+    """
+    chk = (
+        db.table("profiles")
+        .select("id, role")
+        .eq("id", professor_id)
+        .maybe_single()
+        .execute()
+    )
+    if not chk.data or chk.data.get("role") != "professor":
+        raise HTTPException(
+            status_code=422,
+            detail="Professor inválido: usuário não encontrado ou sem o papel professor.",
         )
 
 
