@@ -95,17 +95,22 @@ async def update_grade(
     patch["final_grade"] = recalc_final(current_regular, current_makeup)
     patch["last_updated"] = datetime.now(timezone.utc).isoformat()
 
+    # NB: o update já retorna a linha alterada (returning=representation).
+    # Encadear .select() aqui era inválido — SyncFilterRequestBuilder não tem
+    # .select() — e estourava AttributeError → 500. Usamos o dado retornado,
+    # como nos demais routers.
     updated = (
         db.table("grades")
         .update(patch)
         .eq("enrollment_id", enrollment_id)
-        .select()
-        .single()
         .execute()
     )
+    row = updated.data[0] if updated.data else None
+    if not row:
+        raise HTTPException(404, "Nota não encontrada.")
 
     before_snap = {k: grade.get(k) for k in _AUDIT_FIELDS}
-    after_snap = {k: updated.data.get(k) for k in _AUDIT_FIELDS}
+    after_snap = {k: row.get(k) for k in _AUDIT_FIELDS}
     write_audit_log(
         db,
         actor=current_user,
@@ -117,4 +122,4 @@ async def update_grade(
         after=after_snap,
     )
 
-    return updated.data
+    return row
