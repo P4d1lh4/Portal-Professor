@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from ..db import get_admin_db
 from ..deps import get_current_user
 from ..schemas.users import Profile
+from ..services.classification import Status, classify_status
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -81,9 +82,10 @@ async def get_dashboard(
             total_students += 1
             dist[_grade_bucket(final)] += 1
 
-            if absences > max_abs:
+            status = classify_status(final, absences, max_abs)
+            if status == Status.REP_FALTAS:
                 mod_map[mid]["reproved_abs"] += 1
-            elif final >= 7:
+            elif status == Status.APROVADO:
                 mod_map[mid]["approved"] += 1
                 total_approved += 1
 
@@ -208,9 +210,10 @@ async def get_dashboard(
         mod_map[mid]["students"] += 1
         dist[_grade_bucket(final)] += 1
 
-        if absences > max_abs:
+        status = classify_status(final, absences, max_abs)
+        if status == Status.REP_FALTAS:
             mod_map[mid]["reproved_abs"] += 1
-        elif final >= 7:
+        elif status == Status.APROVADO:
             mod_map[mid]["approved"] += 1
             total_approved += 1
 

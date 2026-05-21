@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { classifyStatus, STATUS_LABELS, type Status } from "@/lib/classification";
 
 interface GradeBadgeProps {
   finalGrade: number;
@@ -7,33 +8,26 @@ interface GradeBadgeProps {
   className?: string;
 }
 
-export function GradeBadge({ finalGrade, absences, maxAbsences, className }: GradeBadgeProps) {
-  const failedByAbsence = absences > maxAbsences;
+// Cor de cada situação. Aprovado em verde, recuperação em amarelo, os dois
+// tipos de reprovação em vermelho.
+const STATUS_CLASSES: Record<Status, string> = {
+  aprovado: "bg-success/15 text-success",
+  recuperacao: "bg-warning/15 text-warning",
+  rep_faltas: "bg-destructive/15 text-destructive",
+  reprovado: "bg-destructive/15 text-destructive",
+};
 
-  if (failedByAbsence) {
-    return (
-      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full bg-destructive/15 text-destructive", className)}>
-        Rep. faltas
-      </span>
-    );
-  }
-  if (finalGrade >= 7) {
-    return (
-      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success", className)}>
-        Aprovado
-      </span>
-    );
-  }
-  if (finalGrade >= 5) {
-    return (
-      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full bg-warning/15 text-warning", className)}>
-        Recuperação
-      </span>
-    );
-  }
+export function GradeBadge({ finalGrade, absences, maxAbsences, className }: GradeBadgeProps) {
+  const status = classifyStatus(finalGrade, absences, maxAbsences);
   return (
-    <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full bg-destructive/15 text-destructive", className)}>
-      Reprovado
+    <span
+      className={cn(
+        "text-xs font-semibold px-2 py-0.5 rounded-full",
+        STATUS_CLASSES[status],
+        className,
+      )}
+    >
+      {STATUS_LABELS[status]}
     </span>
   );
 }

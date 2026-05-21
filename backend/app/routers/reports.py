@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from ..db import get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
+from ..services.classification import Status, classify_status
 from ..services.reports import (
     PeriodReportData,
     PeriodReportRow,
@@ -43,11 +44,11 @@ def _pdf_response(content: bytes, filename: str) -> Response:
 
 
 def _classify(final_grade: float, absences: int, max_absences: int) -> str:
-    if absences > max_absences:
-        return "failed"
-    if final_grade >= 7:
+    """Código interno do relatório (rep. faltas e reprovado contam como 'failed')."""
+    status = classify_status(final_grade, absences, max_absences)
+    if status == Status.APROVADO:
         return "approved"
-    if final_grade >= 5:
+    if status == Status.RECUPERACAO:
         return "recovery"
     return "failed"
 
