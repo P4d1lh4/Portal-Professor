@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { queryClient } from "@/lib/queryClient";
 import type { Profile } from "@/types";
 
 interface AuthState {
@@ -45,6 +46,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     // travar (rede lenta, CDN, firewall), a UI ainda reflete o logout
     // imediatamente em vez de ficar presa esperando o servidor responder.
     set({ user: null, session: null, profile: null });
+    // Limpa todo o cache de queries para que dados da conta atual não fiquem
+    // visíveis se outra conta logar na mesma aba sem recarregar a página.
+    queryClient.clear();
     try {
       // scope:'local' limpa apenas o storage do browser — não invalida o
       // refresh token no servidor, mas também não depende de rede.
