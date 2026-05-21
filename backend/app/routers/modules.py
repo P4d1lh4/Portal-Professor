@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..db import get_admin_db
 from ..deps import get_current_user, require_role
@@ -36,6 +36,8 @@ def _to_module(row: dict) -> Module:
 @router.get("/modules", response_model=list[Module])
 async def list_modules(
     period_id: str | None = None,
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     current_user: Profile = Depends(get_current_user),
 ) -> list[Module]:
     """
@@ -43,6 +45,9 @@ async def list_modules(
     - admin: todos
     - coordinator: módulos dos seus períodos
     - professor: apenas os seus módulos
+
+    Resultado paginado/limitado (padrão 200) para evitar respostas gigantes
+    quando não há filtro de período.
     """
     db = get_admin_db()
     q = db.table("modules").select(_SELECT).order("name")
@@ -65,7 +70,7 @@ async def list_modules(
     elif current_user.role == "professor":
         q = q.eq("professor_id", current_user.id)
 
-    resp = q.execute()
+    resp = q.range(offset, offset + limit - 1).execute()
     return [_to_module(r) for r in resp.data]
 
 
