@@ -19,6 +19,18 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // 401 = token expirado/inválido. O backend só devolve 401 nesse caso,
+    // então limpamos a sessão e mandamos o usuário para o login em vez de
+    // mostrar um erro genérico numa tela que não vai mais funcionar.
+    if (error.response?.status === 401) {
+      const store = useAuthStore.getState();
+      store._setSession(null);
+      store._setProfile(null);
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+    }
+
     let data = error.response?.data;
     // Em respostas binárias (responseType: 'blob'), o JSON de erro também
     // vem como Blob — convertemos para texto e tentamos parsear.
