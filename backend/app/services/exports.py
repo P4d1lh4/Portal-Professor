@@ -9,6 +9,8 @@ import csv
 from dataclasses import dataclass
 from io import StringIO
 
+from .classification import classify_label
+
 
 # Excel-BR amigável: separador ; e BOM UTF-8
 _DELIM = ";"
@@ -116,10 +118,5 @@ def build_grades_csv(rows: list[GradeExportRow]) -> bytes:
 
 
 def classify(final_grade: float, absences: int, max_absences: int) -> str:
-    if absences > max_absences:
-        return "Rep. faltas"
-    if final_grade >= 7:
-        return "Aprovado"
-    if final_grade >= 5:
-        return "Recuperação"
-    return "Reprovado"
+    """Rótulo PT da situação. Mantido como wrapper da regra centralizada."""
+    return classify_label(final_grade, absences, max_absences)
