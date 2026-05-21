@@ -124,35 +124,29 @@ def _build_detail(student_row: dict, db) -> StudentDetail:
     return _build_details_batch([student_row], db)[0]
 
 
-def _auto_enroll(db, student_id: str, professor_id: str) -> None:
-    """Matricula o aluno em todos os módulos ativos do professor."""
-    modules = (
-        db.table("modules")
-        .select("id")
-        .eq("professor_id", professor_id)
-        .eq("is_active", True)
-        .execute()
-    )
-    for mod in modules.data:
-        # Insere enrollment + grade apenas se ainda não existir
-        existing = (
-            db.table("enrollments")
-            .select("id")
-            .eq("student_id", student_id)
-            .eq("module_id", mod["id"])
-            .maybe_single()
-            .execute()
-        )
-        if existing.data:
-            continue
+def _create_student_with_enrollments(
+    db, student_payload: dict, module_ids: list[str]
+) -> str:
+    """Cria o aluno e o matricula nos módulos informados de forma atômica.
 
-        enr = (
-            db.table("enrollments")
-            .insert({"student_id": student_id, "module_id": mod["id"]})
-            .execute()
-        )
-        enrollment_id = enr.data[0]["id"]
-        db.table("grades").insert({"enrollment_id": enrollment_id}).execute()
+    Delega para a função Postgres `create_student_with_enrollments` (migração
+    0007), que faz o insert do aluno + enrollments + grades numa única
+    transação. Substitui a sequência de inserts soltos no cliente, que podia
+    falhar no meio e deixar dados órfãos.
+    """
+    resp = db.rpc(
+        "create_student_with_enrollments",
+        {"p_student": student_payload, "p_module_ids": module_ids},
+    ).execute()
+
+    data = resp.data
+    if isinstance(data, list):
+        data = data[0] if data else None
+    if isinstance(data, dict):
+        data = data.get("id")
+    if not data:
+        raise HTTPException(500, "Falha ao criar o aluno.")
+    return str(data)
 
 
 # ---------------------------------------------------------------
@@ -342,9 +336,20 @@ async def create_professor_student(
     if "enrollment_date" in payload:
         payload["enrollment_date"] = str(payload["enrollment_date"])
 
-    resp = db.table("students").insert(payload).execute()
-    student_row = resp.data[0]
-    _auto_enroll(db, student_row["id"], current_user.id)
+    # Módulos ativos do professor → o aluno é matriculado em todos eles.
+    active_modules = (
+        db.table("modules")
+        .select("id")
+        .eq("professor_id", current_user.id)
+        .eq("is_active", True)
+        .execute()
+    )
+    module_ids = [m["id"] for m in (active_modules.data or [])]
+
+    student_id = _create_student_with_enrollments(db, payload, module_ids)
+    student_row = (
+        db.table("students").select("*").eq("id", student_id).single().execute().data
+    )
 
     return _build_detail(student_row, db)
 
