@@ -15,6 +15,35 @@ def _to_period(row: dict) -> Period:
     return Period(**row)
 
 
+def _assert_period_access(db, current_user: Profile, period: dict) -> None:
+    """Garante que o usuário tem acesso ao período conforme o papel.
+
+    Como o backend usa o service role (que faz bypass de RLS), o isolamento
+    por papel precisa ser garantido aqui na camada de aplicação — caso
+    contrário qualquer usuário autenticado leria qualquer período por ID.
+
+    Levanta 404 (em vez de 403) para não revelar a existência de períodos
+    de terceiros.
+    """
+    if current_user.role == "admin":
+        return
+    if current_user.role == "coordinator":
+        if period.get("coordinator_id") == current_user.id:
+            return
+    elif current_user.role == "professor":
+        mods = (
+            db.table("modules")
+            .select("id")
+            .eq("professor_id", current_user.id)
+            .eq("academic_period_id", period["id"])
+            .limit(1)
+            .execute()
+        )
+        if mods.data:
+            return
+    raise HTTPException(status_code=404, detail="Período não encontrado.")
+
+
 # ---------------------------------------------------------------
 # Listagem
 # ---------------------------------------------------------------
@@ -104,7 +133,7 @@ async def coordinator_periods(
 @router.get("/periods/{period_id}", response_model=Period)
 async def get_period(
     period_id: str,
-    _: Profile = Depends(get_current_user),
+    current_user: Profile = Depends(get_current_user),
 ) -> Period:
     db = get_admin_db()
     resp = (
@@ -116,6 +145,7 @@ async def get_period(
     )
     if not resp.data:
         raise HTTPException(status_code=404, detail="Período não encontrado.")
+    _assert_period_access(db, current_user, resp.data)
     return _to_period(resp.data)
 
 
