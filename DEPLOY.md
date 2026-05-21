@@ -15,7 +15,7 @@ Deploy em **Vercel** (frontend) + **Render** (backend) + **Supabase** (banco/aut
 
 - [ ] Código no GitHub (o CI em `.github/workflows/ci.yml` já valida cada push)
 - [ ] Conta na [Vercel](https://vercel.com) e no [Render](https://render.com) (login com GitHub facilita)
-- [ ] Migrações 0001–0006 já aplicadas no Supabase ✅ (feito)
+- [ ] Migrações 0001–0007 aplicadas no Supabase (ver [Segurança: RLS e service role](#segurança-rls-e-service-role))
 
 ### Coletando os segredos do Supabase
 
@@ -115,6 +115,52 @@ Supabase → **Authentication → URL Configuration**:
 
 Isso faz o link do email de recuperação funcionar em produção. (O `ResetPasswordPage`
 já usa `window.location.origin`, então não precisa mudar código.)
+
+---
+
+## Segurança: RLS e service role
+
+A autorização da aplicação acontece em **duas camadas**:
+
+1. **Camada de aplicação (principal)** — o backend usa a `service_role` do
+   Supabase, que **faz bypass de RLS**. Logo, o isolamento por papel
+   (admin / coordenador / professor) é garantido no FastAPI (`require_role`,
+   `_assert_*`), coberto por `backend/tests/test_authz.py`.
+2. **RLS no Postgres (defesa em profundidade)** — a migração
+   [`0002_rls_granular.sql`](supabase/migrations/0002_rls_granular.sql)
+   substitui as policies permissivas iniciais por regras por papel. Ela **não**
+   afeta o backend (que usa service_role), mas protege caso a `anon key` vaze ou
+   o frontend passe a acessar tabelas diretamente.
+
+> ⚠️ Por isso, **toda regra de acesso nova deve ser implementada no backend** —
+> não confie apenas no RLS, que está bypassado no caminho normal.
+
+### Confirmar que o RLS granular está aplicado
+
+No **SQL Editor** do Supabase, rode:
+
+```sql
+-- 1) RLS habilitada nas tabelas de domínio
+SELECT relname, relrowsecurity
+FROM pg_class
+WHERE relname IN ('profiles','academic_periods','students','modules','enrollments','grades')
+ORDER BY relname;
+-- relrowsecurity deve ser TRUE em todas
+
+-- 2) As policies temporárias NÃO devem mais existir
+SELECT policyname FROM pg_policies
+WHERE policyname LIKE 'temp_authenticated_all_%';
+-- não deve retornar nenhuma linha (se retornar, a 0002 não foi aplicada)
+```
+
+Se a 0002 não estiver aplicada, rode-a (SQL Editor ou `supabase db push`).
+
+### Migrações a aplicar
+
+Aplique em ordem todas as migrações em [`supabase/migrations/`](supabase/migrations/)
+(0001–0007). A **0007** (`create_student_with_enrollments`) é uma função usada
+pela criação de aluno do professor — precisa existir antes do deploy do backend
+que a chama.
 
 ---
 
