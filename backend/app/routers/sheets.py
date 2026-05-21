@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..db import get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
+from ..services.grades import recalc_final
 
 router = APIRouter(tags=["sheets"])
 
@@ -28,12 +29,6 @@ _COORD_ADMIN = require_role("coordinator", "admin")
 GRADE_COLS = {
     "tutor_grade", "regular_exam_grade", "makeup_exam_grade", "absences"
 }
-
-
-def _recalc_final(regular: float, makeup: float) -> float:
-    if makeup > 0:
-        return round(max(regular, makeup), 2)
-    return round(regular, 2)
 
 
 async def _fetch_csv(url: str) -> bytes:
@@ -179,7 +174,7 @@ async def sync_sheets(
             current_makeup = patch.get("makeup_exam_grade", grade_data.get("makeup_exam_grade", 0) or 0)
             patch_with_final = {
                 **patch,
-                "final_grade": _recalc_final(float(current_regular), float(current_makeup)),
+                "final_grade": recalc_final(float(current_regular), float(current_makeup)),
                 "last_updated": now_iso,
             }
             enr_id = enr.get("id") or (grade_data.get("enrollment_id"))

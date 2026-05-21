@@ -7,6 +7,7 @@ from ..deps import require_role
 from ..schemas.users import Profile
 from ..schemas.grades import Grade, GradeUpdate
 from ..services.audit import write_audit_log
+from ..services.grades import recalc_final
 from ..services.guards import assert_module_period_active
 
 
@@ -21,12 +22,6 @@ _AUDIT_FIELDS = (
 router = APIRouter(tags=["grades"])
 
 _ANY_ROLE = require_role("professor", "coordinator", "admin")
-
-
-def _recalc_final(regular: float, makeup: float) -> float:
-    if makeup > 0:
-        return round(max(regular, makeup), 2)
-    return round(regular, 2)
 
 
 async def _get_grade_with_permission(enrollment_id: str, current_user: Profile) -> dict:
@@ -97,7 +92,7 @@ async def update_grade(
 
     current_regular = patch.get("regular_exam_grade", grade["regular_exam_grade"])
     current_makeup = patch.get("makeup_exam_grade", grade["makeup_exam_grade"])
-    patch["final_grade"] = _recalc_final(current_regular, current_makeup)
+    patch["final_grade"] = recalc_final(current_regular, current_makeup)
     patch["last_updated"] = datetime.now(timezone.utc).isoformat()
 
     updated = (
