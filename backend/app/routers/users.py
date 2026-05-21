@@ -13,6 +13,7 @@ from ..schemas.users import (
     UserRole,
 )
 from ..config import settings
+from ..services.search import build_ilike_or
 from supabase import create_client
 
 router = APIRouter(prefix="/api", tags=["usuários"])
@@ -104,13 +105,9 @@ async def list_users(
     if is_active is not None:
         q = q.eq("is_active", is_active)
     if search:
-        term = search.strip()
-        if term:
-            # PostgREST `or` aceita lista de filtros separados por vírgula
-            ilike = f"%{term}%"
-            q = q.or_(
-                f"full_name.ilike.{ilike},email.ilike.{ilike},username.ilike.{ilike}"
-            )
+        or_filter = build_ilike_or(search, ["full_name", "email", "username"])
+        if or_filter:
+            q = q.or_(or_filter)
 
     resp = q.range(offset, offset + limit - 1).execute()
     items = [Profile(**row) for row in resp.data]

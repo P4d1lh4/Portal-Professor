@@ -14,6 +14,7 @@ from ..schemas.students import (
 )
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
+from ..services.search import build_ilike_or
 
 
 _STUDENT_AUDIT_FIELDS = (
@@ -189,10 +190,9 @@ async def list_period_students(
     if active_only:
         q = q.eq("is_active", True)
     if search:
-        term = search.strip()
-        if term:
-            ilike = f"%{term}%"
-            q = q.or_(f"full_name.ilike.{ilike},student_number.ilike.{ilike}")
+        or_filter = build_ilike_or(search, ["full_name", "student_number"])
+        if or_filter:
+            q = q.or_(or_filter)
 
     resp = q.order("full_name").range(offset, offset + limit - 1).execute()
     items = [_to_student(r) for r in resp.data]
