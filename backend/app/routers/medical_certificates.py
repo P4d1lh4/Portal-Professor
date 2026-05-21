@@ -8,6 +8,7 @@ gera signed URLs com validade curta — nunca expomos o service role.
 import logging
 import re
 import uuid
+from datetime import date
 from typing import Iterable
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -254,10 +255,14 @@ async def update_certificate(
     if not update_data:
         raise HTTPException(422, "Nenhum campo para atualizar.")
 
-    # Validação cruzada caso só uma das datas tenha vindo
-    start = update_data.get("start_date", cert["start_date"])
-    end = update_data.get("end_date", cert["end_date"])
-    if str(end) < str(start):
+    # Validação cruzada caso só uma das datas tenha vindo. Compara como
+    # objetos date (não como strings) — robusto e sem depender do formato.
+    def _as_date(v) -> date:
+        return v if isinstance(v, date) else date.fromisoformat(str(v))
+
+    start = _as_date(update_data.get("start_date", cert["start_date"]))
+    end = _as_date(update_data.get("end_date", cert["end_date"]))
+    if end < start:
         raise HTTPException(422, "A data final não pode ser anterior à inicial.")
 
     if "start_date" in update_data:

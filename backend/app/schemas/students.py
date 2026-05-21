@@ -1,5 +1,17 @@
 from datetime import date, datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+
+def _check_enrollment_date(v: date | None) -> date | None:
+    """Rejeita data de matrícula futura ou absurdamente antiga (provável erro)."""
+    if v is None:
+        return v
+    today = date.today()
+    if v > today:
+        raise ValueError("A data de matrícula não pode ser futura.")
+    if v < date(today.year - 50, 1, 1):
+        raise ValueError("Data de matrícula inválida (muito antiga).")
+    return v
 
 
 class ModuleGradeSummary(BaseModel):
@@ -43,6 +55,10 @@ class StudentCreate(BaseModel):
     observations: str | None = None
     is_active: bool = True
 
+    _validate_enrollment_date = field_validator("enrollment_date")(
+        _check_enrollment_date
+    )
+
 
 class StudentUpdate(BaseModel):
     full_name: str | None = None
@@ -52,6 +68,10 @@ class StudentUpdate(BaseModel):
     referral_info: str | None = None
     observations: str | None = None
     is_active: bool | None = None
+
+    _validate_enrollment_date = field_validator("enrollment_date")(
+        _check_enrollment_date
+    )
 
 
 class AbsenceUpdate(BaseModel):
