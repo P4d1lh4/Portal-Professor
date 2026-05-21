@@ -67,15 +67,28 @@ function GradeCell({
     setLocal(String(value));
   }, [value]);
 
+  // Faz o parse, limita ao intervalo e avisa se a nota digitada teve de ser
+  // ajustada (ex.: "15" vira 10) — antes o ajuste era silencioso.
+  const commitValue = useCallback(
+    (raw: string) => {
+      const parsed = parseFloat(raw);
+      if (isNaN(parsed)) return;
+      const clamped = Math.min(max, Math.max(min, parsed));
+      if (clamped !== parsed) {
+        toast.warning(`Nota ajustada para o intervalo permitido (${min}–${max}).`);
+        setLocal(String(clamped));
+      }
+      onCommit(clamped);
+    },
+    [onCommit, min, max]
+  );
+
   const schedule = useCallback(
     (raw: string) => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        const parsed = parseFloat(raw);
-        if (!isNaN(parsed)) onCommit(Math.min(max, Math.max(min, parsed)));
-      }, 300);
+      timerRef.current = setTimeout(() => commitValue(raw), 300);
     },
-    [onCommit, min, max]
+    [commitValue]
   );
 
   return (
@@ -93,8 +106,7 @@ function GradeCell({
       }}
       onBlur={() => {
         if (timerRef.current) clearTimeout(timerRef.current);
-        const parsed = parseFloat(local);
-        if (!isNaN(parsed)) onCommit(Math.min(max, Math.max(min, parsed)));
+        commitValue(local);
       }}
       onKeyDown={onKeyDown}
       className="h-8 w-20 text-center font-mono text-sm tabular-nums px-1 disabled:opacity-60 disabled:cursor-not-allowed"
