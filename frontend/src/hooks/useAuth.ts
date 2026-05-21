@@ -1,8 +1,24 @@
 import { create } from "zustand";
+import { z } from "zod";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { queryClient } from "@/lib/queryClient";
 import type { Profile } from "@/types";
+
+// Valida o profile retornado pelo Supabase antes de confiar nele. Sem isso,
+// um `as Profile` silenciava divergências de schema (ex.: role inesperado),
+// que só estourariam mais tarde em telas que dependem desses campos.
+const profileSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  full_name: z.string(),
+  email: z.string(),
+  role: z.enum(["admin", "coordinator", "professor"]),
+  avatar_url: z.string().nullable().optional(),
+  is_active: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
 
 interface AuthState {
   user: User | null;
@@ -91,7 +107,12 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
       debug("Profile não encontrado para userId:", userId);
       return null;
     }
-    return data as Profile;
+    const parsed = profileSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error("[auth] Profile com formato inesperado:", parsed.error.issues);
+      return null;
+    }
+    return parsed.data as Profile;
   } catch (err) {
     debugError("Exceção ao buscar profile:", err);
     return null;
