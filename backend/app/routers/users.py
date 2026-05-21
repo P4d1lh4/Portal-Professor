@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status  # noqa: I001
 
@@ -14,6 +16,8 @@ from ..schemas.users import (
 )
 from ..config import settings
 from supabase import create_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["usuários"])
 
@@ -74,10 +78,13 @@ async def change_my_password(
         admin_client.auth.admin.update_user_by_id(
             current_user.id, {"password": body.new_password}
         )
-    except Exception as exc:
+    except Exception:
+        # Não expõe detalhes internos do Supabase Auth (stack trace, hosts)
+        # na resposta — apenas registra no log do servidor.
+        logger.exception("Falha ao atualizar senha do usuário %s", current_user.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Não foi possível alterar a senha: {exc}",
+            detail="Não foi possível alterar a senha. Tente novamente mais tarde.",
         )
 
 
