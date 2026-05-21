@@ -380,6 +380,22 @@ async def update_professor_student(
         _assert_prof_has_student(db, current_user.id, student_id)
 
     update_data = body.model_dump(exclude_none=True)
+
+    # Professor só pode editar os campos expostos no formulário de aluno.
+    # Em especial, não pode alterar is_active — a desativação é feita pelo
+    # endpoint DELETE dedicado, com auditoria própria. Como o backend usa o
+    # service role (bypass de RLS), essa restrição precisa ser garantida aqui.
+    if current_user.role == "professor":
+        allowed_fields = {
+            "full_name",
+            "email",
+            "enrollment_date",
+            "medical_certificates",
+            "referral_info",
+            "observations",
+        }
+        update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
+
     if not update_data:
         raise HTTPException(422, "Nenhum campo para atualizar.")
     if "enrollment_date" in update_data:
