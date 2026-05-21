@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
+import app.routers.modules as modules_router
 import app.routers.periods as periods_router
 import app.routers.students as students_router
 from app.deps import get_current_user
@@ -47,6 +48,20 @@ def _period_row(pid: str, coordinator_id: str) -> dict:
         "name": "2025.1",
         "coordinator_id": coordinator_id,
         "coordinator": {"id": coordinator_id, "full_name": "Coord"},
+        "is_active": True,
+        "created_at": "2025-01-01T00:00:00+00:00",
+    }
+
+
+def _module_row(mid: str, professor_id: str, period_id: str = "per1") -> dict:
+    return {
+        "id": mid,
+        "name": "Matemática",
+        "code": "MAT101",
+        "professor_id": professor_id,
+        "academic_period_id": period_id,
+        "credits": 4,
+        "max_absences": 10,
         "is_active": True,
         "created_at": "2025-01-01T00:00:00+00:00",
     }
@@ -246,3 +261,55 @@ class TestUpdateProfessorStudentWhitelist:
         updates = [r for r in db.recorder if r[0] == "students" and r[1] == "update"]
         assert len(updates) == 1
         assert updates[0][2].get("is_active") is False
+
+
+# ---------------------------------------------------------------
+# S2 — GET /modules/{id}: leitura isolada por papel
+# ---------------------------------------------------------------
+
+class TestGetModuleAuthz:
+    def test_admin_acessa_qualquer_modulo(self, as_user, monkeypatch):
+        as_user(_profile("admin"))
+        db = _FakeDb({"modules": _Resp(_module_row("m1", "prof-x"))})
+        monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
+
+        resp = client.get("/api/modules/m1")
+        assert resp.status_code == 200
+
+    def test_professor_acessa_proprio_modulo(self, as_user, monkeypatch):
+        as_user(_profile("professor", uid="prof-1"))
+        db = _FakeDb({"modules": _Resp(_module_row("m1", "prof-1"))})
+        monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
+
+        resp = client.get("/api/modules/m1")
+        assert resp.status_code == 200
+
+    def test_professor_nao_acessa_modulo_de_outro(self, as_user, monkeypatch):
+        as_user(_profile("professor", uid="prof-1"))
+        db = _FakeDb({"modules": _Resp(_module_row("m1", "prof-OUTRO"))})
+        monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
+
+        resp = client.get("/api/modules/m1")
+        assert resp.status_code == 404
+
+    def test_coordenador_acessa_modulo_do_seu_periodo(self, as_user, monkeypatch):
+        as_user(_profile("coordinator", uid="coord-1"))
+        db = _FakeDb({
+            "modules": _Resp(_module_row("m1", "prof-x", period_id="per1")),
+            "academic_periods": _Resp({"id": "per1"}),  # período é do coordenador
+        })
+        monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
+
+        resp = client.get("/api/modules/m1")
+        assert resp.status_code == 200
+
+    def test_coordenador_nao_acessa_modulo_de_outro_periodo(self, as_user, monkeypatch):
+        as_user(_profile("coordinator", uid="coord-1"))
+        db = _FakeDb({
+            "modules": _Resp(_module_row("m1", "prof-x", period_id="per1")),
+            "academic_periods": _Resp(None),  # período não é do coordenador
+        })
+        monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
+
+        resp = client.get("/api/modules/m1")
+        assert resp.status_code == 404
