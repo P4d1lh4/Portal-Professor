@@ -13,6 +13,7 @@ Formato esperado da planilha (colunas podem ser em qualquer ordem):
 import csv
 import io
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,6 +29,30 @@ _COORD_ADMIN = require_role("coordinator", "admin")
 GRADE_COLS = {
     "tutor_grade", "regular_exam_grade", "makeup_exam_grade", "absences"
 }
+
+# Hosts permitidos para a URL de sincronização. A planilha precisa ser um
+# link de exportação CSV do Google Sheets; o "publish to web" redireciona
+# para *.googleusercontent.com, por isso ele também é aceito.
+_ALLOWED_SHEET_HOSTS = ("docs.google.com", "drive.google.com")
+
+
+def _validate_sync_url(url: str) -> None:
+    """Bloqueia URLs que não sejam do Google Sheets (defesa contra SSRF).
+
+    O servidor faz a requisição com o service role; sem essa validação, a URL
+    armazenada poderia apontar para endereços internos da infraestrutura.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise HTTPException(422, "A URL da planilha deve usar HTTPS.")
+    host = (parsed.hostname or "").lower()
+    if host in _ALLOWED_SHEET_HOSTS or host.endswith(".googleusercontent.com"):
+        return
+    raise HTTPException(
+        422,
+        "URL não permitida. Use o link de exportação CSV do Google Sheets "
+        "(docs.google.com).",
+    )
 
 
 def _recalc_final(regular: float, makeup: float) -> float:
@@ -83,6 +108,9 @@ async def set_sync_url(
     if current_user.role == "coordinator" and period.data["coordinator_id"] != current_user.id:
         raise HTTPException(403, "Você não gerencia este período.")
 
+    if url:
+        _validate_sync_url(url)
+
     db.table("academic_periods").update({"csv_sync_url": url or None}).eq("id", period_id).execute()
     return {"csv_sync_url": url or None}
 
@@ -109,6 +137,9 @@ async def sync_sheets(
     sync_url: str | None = period.data.get("csv_sync_url")
     if not sync_url:
         raise HTTPException(422, "Nenhuma URL de planilha configurada para este período.")
+
+    # Revalida antes do fetch — protege URLs já gravadas antes desta checagem.
+    _validate_sync_url(sync_url)
 
     content = await _fetch_csv(sync_url)
     rows = _parse_sheet(content)
