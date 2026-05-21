@@ -1,9 +1,11 @@
+import json
 from functools import lru_cache
 
 import httpx
+import jwt
 from fastapi import HTTPException, status
 from fastapi.security import HTTPBearer
-from jose import ExpiredSignatureError, JWTError, jwt
+from jwt.algorithms import ECAlgorithm, RSAAlgorithm
 
 from .config import settings
 
@@ -34,6 +36,14 @@ def _find_jwk(kid: str | None) -> dict | None:
     return None
 
 
+def _key_from_jwk(jwk: dict, alg: str):
+    """Constrói a chave pública a partir do JWK (PyJWT exige objeto, não dict)."""
+    jwk_json = json.dumps(jwk)
+    if alg == "ES256":
+        return ECAlgorithm.from_jwk(jwk_json)
+    return RSAAlgorithm.from_jwk(jwk_json)
+
+
 def decode_supabase_jwt(token: str) -> dict:
     """Valida um JWT emitido pelo Supabase Auth.
 
@@ -54,7 +64,7 @@ def decode_supabase_jwt(token: str) -> dict:
                 jwk = _find_jwk(kid)
             if jwk is None:
                 raise _CREDENTIALS_EXCEPTION
-            key = jwk
+            key = _key_from_jwk(jwk, alg)
         else:
             raise _CREDENTIALS_EXCEPTION
 
@@ -64,13 +74,13 @@ def decode_supabase_jwt(token: str) -> dict:
             algorithms=[alg],
             options={"verify_aud": False},
         )
-    except ExpiredSignatureError:
+    except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expirado. Faça login novamente.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    except JWTError:
+    except jwt.InvalidTokenError:
         raise _CREDENTIALS_EXCEPTION
     except HTTPException:
         raise
