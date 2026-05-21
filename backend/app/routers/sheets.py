@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..db import get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
+from ..services.grades import recalc_final
 
 router = APIRouter(tags=["sheets"])
 
@@ -53,12 +54,6 @@ def _validate_sync_url(url: str) -> None:
         "URL não permitida. Use o link de exportação CSV do Google Sheets "
         "(docs.google.com).",
     )
-
-
-def _recalc_final(regular: float, makeup: float) -> float:
-    if makeup > 0:
-        return round(max(regular, makeup), 2)
-    return round(regular, 2)
 
 
 async def _fetch_csv(url: str) -> bytes:
@@ -210,7 +205,7 @@ async def sync_sheets(
             current_makeup = patch.get("makeup_exam_grade", grade_data.get("makeup_exam_grade", 0) or 0)
             patch_with_final = {
                 **patch,
-                "final_grade": _recalc_final(float(current_regular), float(current_makeup)),
+                "final_grade": recalc_final(float(current_regular), float(current_makeup)),
                 "last_updated": now_iso,
             }
             enr_id = enr.get("id") or (grade_data.get("enrollment_id"))
