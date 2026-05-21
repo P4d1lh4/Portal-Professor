@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { GradeBadge } from "@/components/shared/GradeBadge";
@@ -188,15 +189,18 @@ export default function GradesPage() {
   const { statuses, save } = useRowStatuses(activeModuleId ?? "");
   const exportGrades = useDownloadModuleGrades();
 
-  const filtered = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          r.full_name.toLowerCase().includes(search.toLowerCase()) ||
-          r.student_number.includes(search)
-      ),
-    [rows, search]
-  );
+  // O input atualiza `search` na hora (digitação responsiva), mas o filtro
+  // usa o valor debounced — evita recomputar/re-renderizar a tabela a cada
+  // tecla quando há muitos alunos.
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const filtered = useMemo(() => {
+    const term = debouncedSearch.toLowerCase();
+    return rows.filter(
+      (r) =>
+        r.full_name.toLowerCase().includes(term) ||
+        r.student_number.includes(debouncedSearch)
+    );
+  }, [rows, debouncedSearch]);
 
   const handleModuleChange = (id: string) => {
     setSelectedModuleId(id);
