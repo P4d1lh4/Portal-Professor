@@ -1,6 +1,42 @@
 """Testes dos validators dos schemas Pydantic."""
+from datetime import date, timedelta
+
 import pytest
+from pydantic import ValidationError
+
 from app.schemas.grades import GradeUpdate
+from app.schemas.students import StudentCreate, StudentUpdate
+
+
+class TestEnrollmentDateValidator:
+    def _base(self, **kw):
+        data = {
+            "student_number": "20240001",
+            "full_name": "Maria",
+            "enrollment_date": date.today(),
+        }
+        data.update(kw)
+        return data
+
+    def test_data_hoje_valida(self):
+        s = StudentCreate(**self._base())
+        assert s.enrollment_date == date.today()
+
+    def test_data_futura_rejeitada(self):
+        with pytest.raises(ValidationError):
+            StudentCreate(**self._base(enrollment_date=date.today() + timedelta(days=1)))
+
+    def test_data_muito_antiga_rejeitada(self):
+        with pytest.raises(ValidationError):
+            StudentCreate(**self._base(enrollment_date=date(1900, 1, 1)))
+
+    def test_update_aceita_none(self):
+        s = StudentUpdate(full_name="Novo")
+        assert s.enrollment_date is None
+
+    def test_update_data_futura_rejeitada(self):
+        with pytest.raises(ValidationError):
+            StudentUpdate(enrollment_date=date.today() + timedelta(days=10))
 
 
 class TestGradeUpdateValidator:
