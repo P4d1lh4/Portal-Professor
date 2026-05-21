@@ -66,6 +66,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   _setPasswordRecovery: (isPasswordRecovery) => set({ isPasswordRecovery }),
 }));
 
+// Logs de auth ficam restritos ao build de desenvolvimento. Em produção
+// não devem aparecer no console (vazariam user.id, sessão e o profile).
+const isDev = import.meta.env.DEV;
+const debug = (...args: unknown[]) => {
+  if (isDev) console.log("[auth]", ...args);
+};
+const debugError = (...args: unknown[]) => {
+  if (isDev) console.error("[auth]", ...args);
+};
+
 async function fetchProfile(userId: string): Promise<Profile | null> {
   try {
     const { data, error } = await supabase
@@ -74,16 +84,16 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
       .eq("id", userId)
       .single();
     if (error) {
-      console.error("[auth] Falha ao buscar profile:", error);
+      debugError("Falha ao buscar profile:", error);
       return null;
     }
     if (!data) {
-      console.warn("[auth] Profile não encontrado para userId:", userId);
+      debug("Profile não encontrado para userId:", userId);
       return null;
     }
     return data as Profile;
   } catch (err) {
-    console.error("[auth] Exceção ao buscar profile:", err);
+    debugError("Exceção ao buscar profile:", err);
     return null;
   }
 }
@@ -109,7 +119,7 @@ function bootstrapAuth(): void {
   if (_authBootstrapped) return;
   _authBootstrapped = true;
 
-  console.log("[auth] bootstrap iniciado");
+  debug("bootstrap iniciado");
   const store = useAuthStore.getState();
 
   // Safety net: se em 5s o onAuthStateChange não tiver disparado
@@ -117,7 +127,7 @@ function bootstrapAuth(): void {
   // sessão". Se a sessão chegar depois, o callback atualiza o estado.
   const safetyTimer = window.setTimeout(() => {
     if (useAuthStore.getState().isLoading) {
-      console.warn("[auth] safety timeout — liberando UI");
+      debug("safety timeout — liberando UI");
       useAuthStore.getState()._setLoading(false);
     }
   }, 5000);
@@ -128,7 +138,7 @@ function bootstrapAuth(): void {
   // callback resolver, e o callback espera a request resolver.
   // Sai do contexto via setTimeout(0) antes de fazer fetchProfile.
   supabase.auth.onAuthStateChange((event, session) => {
-    console.log("[auth] event:", event, "session:", !!session, "user:", session?.user?.id);
+    debug("event:", event, "session:", !!session, "user:", session?.user?.id);
     window.clearTimeout(safetyTimer);
     store._setSession(session);
 
@@ -139,18 +149,18 @@ function bootstrapAuth(): void {
     setTimeout(async () => {
       try {
         if (session?.user) {
-          console.log("[auth] buscando profile...");
+          debug("buscando profile...");
           const profile = await fetchProfile(session.user.id);
-          console.log("[auth] profile:", profile);
+          debug("profile:", profile);
           store._setProfile(profile);
         } else {
           store._setProfile(null);
         }
       } catch (err) {
-        console.error("[auth] erro no callback:", err);
+        debugError("erro no callback:", err);
         store._setProfile(null);
       } finally {
-        console.log("[auth] setLoading(false)");
+        debug("setLoading(false)");
         store._setLoading(false);
       }
     }, 0);
