@@ -7,6 +7,7 @@ Endpoint único com query-param dry_run:
 """
 import csv
 import io
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
@@ -14,6 +15,8 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
 from ..db import get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["importação"])
 
@@ -167,6 +170,7 @@ async def import_students(
     # Persistir
     imported = 0
     errors_on_save: list[str] = []
+    enrollment_warnings: list[str] = []
 
     for data in valid_rows:
         try:
@@ -193,10 +197,21 @@ async def import_students(
                         "tutor_grade": 0, "regular_exam_grade": 0,
                         "makeup_exam_grade": 0, "final_grade": 0, "absences": 0,
                     }).execute()
-                except Exception:
-                    pass
+                except Exception as enroll_exc:
+                    # O aluno foi criado, mas a matrícula/nota num módulo falhou.
+                    # Antes isso era silenciado (except: pass), deixando alunos
+                    # sem matrícula sem qualquer rastro. Agora registra no log e
+                    # devolve um aviso para o coordenador reconciliar.
+                    logger.warning(
+                        "Falha ao matricular aluno %s no módulo %s durante import: %s",
+                        student_id, mod["id"], enroll_exc,
+                    )
+                    enrollment_warnings.append(
+                        f"Aluno {data['student_number']}: falha ao matricular no módulo {mod['id']}."
+                    )
             imported += 1
         except Exception as e:
+            logger.warning("Falha ao importar aluno %s: %s", data.get("student_number"), e)
             errors_on_save.append(f"Matrícula {data['student_number']}: {e}")
 
     return {
@@ -206,4 +221,5 @@ async def import_students(
         "invalid_count": len(invalid_rows) + len(errors_on_save),
         "invalid": invalid_rows,
         "errors_on_save": errors_on_save,
+        "enrollment_warnings": enrollment_warnings,
     }
