@@ -32,7 +32,9 @@
     --success: 161 15% 44%;
     --success-foreground: 40 58% 95%;
 
-    --warning: 19 56% 57%;
+    /* Escurecido (57% -> 38% de luminância) para contraste AA do text-warning
+       sobre fundos claros (bg-warning/15). Não afeta o warning-foreground. */
+    --warning: 20 85% 38%;
     --warning-foreground: 270 20% 16%;
 
     --border: 35 25% 82%;
