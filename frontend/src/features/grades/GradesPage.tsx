@@ -128,21 +128,28 @@ function GradeCell({
 type SaveStatus = "idle" | "saving" | "saved";
 
 function SaveIndicator({ status }: { status: SaveStatus }) {
-  if (status === "saving")
-    return (
-      <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        salvando…
-      </span>
-    );
-  if (status === "saved")
-    return (
-      <span className="flex items-center gap-1 text-xs text-success whitespace-nowrap">
-        <CheckCircle2 className="h-3 w-3" />
-        salvo
-      </span>
-    );
-  return <span className="w-16 inline-block" />;
+  // Região aria-live estável: leitores de tela anunciam "salvando…"/"salvo"
+  // quando o conteúdo muda (antes era só visual).
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      className="flex min-w-16 items-center gap-1 text-xs whitespace-nowrap"
+    >
+      {status === "saving" && (
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          salvando…
+        </span>
+      )}
+      {status === "saved" && (
+        <span className="flex items-center gap-1 text-success">
+          <CheckCircle2 className="h-3 w-3" />
+          salvo
+        </span>
+      )}
+    </span>
+  );
 }
 
 // ─── Row-level save hook ──────────────────────────────────────────────────────
