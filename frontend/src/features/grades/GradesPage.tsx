@@ -87,7 +87,10 @@ function GradeCell({
   const schedule = useCallback(
     (raw: string) => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => commitValue(raw), 300);
+      timerRef.current = setTimeout(() => {
+        commitValue(raw);
+        timerRef.current = null; // marca que o debounce já comitou
+      }, 300);
     },
     [commitValue]
   );
@@ -106,8 +109,13 @@ function GradeCell({
         schedule(e.target.value);
       }}
       onBlur={() => {
-        if (timerRef.current) clearTimeout(timerRef.current);
-        commitValue(local);
+        // Só comita se o debounce ainda não disparou — senão o blur após o
+        // debounce disparava um segundo PUT idêntico (double-commit).
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+          commitValue(local);
+        }
       }}
       onKeyDown={onKeyDown}
       className="h-8 w-20 text-center font-mono text-sm tabular-nums px-1 disabled:opacity-60 disabled:cursor-not-allowed"
