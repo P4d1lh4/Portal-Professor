@@ -78,16 +78,19 @@ app.add_middleware(
 # Hardening básico das respostas da API. CSP fica no frontend (vercel.json),
 # onde há HTML a proteger — aqui a API só serve JSON.
 
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+}
+
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    response.headers.setdefault("Referrer-Policy", "no-referrer")
-    response.headers.setdefault(
-        "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
-    )
+    for header, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
     return response
 
 
@@ -118,10 +121,13 @@ async def request_id_middleware(request: Request, call_next):
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Erro não tratado em %s %s", request.method, request.url.path)
+    # O middleware de security headers NÃO roda para respostas geradas aqui (o
+    # handler de 500 fica ACIMA do user-middleware no stack do Starlette), então
+    # aplicamos os headers diretamente — como já é feito com o X-Request-ID.
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(detail="Erro interno no servidor.").model_dump(),
-        headers={REQUEST_ID_HEADER: get_request_id()},
+        headers={**_SECURITY_HEADERS, REQUEST_ID_HEADER: get_request_id()},
     )
 
 
