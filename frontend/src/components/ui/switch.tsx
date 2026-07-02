@@ -1,5 +1,4 @@
 import * as React from "react";
-import * as SwitchPrimitive from "@radix-ui/react-separator";
 import { cn } from "@/lib/utils";
 
 // Implementação manual sem dependência de @radix-ui/react-switch
@@ -42,5 +41,3 @@ const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
 Switch.displayName = "Switch";
 
 export { Switch };
-// Suppress unused import
-void SwitchPrimitive;

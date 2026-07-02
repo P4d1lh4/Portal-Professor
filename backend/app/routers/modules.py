@@ -91,9 +91,8 @@ def get_module(
     if not resp.data:
         raise HTTPException(status_code=404, detail="Módulo não encontrado.")
 
-    mod = _to_module(resp.data)
-    _assert_access(current_user, mod)
-    return mod
+    _assert_read_access(db, current_user, resp.data)
+    return _to_module(resp.data)
 
 
 @router.get("/modules/{module_id}/students", response_model=list[StudentGradeInfo])
@@ -111,7 +110,7 @@ def list_module_students(
     if not mod_resp.data:
         raise HTTPException(status_code=404, detail="Módulo não encontrado.")
 
-    _assert_access_raw(current_user, mod_resp.data)
+    _assert_read_access(db, current_user, mod_resp.data)
 
     resp = (
         db.table("enrollments")
@@ -366,11 +365,32 @@ def _assert_professor_exists(db, professor_id: str) -> None:
         )
 
 
-def _assert_access(current_user: Profile, mod: Module) -> None:
-    if current_user.role == "professor" and mod.professor_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
+def _assert_read_access(db, current_user: Profile, mod_data: dict) -> None:
+    """Valida o acesso de leitura a um módulo conforme o papel.
 
+    Como o backend usa o service role (bypass de RLS), o isolamento por papel
+    precisa ser garantido aqui:
+    - admin: qualquer módulo;
+    - professor: apenas os seus;
+    - coordenador: apenas módulos de períodos sob sua coordenação.
 
-def _assert_access_raw(current_user: Profile, mod_data: dict) -> None:
-    if current_user.role == "professor" and mod_data.get("professor_id") != current_user.id:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
+    Levanta 404 (em vez de 403) para não revelar a existência de módulos de
+    terceiros.
+    """
+    if current_user.role == "admin":
+        return
+    if current_user.role == "professor":
+        if mod_data.get("professor_id") == current_user.id:
+            return
+    elif current_user.role == "coordinator":
+        chk = (
+            db.table("academic_periods")
+            .select("id")
+            .eq("id", mod_data.get("academic_period_id"))
+            .eq("coordinator_id", current_user.id)
+            .maybe_single()
+            .execute()
+        )
+        if chk.data:
+            return
+    raise HTTPException(status_code=404, detail="Módulo não encontrado.")

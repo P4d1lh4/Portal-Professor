@@ -10,16 +10,18 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { isLoading, session, profile, isPasswordRecovery } = useAuth();
 
+  // Recuperação de senha tem prioridade: mesmo durante o carregamento
+  // inicial, o usuário que clicou no link deve ir para /reset-password.
+  if (isPasswordRecovery) {
+    return <Navigate to="/reset-password" replace />;
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (isPasswordRecovery) {
-    return <Navigate to="/reset-password" replace />;
   }
 
   if (!session) {
