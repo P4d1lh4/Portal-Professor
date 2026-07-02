@@ -11,9 +11,9 @@ Sistema acadêmico para gestão de alunos, módulos/disciplinas, notas e faltas,
 | Camada | Tecnologias |
 |--------|-------------|
 | **Frontend** | React 18 · TypeScript · Vite · TailwindCSS · shadcn/ui · TanStack Query v5 · React Hook Form + Zod · Recharts · Zustand |
-| **Backend** | FastAPI 0.115 · Pydantic v2 · supabase-py 2.8 · python-jose (JWT HS256) |
+| **Backend** | FastAPI 0.115 · Pydantic v2 · supabase-py 2.8 · JWT via JWKS (RS256/ES256; HS256 legado) |
 | **Banco** | Supabase (PostgreSQL) · Supabase Auth · Row Level Security |
-| **Testes** | pytest 8.3 · 33 testes unitários |
+| **Testes** | pytest 8.3 · 119 testes (backend) |
 
 ---
 
@@ -30,15 +30,17 @@ Sistema acadêmico para gestão de alunos, módulos/disciplinas, notas e faltas,
 ├── backend/
 │   ├── app/
 │   │   ├── routers/        # users, periods, modules, students, grades,
-│   │   │                   # import_csv, sheets, dashboard
+│   │   │                   # import_csv, sheets, dashboard, attendance,
+│   │   │                   # medical_certificates, reports, exports, audit
 │   │   ├── schemas/        # Pydantic models
 │   │   ├── deps.py         # get_current_user, require_role
 │   │   └── main.py
 │   ├── scripts/seed.py     # seed idempotente via Supabase Admin API
-│   └── tests/              # 33 testes pytest
-├── supabase/migrations/
-│   ├── 0001_initial_schema.sql   # schema + triggers + RLS temp
-│   └── 0002_rls_granular.sql     # políticas RLS por papel
+│   └── tests/              # 119 testes pytest
+├── supabase/migrations/    # 0001–0007 (+ seed): schema, RLS, atestados,
+│   │                       # is_active, faltas, auditoria, RPC de aluno
+│   ├── 0001_initial_schema.sql
+│   └── 0002_rls_granular.sql … 0007_create_student_with_enrollments.sql
 └── docker-compose.yml
 ```
 
@@ -47,7 +49,7 @@ Sistema acadêmico para gestão de alunos, módulos/disciplinas, notas e faltas,
 ## Pré-requisitos
 
 - Node.js 20+
-- Python 3.11+
+- Python 3.11+ (CI e produção usam 3.13)
 - Conta no [Supabase](https://supabase.com) (plano gratuito é suficiente)
 - Docker (opcional)
 
@@ -93,9 +95,14 @@ No **SQL Editor** do Supabase, execute em ordem:
 ```
 supabase/migrations/0001_initial_schema.sql
 supabase/migrations/0002_rls_granular.sql
+supabase/migrations/0003_medical_certificates.sql
+supabase/migrations/0004_profile_is_active.sql
+supabase/migrations/0005_attendance_records.sql
+supabase/migrations/0006_audit_log.sql
+supabase/migrations/0007_create_student_with_enrollments.sql
 ```
 
-> **Atenção**: `0002` remove as policies temporárias e ativa as policies granulares por papel. Execute apenas quando o sistema estiver em uso real.
+> **Atenção**: `0002` remove as policies temporárias e ativa as policies granulares por papel. Execute apenas quando o sistema estiver em uso real. As migrations `0003`–`0007` adicionam atestados médicos, `is_active` de perfil, registro de faltas, log de auditoria e a RPC transacional de criação de aluno — **todas necessárias** para a aplicação funcionar por completo (sem elas, as telas de atestados/frequência/auditoria quebram).
 
 ### 4. Seed de dados de exemplo
 
@@ -150,10 +157,17 @@ cd frontend && npm run dev
 | Ver módulos próprios | — | — | ✓ |
 | Cadastrar e gerenciar alunos | ✓ | ✓ | ✓* |
 | Lançar notas e faltas (inline) | ✓ | ✓ | ✓ |
+| Registrar frequência/chamada por data | ✓ | ✓ | ✓ |
+| Gerenciar atestados médicos (anexos PDF) | ✓ | ✓ | ✓* |
+| Gerar relatórios/boletins em PDF | ✓ | ✓ | ✓ |
+| Exportar dados em CSV | ✓ | ✓ | ✓ |
 | Importar alunos via CSV | ✓ | ✓ | — |
 | Sincronizar com Google Sheets | ✓ | ✓ | — |
+| Ver log de auditoria | ✓ | — | — |
 
-*Professor cria alunos com auto-matrícula nos seus módulos ativos.
+*Professor cria alunos com auto-matrícula nos seus módulos ativos e acessa apenas dados dos próprios módulos.
+
+> A lista completa e sempre atualizada de endpoints está no Swagger em `/api/docs`.
 
 ---
 
@@ -215,7 +229,7 @@ Cobrem:
 
 ## Segurança
 
-- JWT validado server-side via `python-jose` (HS256) em cada request
+- JWT validado server-side em cada request via JWKS do Supabase (RS256/ES256; HS256 legado)
 - `SUPABASE_SERVICE_ROLE_KEY` usado **apenas** no backend (nunca exposto ao frontend)
 - Row Level Security ativa em todas as tabelas (`0002_rls_granular.sql`)
 - Professor só acessa alunos e notas dos seus próprios módulos (2 camadas: dep FastAPI + RLS)
