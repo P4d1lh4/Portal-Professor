@@ -9,6 +9,19 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Isola os vendors estáveis num chunk próprio: melhora o cache de longo
+        // prazo (o vercel.json serve /assets como immutable) e reduz o chunk
+        // principal para abaixo do limite de aviso do Rollup (500 kB).
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-charts": ["recharts"],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     host: true,

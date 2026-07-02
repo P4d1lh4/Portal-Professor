@@ -60,3 +60,7 @@ supabase/.temp
 
 # Sistema
 *.local
+
+# Configs compilados (a fonte é o .ts; o Vite lê o .ts direto)
+frontend/vite.config.js
+frontend/vite.config.d.ts
