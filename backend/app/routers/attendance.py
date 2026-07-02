@@ -16,6 +16,7 @@ from ..schemas.attendance import (
 )
 from ..schemas.users import Profile
 from ..services.guards import assert_module_period_active
+from ..services.permissions import assert_coordinator_owns_period
 
 router = APIRouter(prefix="/api", tags=["frequência"])
 
@@ -42,16 +43,10 @@ def _assert_module_access(db, current_user: Profile, module_id: str) -> dict:
         if mod.data["professor_id"] != current_user.id:
             raise HTTPException(403, "Você não leciona este módulo.")
     elif current_user.role == "coordinator":
-        period = (
-            db.table("academic_periods")
-            .select("id")
-            .eq("id", mod.data["academic_period_id"])
-            .eq("coordinator_id", current_user.id)
-            .maybe_single()
-            .execute()
+        assert_coordinator_owns_period(
+            db, mod.data["academic_period_id"], current_user,
+            detail="Você não coordena este período.",
         )
-        if not period.data:
-            raise HTTPException(403, "Você não coordena este período.")
 
     return mod.data
 
@@ -92,7 +87,7 @@ def _list_module_students(db, module_id: str) -> list[dict]:
     "/modules/{module_id}/attendance",
     response_model=list[AttendanceSummary],
 )
-async def list_module_attendance(
+def list_module_attendance(
     module_id: str,
     current_user: Profile = Depends(_ANY_ROLE),
 ) -> list[AttendanceSummary]:
@@ -151,7 +146,7 @@ async def list_module_attendance(
     "/modules/{module_id}/attendance/{attendance_date}",
     response_model=AttendanceDayDraft,
 )
-async def get_attendance_day(
+def get_attendance_day(
     module_id: str,
     attendance_date: date_cls,
     current_user: Profile = Depends(_ANY_ROLE),
@@ -215,7 +210,7 @@ async def get_attendance_day(
     "/modules/{module_id}/attendance/{attendance_date}",
     response_model=AttendanceRecord,
 )
-async def save_attendance_day(
+def save_attendance_day(
     module_id: str,
     attendance_date: date_cls,
     body: AttendanceRecordSave,
@@ -229,37 +224,8 @@ async def save_attendance_day(
     _assert_module_access(db, current_user, module_id)
     assert_module_period_active(db, module_id, current_user)
 
-    # Encontra ou cria o record
-    existing = (
-        db.table("attendance_records")
-        .select("*")
-        .eq("module_id", module_id)
-        .eq("attendance_date", str(attendance_date))
-        .maybe_single()
-        .execute()
-    )
-
-    if existing.data:
-        record_id = existing.data["id"]
-        db.table("attendance_records").update(
-            {"notes": body.notes}
-        ).eq("id", record_id).execute()
-    else:
-        created = (
-            db.table("attendance_records")
-            .insert(
-                {
-                    "module_id": module_id,
-                    "attendance_date": str(attendance_date),
-                    "notes": body.notes,
-                    "created_by": current_user.id,
-                }
-            )
-            .execute()
-        )
-        record_id = created.data[0]["id"]
-
-    # Valida que todas as enrollments fazem parte do módulo
+    # Valida que todas as enrollments fazem parte do módulo ANTES de
+    # qualquer escrita — um 400 não deixa rastro no banco.
     if body.entries:
         enrollment_ids = [e.enrollment_id for e in body.entries]
         valid = (
@@ -277,22 +243,20 @@ async def save_attendance_day(
                 f"Algumas matrículas informadas não pertencem a este módulo: {invalid}",
             )
 
-    # Replace: apaga as antigas e insere as novas (trigger recalcula grades.absences)
-    db.table("attendance_entries").delete().eq(
-        "attendance_record_id", record_id
+    # Upsert do record + replace das entries numa ÚNICA transação (RPC 0010).
+    # Antes eram 3 escritas separadas: falha entre o delete e o insert das
+    # entries deixava a chamada do dia vazia.
+    saved = db.rpc(
+        "save_attendance_day",
+        {
+            "p_module_id": module_id,
+            "p_attendance_date": str(attendance_date),
+            "p_notes": body.notes,
+            "p_created_by": current_user.id,
+            "p_entries": [e.model_dump() for e in body.entries],
+        },
     ).execute()
-
-    if body.entries:
-        payload = [
-            {
-                "attendance_record_id": record_id,
-                "enrollment_id": e.enrollment_id,
-                "status": e.status,
-                "notes": e.notes,
-            }
-            for e in body.entries
-        ]
-        db.table("attendance_entries").insert(payload).execute()
+    record_id = saved.data
 
     final = (
         db.table("attendance_records")
@@ -313,7 +277,7 @@ async def save_attendance_day(
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
 )
-async def delete_attendance_day(
+def delete_attendance_day(
     module_id: str,
     attendance_date: date_cls,
     current_user: Profile = Depends(_ANY_ROLE),

@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from ..db import get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
+from ..services.permissions import assert_coordinator_owns_period
 from ..services.exports import (
     GradeExportRow,
     StudentExportRow,
@@ -46,7 +47,7 @@ def _csv_response(content: bytes, filename: str) -> Response:
 # ---------------------------------------------------------------
 
 @router.get("/periods/{period_id}/students/export.csv")
-async def export_period_students(
+def export_period_students(
     period_id: str,
     active_only: bool = True,
     current_user: Profile = Depends(_COORD_ADMIN),
@@ -105,7 +106,7 @@ async def export_period_students(
 # ---------------------------------------------------------------
 
 @router.get("/modules/{module_id}/grades/export.csv")
-async def export_module_grades(
+def export_module_grades(
     module_id: str,
     current_user: Profile = Depends(_ANY_ROLE),
 ):
@@ -124,17 +125,10 @@ async def export_module_grades(
     # Permissão: professor só do próprio módulo; coord só dos seus períodos
     if current_user.role == "professor" and mod.data["professor_id"] != current_user.id:
         raise HTTPException(403, "Você não leciona este módulo.")
-    if current_user.role == "coordinator":
-        period = (
-            db.table("academic_periods")
-            .select("id")
-            .eq("id", mod.data["academic_period_id"])
-            .eq("coordinator_id", current_user.id)
-            .maybe_single()
-            .execute()
-        )
-        if not period.data:
-            raise HTTPException(403, "Você não coordena este período.")
+    assert_coordinator_owns_period(
+        db, mod.data["academic_period_id"], current_user,
+        detail="Você não coordena este período.",
+    )
 
     max_abs = int(mod.data.get("max_absences", 10))
 

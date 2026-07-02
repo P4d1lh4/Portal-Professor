@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api", tags=["auditoria"])
 
 
 @router.get("/audit-log", response_model=AuditLogPage)
-async def list_audit_log(
+def list_audit_log(
     entity: str | None = Query(None, description="Filtrar por entidade"),
     actor_id: str | None = Query(None, description="Filtrar por autor"),
     limit: int = Query(50, ge=1, le=200),

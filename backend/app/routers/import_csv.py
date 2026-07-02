@@ -167,48 +167,32 @@ async def import_students(
             "invalid": invalid_rows,
         }
 
-    # Persistir
+    # Persistir — cada aluno é criado ATOMICAMENTE (aluno + matrículas + notas)
+    # via RPC transacional (0007 create_student_with_enrollments). Antes, uma
+    # falha no meio do loop de matrículas deixava o aluno criado com matrículas
+    # parciais (agora é tudo-ou-nada por aluno).
     imported = 0
     errors_on_save: list[str] = []
-    enrollment_warnings: list[str] = []
+
+    # Módulos ativos do período — buscados UMA vez (antes, por aluno).
+    mods = (
+        db.table("modules")
+        .select("id")
+        .eq("academic_period_id", period_id)
+        .eq("is_active", True)
+        .execute()
+    )
+    module_ids = [m["id"] for m in (mods.data or [])]
 
     for data in valid_rows:
         try:
-            ins = db.table("students").insert({**data, "academic_period_id": period_id, "is_active": True}).execute()
-            student_id = ins.data[0]["id"]
-            # Auto-enroll in all active modules of the period
-            mods = (
-                db.table("modules")
-                .select("id")
-                .eq("academic_period_id", period_id)
-                .eq("is_active", True)
-                .execute()
-            )
-            for mod in (mods.data or []):
-                try:
-                    enroll = db.table("enrollments").insert({
-                        "student_id": student_id,
-                        "module_id": mod["id"],
-                        "status": "active",
-                    }).execute()
-                    enrollment_id = enroll.data[0]["id"]
-                    db.table("grades").insert({
-                        "enrollment_id": enrollment_id,
-                        "tutor_grade": 0, "regular_exam_grade": 0,
-                        "makeup_exam_grade": 0, "final_grade": 0, "absences": 0,
-                    }).execute()
-                except Exception as enroll_exc:
-                    # O aluno foi criado, mas a matrícula/nota num módulo falhou.
-                    # Antes isso era silenciado (except: pass), deixando alunos
-                    # sem matrícula sem qualquer rastro. Agora registra no log e
-                    # devolve um aviso para o coordenador reconciliar.
-                    logger.warning(
-                        "Falha ao matricular aluno %s no módulo %s durante import: %s",
-                        student_id, mod["id"], enroll_exc,
-                    )
-                    enrollment_warnings.append(
-                        f"Aluno {data['student_number']}: falha ao matricular no módulo {mod['id']}."
-                    )
+            db.rpc(
+                "create_student_with_enrollments",
+                {
+                    "p_student": {**data, "academic_period_id": period_id, "is_active": True},
+                    "p_module_ids": module_ids,
+                },
+            ).execute()
             imported += 1
         except Exception as e:
             logger.warning("Falha ao importar aluno %s: %s", data.get("student_number"), e)
@@ -221,5 +205,4 @@ async def import_students(
         "invalid_count": len(invalid_rows) + len(errors_on_save),
         "invalid": invalid_rows,
         "errors_on_save": errors_on_save,
-        "enrollment_warnings": enrollment_warnings,
     }

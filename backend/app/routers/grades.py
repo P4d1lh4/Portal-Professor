@@ -24,7 +24,7 @@ router = APIRouter(tags=["grades"])
 _ANY_ROLE = require_role("professor", "coordinator", "admin")
 
 
-async def _get_grade_with_permission(enrollment_id: str, current_user: Profile) -> dict:
+def _get_grade_with_permission(enrollment_id: str, current_user: Profile) -> dict:
     db = get_admin_db()
 
     row = (
@@ -51,27 +51,41 @@ async def _get_grade_with_permission(enrollment_id: str, current_user: Profile) 
         )
         if not mod.data:
             raise HTTPException(403, "Você não tem permissão para editar notas deste módulo.")
+    elif current_user.role == "coordinator":
+        # Coordenador só acessa notas de módulos cujo período ele coordena.
+        # A API usa service role (bypassa RLS), então essa checagem precisa ser
+        # explícita aqui — como já é feita nos demais routers e na policy RLS.
+        mod = (
+            db.table("modules")
+            .select("id, academic_period:academic_periods!academic_period_id(coordinator_id)")
+            .eq("id", module_id)
+            .maybe_single()
+            .execute()
+        )
+        period = (mod.data or {}).get("academic_period") or {}
+        if period.get("coordinator_id") != current_user.id:
+            raise HTTPException(403, "Você não tem permissão para editar notas deste módulo.")
 
     return grade
 
 
 @router.get("/api/grades/{enrollment_id}", response_model=Grade)
-async def get_grade(
+def get_grade(
     enrollment_id: str,
     current_user: Profile = Depends(_ANY_ROLE),
 ):
-    grade = await _get_grade_with_permission(enrollment_id, current_user)
+    grade = _get_grade_with_permission(enrollment_id, current_user)
     return grade
 
 
 @router.put("/api/grades/{enrollment_id}", response_model=Grade)
-async def update_grade(
+def update_grade(
     enrollment_id: str,
     body: GradeUpdate,
     current_user: Profile = Depends(_ANY_ROLE),
 ):
     db = get_admin_db()
-    grade = await _get_grade_with_permission(enrollment_id, current_user)
+    grade = _get_grade_with_permission(enrollment_id, current_user)
 
     # Período encerrado: bloqueia edição (admin é exceção)
     module_id = grade["enrollment"]["module_id"]

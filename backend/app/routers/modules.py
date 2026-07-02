@@ -5,6 +5,7 @@ from ..deps import get_current_user, require_role
 from ..schemas.modules import Module, ModuleCreate, ModuleUpdate, StudentGradeInfo
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
+from ..services.permissions import assert_coordinator_owns_period
 
 
 _MODULE_AUDIT_FIELDS = (
@@ -34,7 +35,7 @@ def _to_module(row: dict) -> Module:
 # ---------------------------------------------------------------
 
 @router.get("/modules", response_model=list[Module])
-async def list_modules(
+def list_modules(
     period_id: str | None = None,
     limit: int = Query(200, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -75,7 +76,7 @@ async def list_modules(
 
 
 @router.get("/modules/{module_id}", response_model=Module)
-async def get_module(
+def get_module(
     module_id: str,
     current_user: Profile = Depends(get_current_user),
 ) -> Module:
@@ -96,7 +97,7 @@ async def get_module(
 
 
 @router.get("/modules/{module_id}/students", response_model=list[StudentGradeInfo])
-async def list_module_students(
+def list_module_students(
     module_id: str,
     current_user: Profile = Depends(get_current_user),
 ) -> list[StudentGradeInfo]:
@@ -152,7 +153,7 @@ async def list_module_students(
 # ---------------------------------------------------------------
 
 @router.post("/modules", response_model=Module, status_code=status.HTTP_201_CREATED)
-async def create_module(
+def create_module(
     body: ModuleCreate,
     current_user: Profile = Depends(require_role("admin", "coordinator", "professor")),
 ) -> Module:
@@ -160,7 +161,10 @@ async def create_module(
 
     # Coordenador só pode criar em seus períodos
     if current_user.role == "coordinator":
-        _assert_coord_owns_period(db, current_user.id, body.academic_period_id)
+        assert_coordinator_owns_period(
+            db, body.academic_period_id, current_user,
+            detail="Você não tem permissão para gerenciar módulos neste período.",
+        )
     # Professor só pode criar em períodos onde já leciona
     elif current_user.role == "professor":
         existing = (
@@ -192,7 +196,7 @@ async def create_module(
     response_model=Module,
     status_code=status.HTTP_201_CREATED,
 )
-async def coordinator_create_module(
+def coordinator_create_module(
     period_id: str,
     body: ModuleCreate,
     current_user: Profile = Depends(require_role("coordinator", "admin")),
@@ -201,7 +205,10 @@ async def coordinator_create_module(
     db = get_admin_db()
 
     if current_user.role == "coordinator":
-        _assert_coord_owns_period(db, current_user.id, period_id)
+        assert_coordinator_owns_period(
+            db, period_id, current_user,
+            detail="Você não tem permissão para gerenciar módulos neste período.",
+        )
 
     body.academic_period_id = period_id
     _assert_professor_exists(db, body.professor_id)
@@ -217,7 +224,7 @@ async def coordinator_create_module(
 # ---------------------------------------------------------------
 
 @router.put("/modules/{module_id}", response_model=Module)
-async def update_module(
+def update_module(
     module_id: str,
     body: ModuleUpdate,
     current_user: Profile = Depends(require_role("admin", "coordinator")),
@@ -232,7 +239,10 @@ async def update_module(
         raise HTTPException(status_code=404, detail="Módulo não encontrado.")
 
     if current_user.role == "coordinator":
-        _assert_coord_owns_period(db, current_user.id, mod_resp.data["academic_period_id"])
+        assert_coordinator_owns_period(
+            db, mod_resp.data["academic_period_id"], current_user,
+            detail="Você não tem permissão para gerenciar módulos neste período.",
+        )
 
     update_data = body.model_dump(exclude_none=True)
     if not update_data:
@@ -260,7 +270,7 @@ async def update_module(
 
 
 @router.delete("/modules/{module_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_module(
+def delete_module(
     module_id: str,
     current_user: Profile = Depends(require_role("admin", "coordinator")),
 ) -> None:
@@ -274,7 +284,10 @@ async def delete_module(
         raise HTTPException(status_code=404, detail="Módulo não encontrado.")
 
     if current_user.role == "coordinator":
-        _assert_coord_owns_period(db, current_user.id, mod_resp.data["academic_period_id"])
+        assert_coordinator_owns_period(
+            db, mod_resp.data["academic_period_id"], current_user,
+            detail="Você não tem permissão para gerenciar módulos neste período.",
+        )
 
     # Bloqueia se houver matrículas ativas
     enrollments = (
@@ -314,22 +327,6 @@ async def delete_module(
 def _fetch_module(db, module_id: str) -> Module:
     resp = db.table("modules").select(_SELECT).eq("id", module_id).single().execute()
     return _to_module(resp.data)
-
-
-def _assert_coord_owns_period(db, coordinator_id: str, period_id: str) -> None:
-    chk = (
-        db.table("academic_periods")
-        .select("id")
-        .eq("id", period_id)
-        .eq("coordinator_id", coordinator_id)
-        .maybe_single()
-        .execute()
-    )
-    if not chk.data:
-        raise HTTPException(
-            status_code=403,
-            detail="Você não tem permissão para gerenciar módulos neste período.",
-        )
 
 
 def _assert_code_unique(db, code: str, period_id: str) -> None:

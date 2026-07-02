@@ -49,7 +49,7 @@ def _assert_period_access(db, current_user: Profile, period: dict) -> None:
 # ---------------------------------------------------------------
 
 @router.get("/periods", response_model=list[Period])
-async def list_periods(
+def list_periods(
     current_user: Profile = Depends(get_current_user),
 ) -> list[Period]:
     """Admin lista todos; coordenador lista os seus; professor lista os que tem módulos."""
@@ -76,7 +76,7 @@ async def list_periods(
 
 
 @router.get("/periods/active", response_model=list[Period])
-async def list_active_periods(
+def list_active_periods(
     current_user: Profile = Depends(get_current_user),
 ) -> list[Period]:
     """
@@ -115,7 +115,7 @@ async def list_active_periods(
 
 
 @router.get("/coordinator/periods", response_model=list[Period])
-async def coordinator_periods(
+def coordinator_periods(
     current_user: Profile = Depends(require_role("coordinator")),
 ) -> list[Period]:
     """Atalho: períodos do coordenador autenticado."""
@@ -131,7 +131,7 @@ async def coordinator_periods(
 
 
 @router.get("/periods/{period_id}", response_model=Period)
-async def get_period(
+def get_period(
     period_id: str,
     current_user: Profile = Depends(get_current_user),
 ) -> Period:
@@ -154,7 +154,7 @@ async def get_period(
 # ---------------------------------------------------------------
 
 @router.post("/periods", response_model=Period, status_code=status.HTTP_201_CREATED)
-async def create_period(
+def create_period(
     body: PeriodCreate,
     _: Profile = Depends(require_role("admin")),
 ) -> Period:
@@ -194,7 +194,7 @@ async def create_period(
 
 
 @router.put("/periods/{period_id}", response_model=Period)
-async def update_period(
+def update_period(
     period_id: str,
     body: PeriodUpdate,
     _: Profile = Depends(require_role("admin")),
@@ -224,7 +224,7 @@ async def update_period(
 
 
 @router.delete("/periods/{period_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_period(
+def delete_period(
     period_id: str,
     current_user: Profile = Depends(require_role("admin")),
 ) -> None:

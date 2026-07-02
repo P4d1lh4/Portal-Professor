@@ -14,6 +14,7 @@ from ..schemas.students import (
 )
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
+from ..services.permissions import assert_coordinator_owns_period
 from ..services.search import build_ilike_or
 
 
@@ -154,7 +155,7 @@ def _create_student_with_enrollments(
 # ---------------------------------------------------------------
 
 @router.get("/periods/{period_id}/students", response_model=Paginated[Student])
-async def list_period_students(
+def list_period_students(
     period_id: str,
     active_only: bool = True,
     search: str | None = Query(None, description="Busca por nome ou matrícula"),
@@ -164,17 +165,9 @@ async def list_period_students(
 ) -> Paginated[Student]:
     db = get_admin_db()
 
-    if current_user.role == "coordinator":
-        period_chk = (
-            db.table("academic_periods")
-            .select("id")
-            .eq("id", period_id)
-            .eq("coordinator_id", current_user.id)
-            .maybe_single()
-            .execute()
-        )
-        if not period_chk.data:
-            raise HTTPException(403, "Acesso negado a este período.")
+    assert_coordinator_owns_period(
+        db, period_id, current_user, detail="Acesso negado a este período."
+    )
 
     q = (
         db.table("students")
@@ -199,24 +192,16 @@ async def list_period_students(
     response_model=Student,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_period_student(
+def create_period_student(
     period_id: str,
     body: StudentCreate,
     current_user: Profile = Depends(require_role("admin", "coordinator")),
 ) -> Student:
     db = get_admin_db()
 
-    if current_user.role == "coordinator":
-        period_chk = (
-            db.table("academic_periods")
-            .select("id")
-            .eq("id", period_id)
-            .eq("coordinator_id", current_user.id)
-            .maybe_single()
-            .execute()
-        )
-        if not period_chk.data:
-            raise HTTPException(403, "Acesso negado a este período.")
+    assert_coordinator_owns_period(
+        db, period_id, current_user, detail="Acesso negado a este período."
+    )
 
     existing = (
         db.table("students")
@@ -245,7 +230,7 @@ async def create_period_student(
 # ---------------------------------------------------------------
 
 @router.get("/professor/students", response_model=list[StudentDetail])
-async def list_professor_students(
+def list_professor_students(
     current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
 ) -> list[StudentDetail]:
     """
@@ -294,7 +279,7 @@ async def list_professor_students(
     response_model=StudentDetail,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_professor_student(
+def create_professor_student(
     body: StudentCreate,
     current_user: Profile = Depends(require_role("professor")),
 ) -> StudentDetail:
@@ -355,7 +340,7 @@ async def create_professor_student(
 
 
 @router.get("/professor/students/{student_id}", response_model=StudentDetail)
-async def get_professor_student(
+def get_professor_student(
     student_id: str,
     current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
 ) -> StudentDetail:
@@ -374,7 +359,7 @@ async def get_professor_student(
 
 
 @router.put("/professor/students/{student_id}", response_model=Student)
-async def update_professor_student(
+def update_professor_student(
     student_id: str,
     body: StudentUpdate,
     current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
@@ -433,7 +418,7 @@ async def update_professor_student(
 @router.delete(
     "/professor/students/{student_id}", status_code=status.HTTP_204_NO_CONTENT
 )
-async def deactivate_student(
+def deactivate_student(
     student_id: str,
     current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
 ) -> None:
@@ -492,7 +477,7 @@ async def deactivate_student(
 # ---------------------------------------------------------------
 
 @router.get("/professor/students/{student_id}/absences")
-async def get_student_absences(
+def get_student_absences(
     student_id: str,
     current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
 ) -> dict:
@@ -547,7 +532,7 @@ async def get_student_absences(
 
 
 @router.put("/professor/students/{student_id}/absences")
-async def update_student_absences(
+def update_student_absences(
     student_id: str,
     body: AbsenceUpdate,
     current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
