@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -236,11 +237,16 @@ export default function AttendancePage() {
     });
   };
 
-  const handleDelete = () => {
+  const { confirm, confirmDialog } = useConfirm();
+
+  const handleDelete = async () => {
     if (!day?.record_id || !activeModuleId) return;
-    const ok = window.confirm(
-      `Excluir a chamada de ${formatDateBR(selectedDate)}? Essa ação não pode ser desfeita.`,
-    );
+    const ok = await confirm({
+      title: `Excluir a chamada de ${formatDateBR(selectedDate)}?`,
+      description: "Essa ação não pode ser desfeita.",
+      confirmLabel: "Excluir",
+      destructive: true,
+    });
     if (!ok) return;
     deleteMut.mutate(selectedDate);
   };
@@ -550,6 +556,8 @@ export default function AttendancePage() {
           )}
         </>
       )}
+
+      {confirmDialog}
     </div>
   );
 }

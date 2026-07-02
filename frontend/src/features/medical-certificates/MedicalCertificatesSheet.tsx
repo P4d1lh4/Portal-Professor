@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
 import type { MedicalCertificate } from "@/types";
 
 import { medicalCertificatesApi } from "./api";
@@ -120,18 +121,27 @@ export function MedicalCertificatesSheet({
     }
   };
 
-  const handleRemove = (cert: MedicalCertificate) => {
+  const { confirm, confirmDialog } = useConfirm();
+
+  const handleRemove = async (cert: MedicalCertificate) => {
     const count = cert.attachments.length;
     const extra =
       count > 0
-        ? `\nIsso também removerá ${count} anexo${count !== 1 ? "s" : ""}.`
+        ? ` Isso também removerá ${count} anexo${count !== 1 ? "s" : ""}.`
         : "";
-    if (!confirm(`Remover o atestado "${cert.reason}"?${extra}`)) return;
+    const ok = await confirm({
+      title: `Remover o atestado "${cert.reason}"?`,
+      description: `Essa ação não pode ser desfeita.${extra}`,
+      confirmLabel: "Remover",
+      destructive: true,
+    });
+    if (!ok) return;
     remove.mutate(cert.id);
     if (expandedId === cert.id) setExpandedId(null);
   };
 
   return (
+    <>
     <Sheet open={!!studentId} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
@@ -264,5 +274,7 @@ export function MedicalCertificatesSheet({
         />
       </SheetContent>
     </Sheet>
+    {confirmDialog}
+    </>
   );
 }
