@@ -17,6 +17,7 @@ Bugs encontrados por revisão adversarial multi-agente do estado já mergeado (c
 | 23 | [M9] Bundle: manualChunks + untrack configs compilados | 🟡 Média | ✅ Concluída | ✅ build (549→341kB) | [23-bundle-manualchunks.md](23-bundle-manualchunks.md) |
 | 24 | Acessibilidade: skip-link, título do drawer e do command palette | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [24-acessibilidade.md](24-acessibilidade.md) |
 | 25 | UX: `useConfirm` (diálogo) no lugar de `window.confirm` (3 usos) | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [25-confirm-dialog.md](25-confirm-dialog.md) |
+| 26 | a11y: contraste AA do `warning` + `aria-live` no SaveIndicator | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [26-contraste-arialive.md](26-contraste-arialive.md) |
 
 ## Concluídas (backlog Alta)
 
