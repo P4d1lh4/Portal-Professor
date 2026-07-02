@@ -14,6 +14,8 @@ Bugs encontrados por revisão adversarial multi-agente do estado já mergeado (c
 | 20 | IDOR de coordenador em /professor/students/{id} | 🟠 Alta | ✅ Concluída | ✅ 159 pytest (+4) | [20-idor-coordenador-students.md](20-idor-coordenador-students.md) |
 | 21 | Security headers ausentes em respostas 500 | 🟡 Média | ✅ Concluída | ✅ 159 pytest (+1) | [21-security-headers-500.md](21-security-headers-500.md) |
 | 22 | GradeCell double-commit + rollback otimista concorrente | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [22-grades-double-commit-rollback.md](22-grades-double-commit-rollback.md) |
+| 23 | [M9] Bundle: manualChunks + untrack configs compilados | 🟡 Média | ✅ Concluída | ✅ build (549→341kB) | [23-bundle-manualchunks.md](23-bundle-manualchunks.md) |
+| 24 | Acessibilidade: skip-link, título do drawer e do command palette | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [24-acessibilidade.md](24-acessibilidade.md) |
 
 ## Concluídas (backlog Alta)
 

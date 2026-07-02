@@ -5,7 +5,12 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { SidebarNav } from "./Sidebar";
 import { CommandPaletteHost } from "@/components/shared/CommandPaletteHost";
 
@@ -28,6 +33,14 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {/* Skip-link (WCAG 2.4.1): visível só ao focar via teclado */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+      >
+        Pular para o conteúdo
+      </a>
+
       {/* Sidebar — desktop */}
       <div className="hidden md:flex md:flex-col">
         <Sidebar role={profile.role} collapsed={collapsed} />
@@ -36,9 +49,12 @@ export function AppShell() {
       {/* Sidebar — mobile (drawer) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-64 p-0">
-          <div className="flex h-14 items-center gap-2 border-b px-4">
-            <span className="font-semibold text-sm">Aplicação Professor</span>
-          </div>
+          <SheetTitle className="flex h-14 items-center gap-2 border-b px-4 text-sm">
+            Aplicação Professor
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Menu de navegação principal
+          </SheetDescription>
           <div className="py-4">
             <SidebarNav
               role={profile.role}
