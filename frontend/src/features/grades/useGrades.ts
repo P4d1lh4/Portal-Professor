@@ -53,9 +53,20 @@ export function useUpdateGrade(moduleId: string) {
       return { previous };
     },
 
-    onError: (err: Error, _vars, context) => {
-      // Reverte para o estado anterior se o servidor recusar.
-      if (context?.previous) qc.setQueryData(key, context.previous);
+    onError: (err: Error, vars, context) => {
+      // Reverte APENAS a linha que falhou, preservando updates otimistas de
+      // outras células editadas em paralelo (restaurar o snapshot inteiro
+      // apagava essas edições concorrentes).
+      const prevRow = context?.previous?.find(
+        (r) => r.enrollment_id === vars.enrollmentId,
+      );
+      if (prevRow) {
+        qc.setQueryData<StudentGradeRow[]>(key, (old) =>
+          old?.map((row) =>
+            row.enrollment_id === vars.enrollmentId ? prevRow : row,
+          ),
+        );
+      }
       toast.error(err.message);
     },
 

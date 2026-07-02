@@ -5,6 +5,16 @@ Controle de progresso das melhorias da auditoria. Fluxo por melhoria:
 
 Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída · Bloqueada.
 
+## Correções pós-merge (revisão adversarial do PR #28)
+
+Bugs encontrados por revisão adversarial multi-agente do estado já mergeado (código novo do main Q4/Q5/S2 + minhas mudanças). 4 confirmados, 0 refutados.
+
+| Etapa | Correção | Severidade | Status | Testes | Documento |
+|:-----:|----------|:----------:|--------|--------|-----------|
+| 20 | IDOR de coordenador em /professor/students/{id} | 🟠 Alta | ✅ Concluída | ✅ 159 pytest (+4) | [20-idor-coordenador-students.md](20-idor-coordenador-students.md) |
+| 21 | Security headers ausentes em respostas 500 | 🟡 Média | ✅ Concluída | ✅ 159 pytest (+1) | [21-security-headers-500.md](21-security-headers-500.md) |
+| 22 | GradeCell double-commit + rollback otimista concorrente | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [22-grades-double-commit-rollback.md](22-grades-double-commit-rollback.md) |
+
 ## Concluídas (backlog Alta)
 
 | Etapa | Melhoria | Prioridade | Status | Testes | Documento |
