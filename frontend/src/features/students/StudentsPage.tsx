@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -168,8 +169,16 @@ export default function StudentsPage() {
     setDialogOpen(true);
   };
 
-  const handleDeactivate = (student: StudentItem) => {
-    if (!confirm(`Desativar o aluno "${student.full_name}"?`)) return;
+  const { confirm, confirmDialog } = useConfirm();
+
+  const handleDeactivate = async (student: StudentItem) => {
+    const ok = await confirm({
+      title: `Desativar o aluno "${student.full_name}"?`,
+      description: "O aluno ficará inativo; o histórico é preservado.",
+      confirmLabel: "Desativar",
+      destructive: true,
+    });
+    if (!ok) return;
     deactivate.mutate(student.id);
     setDetailId(null);
   };
@@ -450,6 +459,8 @@ export default function StudentsPage() {
         student={editing}
         onSubmit={handleSubmit}
       />
+
+      {confirmDialog}
     </div>
   );
 }
