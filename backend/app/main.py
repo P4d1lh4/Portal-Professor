@@ -2,11 +2,20 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .auth import _get_jwks
 from .config import settings
+from .observability import (
+    REQUEST_ID_HEADER,
+    get_request_id,
+    new_request_id,
+    set_request_id,
+    setup_logging,
+)
+from .schemas.common import ErrorResponse
 from .routers import (
     users,
     periods,
@@ -23,6 +32,7 @@ from .routers import (
     exports,
 )
 
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +71,63 @@ app.add_middleware(
     max_age=600,
 )
 
+
+# ---------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------
+# Hardening básico das respostas da API. CSP fica no frontend (vercel.json),
+# onde há HTML a proteger — aqui a API só serve JSON.
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+    )
+    return response
+
+
+# ---------------------------------------------------------------
+# Request-ID (correlação de logs)
+# ---------------------------------------------------------------
+# Reaproveita X-Request-ID do cliente/proxy se vier; senão gera um. Fica
+# disponível nos logs (via RequestIdFilter) e volta no header da resposta.
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    rid = request.headers.get(REQUEST_ID_HEADER) or new_request_id()
+    set_request_id(rid)
+    response = await call_next(request)
+    response.headers[REQUEST_ID_HEADER] = rid
+    return response
+
+
+# ---------------------------------------------------------------
+# Tratamento global de erros
+# ---------------------------------------------------------------
+# Sem este handler, uma exceção não tratada (ex.: erro do supabase-py/rede)
+# vira o 500 do Starlette com corpo em texto plano — inconsistente com o
+# resto da API (que usa {detail}). Aqui logamos e devolvemos ErrorResponse.
+# ponytail: ponto único para plugar request-id/telemetria quando existirem.
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Erro não tratado em %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(detail="Erro interno no servidor.").model_dump(),
+        headers={REQUEST_ID_HEADER: get_request_id()},
+    )
+
+
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
+
 # ---------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------
@@ -86,5 +153,24 @@ app.include_router(exports.router)
 
 @app.get("/api/healthz", tags=["health"])
 def healthz() -> dict[str, str]:
-    """Health check básico."""
+    """Liveness: o processo está de pé (barato, usado pelo Render)."""
     return {"status": "ok"}
+
+
+@app.get("/api/readyz", tags=["health"])
+async def readyz():
+    """Readiness: valida conectividade com o Supabase (503 se indisponível).
+
+    Separado do /healthz de propósito: uma indisponibilidade transitória do
+    Supabase não deve derrubar a liveness e provocar restart do processo.
+    """
+    from .db import get_admin_db
+
+    try:
+        await asyncio.to_thread(
+            lambda: get_admin_db().table("profiles").select("id").limit(1).execute()
+        )
+    except Exception:
+        logger.warning("readyz: Supabase indisponível")
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
+    return {"status": "ready"}

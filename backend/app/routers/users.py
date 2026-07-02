@@ -16,6 +16,7 @@ from ..schemas.users import (
 )
 from ..config import settings
 from ..services.search import build_ilike_or
+from ..services.ratelimit import check_rate_limit
 from supabase import create_client
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/api", tags=["usuários"])
 # ---------------------------------------------------------------
 
 @router.get("/me", response_model=Profile)
-async def me(current_user: Profile = Depends(get_current_user)) -> Profile:
+def me(current_user: Profile = Depends(get_current_user)) -> Profile:
     """Retorna o perfil do usuário autenticado."""
     return current_user
 
@@ -44,6 +45,13 @@ async def change_my_password(
     Valida a senha atual via login no Supabase Auth (com anon key)
     e, em sucesso, atualiza via Admin API (service role).
     """
+    # Rate limit por usuário: evita brute-force da senha atual (que é
+    # revalidada por login no Supabase a cada tentativa).
+    if not check_rate_limit(f"change-password:{current_user.id}", max_calls=5, window_seconds=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas de troca de senha. Aguarde um minuto e tente novamente.",
+        )
     if len(body.new_password) < 8:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -94,7 +102,7 @@ async def change_my_password(
 # ---------------------------------------------------------------
 
 @router.get("/users", response_model=Paginated[Profile])
-async def list_users(
+def list_users(
     search: str | None = Query(None, description="Busca por nome, e-mail ou usuário"),
     role: UserRole | None = Query(None, description="Filtra por papel"),
     is_active: bool | None = Query(None, description="Filtra por ativo/inativo"),
@@ -123,7 +131,7 @@ async def list_users(
 
 
 @router.get("/coordinators", response_model=list[ProfilePublic])
-async def list_coordinators(
+def list_coordinators(
     _: Profile = Depends(get_current_user),
 ) -> list[ProfilePublic]:
     """Lista coordenadores (para dropdowns). Qualquer usuário autenticado."""
@@ -139,7 +147,7 @@ async def list_coordinators(
 
 
 @router.get("/professors", response_model=list[ProfilePublic])
-async def list_professors(
+def list_professors(
     _: Profile = Depends(get_current_user),
 ) -> list[ProfilePublic]:
     """Lista professores (para dropdowns). Qualquer usuário autenticado."""
@@ -159,7 +167,7 @@ async def list_professors(
 # ---------------------------------------------------------------
 
 @router.post("/users", response_model=Profile, status_code=status.HTTP_201_CREATED)
-async def create_user(
+def create_user(
     body: UserCreate,
     _: Profile = Depends(require_role("admin")),
 ) -> Profile:
@@ -202,7 +210,7 @@ async def create_user(
 
 
 @router.put("/users/{user_id}", response_model=Profile)
-async def update_user(
+def update_user(
     user_id: str,
     body: UserUpdate,
     _: Profile = Depends(require_role("admin")),
@@ -230,7 +238,7 @@ async def update_user(
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def deactivate_user(
+def deactivate_user(
     user_id: str,
     current_user: Profile = Depends(require_role("admin")),
 ) -> None:
@@ -268,7 +276,7 @@ async def deactivate_user(
 
 
 @router.post("/users/{user_id}/reactivate", response_model=Profile)
-async def reactivate_user(
+def reactivate_user(
     user_id: str,
     _: Profile = Depends(require_role("admin")),
 ) -> Profile:

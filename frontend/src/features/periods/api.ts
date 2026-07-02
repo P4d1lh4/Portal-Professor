@@ -13,7 +13,7 @@ export interface PeriodCreate {
   is_active?: boolean;
 }
 
-export interface PeriodUpdate extends Partial<PeriodCreate> {}
+export type PeriodUpdate = Partial<PeriodCreate>;
 
 export const periodsApi = {
   list: () =>

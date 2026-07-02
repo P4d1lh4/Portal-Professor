@@ -58,7 +58,7 @@ def _classify(final_grade: float, absences: int, max_absences: int) -> str:
 # ---------------------------------------------------------------
 
 @router.get("/students/{student_id}/report")
-async def student_report(
+def student_report(
     student_id: str,
     current_user: Profile = Depends(_ANY_ROLE),
 ):
@@ -134,7 +134,7 @@ async def student_report(
 # ---------------------------------------------------------------
 
 @router.get("/periods/{period_id}/report")
-async def period_report(
+def period_report(
     period_id: str,
     current_user: Profile = Depends(_COORD_ADMIN),
 ):

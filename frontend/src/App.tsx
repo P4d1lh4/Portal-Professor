@@ -5,12 +5,15 @@ import { Toaster } from "sonner";
 
 import { router } from "@/routes";
 import { queryClient } from "@/lib/queryClient";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
 export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <ErrorBoundary>
+          <RouterProvider router={router} />
+        </ErrorBoundary>
         <Toaster
           position="top-right"
           richColors

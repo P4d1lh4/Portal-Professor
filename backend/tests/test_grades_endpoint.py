@@ -131,3 +131,52 @@ def test_professor_salva_nota_recalcula_e_retorna_200(as_user, monkeypatch):
     updates = [r for r in db.recorder if r[0] == "grades" and r[1] == "update"]
     assert len(updates) == 1
     assert updates[0][2]["final_grade"] == 8.0
+
+
+def _grade_select(module_id="m1"):
+    return {
+        "id": "g1", "enrollment_id": "e1",
+        "tutor_grade": 0.0, "regular_exam_grade": 5.0, "makeup_exam_grade": 0.0,
+        "final_grade": 5.0, "absences": 0,
+        "last_updated": "2025-01-01T00:00:00+00:00",
+        "enrollment": {"module_id": module_id, "student_id": "s1"},
+    }
+
+
+def test_coordenador_do_periodo_salva_nota_200(as_user, monkeypatch):
+    as_user(_profile("coordinator", "coord-1"))
+    updated_row = {**_grade_select(), "regular_exam_grade": 7.0, "final_grade": 7.0}
+    del updated_row["enrollment"]
+    modules = {
+        "id": "m1", "professor_id": "prof-9",
+        "academic_period": {"coordinator_id": "coord-1", "is_active": True},
+    }
+    db = _FakeDb({
+        "grades": (_grade_select(), [updated_row]),
+        "modules": (modules, None),
+        "audit_log": ([], []),
+    })
+    monkeypatch.setattr(grades_router, "get_admin_db", lambda: db)
+
+    resp = client.put("/api/grades/e1", json={"regular_exam_grade": 7})
+    assert resp.status_code == 200
+    assert resp.json()["final_grade"] == 7.0
+
+
+def test_coordenador_de_outro_periodo_nao_edita_nota_403(as_user, monkeypatch):
+    as_user(_profile("coordinator", "coord-2"))  # coordena outro período
+    modules = {
+        "id": "m1", "professor_id": "prof-9",
+        "academic_period": {"coordinator_id": "coord-1", "is_active": True},
+    }
+    db = _FakeDb({
+        "grades": (_grade_select(), [[]]),
+        "modules": (modules, None),
+        "audit_log": ([], []),
+    })
+    monkeypatch.setattr(grades_router, "get_admin_db", lambda: db)
+
+    resp = client.put("/api/grades/e1", json={"regular_exam_grade": 7})
+    assert resp.status_code == 403
+    # Nenhuma nota pode ter sido gravada.
+    assert not [r for r in db.recorder if r[1] == "update"]

@@ -28,8 +28,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Rodar pytest
-        run: pytest -q
+      - name: Rodar pytest + cobertura
+        env:
+          # Stubs: os testes mockam o Supabase (get_admin_db), mas o
+          # Settings() do pydantic exige estas variáveis na importação.
+          SUPABASE_URL: https://stub.supabase.co
+          SUPABASE_ANON_KEY: stub-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: stub-service-role-key
+          SUPABASE_JWT_SECRET: stub-jwt-secret
+        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=50
 
   frontend:
     name: Frontend (tsc + build)
@@ -50,8 +57,14 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Lint (eslint)
+        run: npm run lint
+
       - name: Type-check (tsc --noEmit)
         run: npx tsc --noEmit
+
+      - name: Testes (vitest)
+        run: npm run test
 
       - name: Build (vite)
         env:

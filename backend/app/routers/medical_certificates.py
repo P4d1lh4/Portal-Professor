@@ -182,7 +182,7 @@ def _hydrate_certificate(db, cert_row: dict) -> MedicalCertificate:
     "/students/{student_id}/medical-certificates",
     response_model=list[MedicalCertificate],
 )
-async def list_certificates(
+def list_certificates(
     student_id: str,
     current_user: Profile = Depends(_ALLOWED_ROLES),
 ) -> list[MedicalCertificate]:
@@ -204,7 +204,7 @@ async def list_certificates(
     response_model=MedicalCertificate,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_certificate(
+def create_certificate(
     student_id: str,
     body: MedicalCertificateCreate,
     current_user: Profile = Depends(_ALLOWED_ROLES),
@@ -228,7 +228,7 @@ async def create_certificate(
     "/medical-certificates/{certificate_id}",
     response_model=MedicalCertificate,
 )
-async def get_certificate(
+def get_certificate(
     certificate_id: str,
     current_user: Profile = Depends(_ALLOWED_ROLES),
 ) -> MedicalCertificate:
@@ -242,7 +242,7 @@ async def get_certificate(
     "/medical-certificates/{certificate_id}",
     response_model=MedicalCertificate,
 )
-async def update_certificate(
+def update_certificate(
     certificate_id: str,
     body: MedicalCertificateUpdate,
     current_user: Profile = Depends(_ALLOWED_ROLES),
@@ -279,7 +279,7 @@ async def update_certificate(
     "/medical-certificates/{certificate_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_certificate(
+def delete_certificate(
     certificate_id: str,
     current_user: Profile = Depends(_ALLOWED_ROLES),
 ) -> None:
@@ -313,7 +313,7 @@ async def delete_certificate(
     "/medical-certificates/{certificate_id}/attachments",
     response_model=list[MedicalCertificateAttachment],
 )
-async def list_attachments(
+def list_attachments(
     certificate_id: str,
     current_user: Profile = Depends(_ALLOWED_ROLES),
 ) -> list[MedicalCertificateAttachment]:
@@ -403,7 +403,7 @@ async def upload_attachment(
     "/medical-certificates/{certificate_id}/attachments/{attachment_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_attachment(
+def delete_attachment(
     certificate_id: str,
     attachment_id: str,
     current_user: Profile = Depends(_ALLOWED_ROLES),

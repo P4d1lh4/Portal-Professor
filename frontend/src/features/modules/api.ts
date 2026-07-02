@@ -50,7 +50,7 @@ export interface ModuleCreate {
   is_active?: boolean;
 }
 
-export interface ModuleUpdate extends Partial<Omit<ModuleCreate, "academic_period_id">> {}
+export type ModuleUpdate = Partial<Omit<ModuleCreate, "academic_period_id">>;
 
 export const modulesApi = {
   list: (periodId?: string) =>
