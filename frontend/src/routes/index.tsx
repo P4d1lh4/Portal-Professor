@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 import { ProtectedRoute } from "./ProtectedRoute";
+import { RouteErrorFallback } from "@/components/shared/ErrorBoundary";
 
 // AppShell é pesado (Sidebar, Topbar, ícones, CommandPalette) — carrega só em rota protegida
 const AppShell = lazy(() => import("@/components/layout/AppShell"));
@@ -41,6 +42,10 @@ function wrap(element: React.ReactNode) {
 }
 
 export const router = createBrowserRouter([
+  {
+    // Boundary raiz: captura erros de render de qualquer rota (evita tela branca).
+    errorElement: <RouteErrorFallback />,
+    children: [
   {
     path: "/login",
     element: wrap(<LoginPage />),
@@ -131,6 +136,8 @@ export const router = createBrowserRouter([
           },
         ],
       },
+    ],
+  },
     ],
   },
 ]);
