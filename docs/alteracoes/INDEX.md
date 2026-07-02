@@ -16,6 +16,7 @@ Bugs encontrados por revisão adversarial multi-agente do estado já mergeado (c
 | 22 | GradeCell double-commit + rollback otimista concorrente | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [22-grades-double-commit-rollback.md](22-grades-double-commit-rollback.md) |
 | 23 | [M9] Bundle: manualChunks + untrack configs compilados | 🟡 Média | ✅ Concluída | ✅ build (549→341kB) | [23-bundle-manualchunks.md](23-bundle-manualchunks.md) |
 | 24 | Acessibilidade: skip-link, título do drawer e do command palette | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [24-acessibilidade.md](24-acessibilidade.md) |
+| 25 | UX: `useConfirm` (diálogo) no lugar de `window.confirm` (3 usos) | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/build | [25-confirm-dialog.md](25-confirm-dialog.md) |
 
 ## Concluídas (backlog Alta)
 
