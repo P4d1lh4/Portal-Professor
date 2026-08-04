@@ -367,7 +367,8 @@ def update_professor_student(
 
     _assert_can_access_student(db, current_user, student_id)
 
-    update_data = body.model_dump(exclude_none=True)
+    # exclude_unset: permite limpar campos anuláveis (email, observations…) com null.
+    update_data = body.model_dump(exclude_unset=True)
 
     # Professor só pode editar os campos expostos no formulário de aluno.
     # Em especial, não pode alterar is_active — a desativação é feita pelo

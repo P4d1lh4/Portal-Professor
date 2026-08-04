@@ -13,7 +13,7 @@ Sistema acadêmico para gestão de alunos, módulos/disciplinas, notas e faltas,
 | **Frontend** | React 18 · TypeScript · Vite · TailwindCSS · shadcn/ui · TanStack Query v5 · React Hook Form + Zod · Recharts · Zustand |
 | **Backend** | FastAPI 0.115 · Pydantic v2 · supabase-py 2.8 · JWT via JWKS (RS256/ES256; HS256 legado) |
 | **Banco** | Supabase (PostgreSQL) · Supabase Auth · Row Level Security |
-| **Testes** | pytest 8.3 · 119 testes (backend) |
+| **Testes** | pytest 8.3 (backend) · vitest (frontend) · cobertura mínima 50% no CI |
 
 ---
 
@@ -36,7 +36,7 @@ Sistema acadêmico para gestão de alunos, módulos/disciplinas, notas e faltas,
 │   │   ├── deps.py         # get_current_user, require_role
 │   │   └── main.py
 │   ├── scripts/seed.py     # seed idempotente via Supabase Admin API
-│   └── tests/              # 119 testes pytest
+│   └── tests/              # suíte pytest (authz, regras, anti-injeção)
 ├── supabase/migrations/    # 0001–0007 (+ seed): schema, RLS, atestados,
 │   │                       # is_active, faltas, auditoria, RPC de aluno
 │   ├── 0001_initial_schema.sql
@@ -90,7 +90,9 @@ CORS_ORIGINS=http://localhost:5173
 
 ### 3. Aplicar migrations
 
-No **SQL Editor** do Supabase, execute em ordem:
+No **SQL Editor** do Supabase, **aplique TODOS os arquivos de `supabase/migrations/` em ordem numérica** (0001 → 0011). Não pare em nenhum número intermediário: o backend depende de objetos criados até a `0011` (ex.: a RPC `save_attendance_day` da `0010` — sem ela, salvar frequência quebra em runtime).
+
+Estado atual das migrations:
 
 ```
 supabase/migrations/0001_initial_schema.sql
@@ -100,9 +102,13 @@ supabase/migrations/0004_profile_is_active.sql
 supabase/migrations/0005_attendance_records.sql
 supabase/migrations/0006_audit_log.sql
 supabase/migrations/0007_create_student_with_enrollments.sql
+supabase/migrations/0008_grade_check_constraints.sql
+supabase/migrations/0009_search_indexes.sql
+supabase/migrations/0010_save_attendance_day_rpc.sql
+supabase/migrations/0011_lock_postgrest_writes.sql
 ```
 
-> **Atenção**: `0002` remove as policies temporárias e ativa as policies granulares por papel. Execute apenas quando o sistema estiver em uso real. As migrations `0003`–`0007` adicionam atestados médicos, `is_active` de perfil, registro de faltas, log de auditoria e a RPC transacional de criação de aluno — **todas necessárias** para a aplicação funcionar por completo (sem elas, as telas de atestados/frequência/auditoria quebram).
+> **Atenção**: `0002` remove as policies temporárias e ativa as policies granulares por papel. As `0003`–`0010` adicionam atestados médicos, `is_active` de perfil, registro de faltas, log de auditoria, RPCs transacionais, CHECK constraints e índices de busca — **todas necessárias**. A `0011` revoga escrita direta via PostgREST de `anon`/`authenticated` (fecha a escalada de privilégio a admin) — aplique-a por último.
 
 ### 4. Seed de dados de exemplo
 
@@ -216,14 +222,14 @@ PUT    /api/grades/{enrollment_id}
 ```bash
 cd backend
 pytest tests/ -v
-# 33 passed
 ```
 
-Cobrem:
-- Cálculo de nota final (`_recalc_final`)
+Cobrem, entre outros:
+- Autorização por papel (isolamento de dados; escopo de coordenador/professor)
+- Cálculo de nota final e classificação (aprovado/recuperação/rep. faltas)
 - Validators Pydantic (clamp, arredondamento)
-- Parser CSV (BOM, semicolons, Latin-1, colunas obrigatórias)
-- Autenticação (sem token → 403, token inválido → 401)
+- Parser CSV (BOM, semicolons, Latin-1, colunas obrigatórias) e neutralização de fórmula no export
+- Autenticação (sem token → 403, token inválido/expirado → 401), SSRF e injeção de filtro PostgREST
 
 ---
 

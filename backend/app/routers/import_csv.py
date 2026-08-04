@@ -5,6 +5,7 @@ Endpoint único com query-param dry_run:
   dry_run=true  → valida e retorna preview sem persistir
   dry_run=false → valida e persiste as linhas válidas
 """
+import asyncio
 import csv
 import io
 import logging
@@ -111,6 +112,15 @@ async def import_students(
     dry_run: bool = Query(True, description="true=preview, false=importar"),
     current_user: Profile = Depends(_COORD_ADMIN),
 ) -> dict:
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:  # 5 MB
+        raise HTTPException(413, "Arquivo muito grande. Limite: 5 MB.")
+    # Validação + persistência são síncronas (supabase-py) → threadpool, para não
+    # travar o event loop durante o loop de até MAX_ROWS RPCs (worker único).
+    return await asyncio.to_thread(_run_import, period_id, content, dry_run, current_user)
+
+
+def _run_import(period_id: str, content: bytes, dry_run: bool, current_user: Profile) -> dict:
     db = get_admin_db()
 
     # Verificar que o período existe (e pertence ao coordenador, se for o caso)
@@ -119,10 +129,6 @@ async def import_students(
         raise HTTPException(404, "Período não encontrado.")
     if current_user.role == "coordinator" and period_q.data.get("coordinator_id") != current_user.id:
         raise HTTPException(403, "Você não gerencia este período.")
-
-    content = await file.read()
-    if len(content) > 5 * 1024 * 1024:  # 5 MB
-        raise HTTPException(413, "Arquivo muito grande. Limite: 5 MB.")
 
     raw_rows, fatal = _parse_csv(content)
     if fatal:

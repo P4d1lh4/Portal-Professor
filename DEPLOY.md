@@ -157,10 +157,13 @@ Se a 0002 não estiver aplicada, rode-a (SQL Editor ou `supabase db push`).
 
 ### Migrações a aplicar
 
-Aplique em ordem todas as migrações em [`supabase/migrations/`](supabase/migrations/)
-(0001–0007). A **0007** (`create_student_with_enrollments`) é uma função usada
-pela criação de aluno do professor — precisa existir antes do deploy do backend
-que a chama.
+Aplique em ordem **todas** as migrações em [`supabase/migrations/`](supabase/migrations/)
+(0001 → 0011). Não pare em nenhum número intermediário: o backend depende de
+objetos criados até a **0010** (`save_attendance_day`, usada ao salvar frequência)
+e da **0007** (`create_student_with_enrollments`) — precisam existir **antes** do
+deploy do backend que as chama. Aplique a **0011** (revoga escrita direta via
+PostgREST de `anon`/`authenticated`; fecha a escalada de privilégio a admin) por
+último.
 
 ---
 
@@ -180,10 +183,19 @@ Acesse `https://portal-xxxx.vercel.app` e confirme:
 
 ## Atualizações futuras
 
-Com `autoDeploy` ligado, **todo push para `main` redeploia automaticamente** os dois
-serviços. O CI roda antes (pytest + tsc + build) e barra o deploy se algo quebrar.
+Com `autoDeploy` ligado (`render.yaml`), **todo push para `main` redeploia
+automaticamente** — inclusive um push com testes quebrados. ⚠️ **O GitHub Actions
+NÃO bloqueia o deploy por padrão**: o Render não espera os checks. Para de fato
+"barrar o deploy se algo quebrar", configure uma das opções:
 
-Fluxo recomendado: trabalhe em branch → abra PR → CI valida → merge em `main` → deploy automático.
+- **Branch protection em `main`** (GitHub → Settings → Branches) exigindo os checks
+  `Backend (pytest)` e `Frontend (tsc + build)` — impede merge com CI vermelho; e/ou
+- No Render, ative **"Auto-Deploy: After CI Checks Pass"** (Settings do serviço),
+  ou desligue `autoDeploy` e dispare o deploy por um *deploy hook* chamado num job
+  do CI após os testes.
+
+Fluxo recomendado: trabalhe em branch → abra PR → CI valida → **merge só com CI verde**
+(branch protection) → deploy automático.
 
 ---
 

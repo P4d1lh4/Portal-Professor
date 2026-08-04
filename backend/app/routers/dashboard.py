@@ -9,10 +9,11 @@ import asyncio
 
 from fastapi import APIRouter, Depends, Query
 
-from ..db import get_admin_db
+from ..db import fetch_all, get_admin_db
 from ..deps import get_current_user
 from ..schemas.users import Profile
 from ..services.classification import Status, classify_status
+from ..services.permissions import assert_coordinator_owns_period
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -57,13 +58,14 @@ async def get_dashboard(
 
         module_ids = [m["id"] for m in modules]
 
-        enroll_resp = await asyncio.to_thread(
-            lambda: db.table("enrollments")
-            .select("id, module_id, grade:grades!enrollment_id(final_grade, absences)")
-            .in_("module_id", module_ids)
-            .execute()
+        enrollments = await asyncio.to_thread(
+            lambda: fetch_all(
+                lambda lo, hi: db.table("enrollments")
+                .select("id, module_id, grade:grades!enrollment_id(final_grade, absences)")
+                .in_("module_id", module_ids)
+                .range(lo, hi)
+            )
         )
-        enrollments = enroll_resp.data or []
 
         # Agrega por módulo
         mod_map: dict[str, dict] = {m["id"]: {**m, "students": 0, "approved": 0, "reproved_abs": 0} for m in modules}
@@ -120,6 +122,15 @@ async def get_dashboard(
         }
 
     # ── Coordinator / Admin ───────────────────────────────────────────────────
+    # Determinar período a consultar.
+    # Escopo: quando o coordenador passa um period_id explícito, ele PRECISA ser
+    # dono do período — senão veria os agregados de qualquer período (IDOR).
+    # Sem esta checagem, o único branch que filtra por coordinator_id é o de
+    # baixo (period_id ausente). Admin não é escopado por período.
+    if period_id and role == "coordinator":
+        await asyncio.to_thread(
+            assert_coordinator_owns_period, db, period_id, current_user
+        )
     # Determinar período a consultar
     if period_id:
         periods_query = (
@@ -186,13 +197,14 @@ async def get_dashboard(
             "grade_distribution": [],
         }
 
-    enroll_resp = await asyncio.to_thread(
-        lambda: db.table("enrollments")
-        .select("id, module_id, grade:grades!enrollment_id(final_grade, absences)")
-        .in_("module_id", module_ids)
-        .execute()
+    enrollments = await asyncio.to_thread(
+        lambda: fetch_all(
+            lambda lo, hi: db.table("enrollments")
+            .select("id, module_id, grade:grades!enrollment_id(final_grade, absences)")
+            .in_("module_id", module_ids)
+            .range(lo, hi)
+        )
     )
-    enrollments = enroll_resp.data or []
 
     mod_map = {m["id"]: {**m, "students": 0, "approved": 0, "reproved_abs": 0} for m in modules}
     dist: dict[str, int] = {b: 0 for b in BUCKETS}

@@ -243,7 +243,7 @@ def update_module(
             detail="Você não tem permissão para gerenciar módulos neste período.",
         )
 
-    update_data = body.model_dump(exclude_none=True)
+    update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar.")
 

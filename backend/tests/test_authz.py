@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
+import app.routers.dashboard as dashboard_router
 import app.routers.modules as modules_router
 import app.routers.periods as periods_router
 import app.routers.students as students_router
@@ -313,3 +314,20 @@ class TestGetModuleAuthz:
 
         resp = client.get("/api/modules/m1")
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------
+# Dashboard — coordenador não vê agregados de período alheio (IDOR — C2)
+# ---------------------------------------------------------------
+
+class TestDashboardAuthz:
+    def test_coordenador_nao_ve_dashboard_de_periodo_alheio(self, as_user, monkeypatch):
+        as_user(_profile("coordinator", uid="coord-1"))
+        # academic_periods sem match para (id, coordinator_id) → maybe_single vazio
+        # → assert_coordinator_owns_period levanta 403 antes de montar a resposta.
+        db = _FakeDb({"academic_periods": _Resp(None)})
+        monkeypatch.setattr(dashboard_router, "get_admin_db", lambda: db)
+
+        resp = client.get("/api/dashboard?period_id=periodo-de-outro-coordenador")
+        assert resp.status_code == 403
+        assert db.recorder == []  # nenhuma escrita

@@ -42,6 +42,19 @@ class GradeExportRow:
     status: str
 
 
+# Prefixos que Excel/LibreOffice interpretam como início de fórmula. Um aluno com
+# nome `=HYPERLINK(...)` viraria fórmula ativa ao coordenador abrir o CSV.
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value):
+    """Neutraliza CSV/formula injection: prefixa com apóstrofo os valores de
+    texto que começam com =,+,-,@,tab,CR. Valores não-str passam inalterados."""
+    if isinstance(value, str) and value.startswith(_FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
 def _yes_no(v: bool) -> str:
     return "sim" if v else "não"
 
@@ -70,14 +83,17 @@ def build_students_csv(rows: list[StudentExportRow]) -> bytes:
     for r in rows:
         writer.writerow(
             [
-                r.student_number,
-                r.full_name,
-                r.email or "",
-                r.enrollment_date,
-                _yes_no(r.is_active),
-                r.medical_certificates,
-                r.referral_info or "",
-                r.observations or "",
+                _csv_safe(x)
+                for x in (
+                    r.student_number,
+                    r.full_name,
+                    r.email or "",
+                    r.enrollment_date,
+                    _yes_no(r.is_active),
+                    r.medical_certificates,
+                    r.referral_info or "",
+                    r.observations or "",
+                )
             ]
         )
     return buf.getvalue().encode("utf-8")
@@ -103,15 +119,18 @@ def build_grades_csv(rows: list[GradeExportRow]) -> bytes:
     for r in rows:
         writer.writerow(
             [
-                r.student_number,
-                r.full_name,
-                _grade_str(r.tutor_grade),
-                _grade_str(r.regular_exam_grade),
-                _grade_str(r.makeup_exam_grade),
-                _grade_str(r.final_grade),
-                r.absences,
-                r.max_absences,
-                r.status,
+                _csv_safe(x)
+                for x in (
+                    r.student_number,
+                    r.full_name,
+                    _grade_str(r.tutor_grade),
+                    _grade_str(r.regular_exam_grade),
+                    _grade_str(r.makeup_exam_grade),
+                    _grade_str(r.final_grade),
+                    r.absences,
+                    r.max_absences,
+                    r.status,
+                )
             ]
         )
     return buf.getvalue().encode("utf-8")
