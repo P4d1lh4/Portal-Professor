@@ -31,7 +31,9 @@ const schema = z.object({
   coordinator_id: z.string().min(1, "Coordenador é obrigatório"),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
-  is_active: z.boolean().default(true),
+  // Sem .default(): ver nota em ModuleDialog — defaultValues/reset já garantem
+  // o valor, e o .default() quebrava o tipo com @hookform/resolvers v5.
+  is_active: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;

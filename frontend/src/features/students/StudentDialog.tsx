@@ -21,7 +21,9 @@ const schema = z.object({
   full_name: z.string().min(2, "Nome completo é obrigatório"),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   enrollment_date: z.string().min(1, "Data de matrícula é obrigatória"),
-  medical_certificates: z.coerce.number().int().min(0).default(0),
+  // Sem .default(): ver nota em ModuleDialog — defaultValues/reset já garantem
+  // o valor, e o .default() quebrava o tipo com @hookform/resolvers v5.
+  medical_certificates: z.coerce.number().int().min(0),
   referral_info: z.string().optional(),
   observations: z.string().optional(),
 });
