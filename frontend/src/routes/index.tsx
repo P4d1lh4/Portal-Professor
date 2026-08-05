@@ -41,6 +41,18 @@ function wrap(element: React.ReactNode) {
   return <Suspense fallback={<PageLoader />}>{element}</Suspense>;
 }
 
+// Quando o link do e-mail falha (expirado, já usado, inválido), o Supabase
+// devolve o usuário na Site URL — a RAIZ, não o `redirect_to` — com o motivo
+// no hash: `#error=access_denied&error_code=otp_expired&...`. O supabase-js
+// descarta esse hash sem criar sessão, então o ProtectedRoute só via "sem
+// sessão" e mandava para /login sem explicação nenhuma. Reaponta para
+// /reset-password, que já tem a UI de "link inválido ou expirado".
+// Precisa rodar antes do createBrowserRouter: o router lê window.location
+// no momento em que é criado.
+if (window.location.hash.includes("error_code=")) {
+  window.history.replaceState(null, "", "/reset-password");
+}
+
 export const router = createBrowserRouter([
   {
     // Boundary raiz: captura erros de render de qualquer rota (evita tela branca).
