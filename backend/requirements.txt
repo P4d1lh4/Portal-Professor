@@ -15,6 +15,6 @@ reportlab==5.0.0
 
 # Testes
 pytest==8.3.3
-pytest-asyncio==0.24.0
+pytest-asyncio==1.4.0
 pytest-cov==7.1.0
 respx==0.21.1
