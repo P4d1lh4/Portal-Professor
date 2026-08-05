@@ -6,7 +6,7 @@ services:
   - type: web
     name: portal-backend
     runtime: docker
-    repo: https://github.com/SEU_USUARIO/SEU_REPO
+    repo: https://github.com/P4d1lh4/Portal-Professor
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
