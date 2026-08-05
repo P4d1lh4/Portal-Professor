@@ -1,7 +1,7 @@
 # fastapi>=0.115.3 puxa starlette>=0.40 (corrige CVE-2024-47874: DoS multipart).
 fastapi==0.115.6
 email-validator==2.3.0
-uvicorn[standard]==0.31.0
+uvicorn[standard]==0.52.1
 pydantic==2.9.2
 pydantic-settings==2.5.2
 supabase==2.8.1
