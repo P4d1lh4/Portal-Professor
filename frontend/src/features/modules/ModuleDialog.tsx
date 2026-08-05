@@ -32,9 +32,14 @@ const schema = z.object({
   code: z.string().min(1, "Código é obrigatório"),
   professor_id: z.string().min(1, "Professor é obrigatório"),
   academic_period_id: z.string().min(1, "Período é obrigatório"),
-  credits: z.coerce.number().int().min(1).max(20).default(4),
-  max_absences: z.coerce.number().int().min(0).default(10),
-  is_active: z.boolean().default(true),
+  // Sem .default(): os valores iniciais vêm de defaultValues/reset abaixo, que
+  // sempre preenchem estes campos. O .default() do zod só dispararia para
+  // `undefined` (nunca acontece aqui) e, a partir do @hookform/resolvers v5,
+  // tornava o tipo de entrada opcional e o de saída obrigatório — descasamento
+  // que o Resolver<T> não aceita mais.
+  credits: z.coerce.number().int().min(1).max(20),
+  max_absences: z.coerce.number().int().min(0),
+  is_active: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
