@@ -7,7 +7,7 @@ import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from ..db import get_admin_db
+from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
 from ..services.classification import Status, classify_status
@@ -156,34 +156,35 @@ def period_report(
     if current_user.role == "coordinator":
         _assert_coord_owns_period(db, current_user.id, period_id)
 
-    students = (
-        db.table("students")
+    # fetch_all pagina para não truncar em 1000 linhas (períodos grandes).
+    students_data = fetch_all(
+        lambda lo, hi: db.table("students")
         .select("id, student_number, full_name")
         .eq("academic_period_id", period_id)
         .eq("is_active", True)
         .order("full_name")
-        .execute()
+        .range(lo, hi)
     )
 
     rows: list[PeriodReportRow] = []
-    if students.data:
-        student_ids = [s["id"] for s in students.data]
-        enrollments = (
-            db.table("enrollments")
+    if students_data:
+        student_ids = [s["id"] for s in students_data]
+        enrollments_data = fetch_all(
+            lambda lo, hi: db.table("enrollments")
             .select(
                 "student_id, "
                 "module:modules!module_id(max_absences), "
                 "grade:grades!enrollment_id(final_grade, absences)"
             )
             .in_("student_id", student_ids)
-            .execute()
+            .range(lo, hi)
         )
 
         by_student: dict[str, list[dict]] = {sid: [] for sid in student_ids}
-        for e in enrollments.data:
+        for e in enrollments_data:
             by_student.setdefault(e["student_id"], []).append(e)
 
-        for s in students.data:
+        for s in students_data:
             ents = by_student.get(s["id"], [])
             grades = [(e.get("grade") or {}) for e in ents]
             mods = [(e.get("module") or {}) for e in ents]

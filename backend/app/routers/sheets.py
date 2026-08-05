@@ -10,6 +10,7 @@ O fluxo:
 Formato esperado da planilha (colunas podem ser em qualquer ordem):
   student_number, tutor_grade, regular_exam_grade, makeup_exam_grade, absences
 """
+import asyncio
 import csv
 import io
 from datetime import datetime, timezone
@@ -18,7 +19,7 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..db import get_admin_db
+from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
 from ..services.grades import recalc_final
@@ -82,7 +83,7 @@ def _parse_sheet(content: bytes) -> list[dict]:
 
 
 @router.put("/api/periods/{period_id}/sync-url")
-async def set_sync_url(
+def set_sync_url(
     period_id: str,
     body: dict,
     current_user: Profile = Depends(_COORD_ADMIN),
@@ -110,59 +111,30 @@ async def set_sync_url(
     return {"csv_sync_url": url or None}
 
 
-@router.post("/api/periods/{period_id}/sync-sheets")
-async def sync_sheets(
-    period_id: str,
-    current_user: Profile = Depends(_COORD_ADMIN),
-) -> dict:
-    db = get_admin_db()
+def _apply_sheet_grades(db, period_id: str, rows: list[dict]) -> dict:
+    """Aplica as notas da planilha às matrículas do período.
 
-    period = (
-        db.table("academic_periods")
-        .select("id, coordinator_id, csv_sync_url")
-        .eq("id", period_id)
-        .maybe_single()
-        .execute()
-    )
-    if not period.data:
-        raise HTTPException(404, "Período não encontrado.")
-    if current_user.role == "coordinator" and period.data["coordinator_id"] != current_user.id:
-        raise HTTPException(403, "Você não gerencia este período.")
-
-    sync_url: str | None = period.data.get("csv_sync_url")
-    if not sync_url:
-        raise HTTPException(422, "Nenhuma URL de planilha configurada para este período.")
-
-    # Revalida antes do fetch — protege URLs já gravadas antes desta checagem.
-    _validate_sync_url(sync_url)
-
-    content = await _fetch_csv(sync_url)
-    rows = _parse_sheet(content)
-
-    if not rows:
-        raise HTTPException(422, "A planilha está vazia ou não foi possível interpretar o CSV.")
-
-    if "student_number" not in rows[0]:
-        raise HTTPException(
-            422,
-            "Coluna 'student_number' não encontrada na planilha.",
-        )
-
-    # Buscar todos os alunos do período com seus enrollments e grades
-    enrollments_resp = (
-        db.table("enrollments")
+    Bloco 100% síncrono (queries do supabase-py): roda em threadpool via
+    asyncio.to_thread para não travar o event loop durante os N updates —
+    crítico no worker único do Render.
+    """
+    # Todas as matrículas do período com student e grade. fetch_all pagina para
+    # não truncar em 1000 linhas (períodos grandes ficavam com alunos "não
+    # encontrados" silenciosamente).
+    enrollments_data = fetch_all(
+        lambda lo, hi: db.table("enrollments")
         .select(
             "id, module_id, "
             "student:students!student_id(id, student_number), "
             "grade:grades!enrollment_id(enrollment_id, regular_exam_grade, makeup_exam_grade)"
         )
         .eq("students.academic_period_id", period_id)
-        .execute()
+        .range(lo, hi)
     )
 
     # Índice: student_number → lista de enrollments
     enroll_by_student: dict[str, list[dict]] = {}
-    for enr in (enrollments_resp.data or []):
+    for enr in enrollments_data:
         student = enr.get("student") or {}
         snum = student.get("student_number", "")
         if snum:
@@ -223,3 +195,45 @@ async def sync_sheets(
         "not_found_count": len(not_found),
         "synced_at": now_iso,
     }
+
+
+@router.post("/api/periods/{period_id}/sync-sheets")
+async def sync_sheets(
+    period_id: str,
+    current_user: Profile = Depends(_COORD_ADMIN),
+) -> dict:
+    db = get_admin_db()
+
+    period = await asyncio.to_thread(
+        lambda: db.table("academic_periods")
+        .select("id, coordinator_id, csv_sync_url")
+        .eq("id", period_id)
+        .maybe_single()
+        .execute()
+    )
+    if not period.data:
+        raise HTTPException(404, "Período não encontrado.")
+    if current_user.role == "coordinator" and period.data["coordinator_id"] != current_user.id:
+        raise HTTPException(403, "Você não gerencia este período.")
+
+    sync_url: str | None = period.data.get("csv_sync_url")
+    if not sync_url:
+        raise HTTPException(422, "Nenhuma URL de planilha configurada para este período.")
+
+    # Revalida antes do fetch — protege URLs já gravadas antes desta checagem.
+    _validate_sync_url(sync_url)
+
+    content = await _fetch_csv(sync_url)
+    rows = _parse_sheet(content)
+
+    if not rows:
+        raise HTTPException(422, "A planilha está vazia ou não foi possível interpretar o CSV.")
+
+    if "student_number" not in rows[0]:
+        raise HTTPException(
+            422,
+            "Coluna 'student_number' não encontrada na planilha.",
+        )
+
+    # Bloco síncrono (queries + N updates) no threadpool — não trava o event loop.
+    return await asyncio.to_thread(_apply_sheet_grades, db, period_id, rows)

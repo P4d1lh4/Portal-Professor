@@ -99,3 +99,43 @@ class TestBuildGradesCsv:
         assert len(lines) == 1
         assert "Matrícula" in lines[0]
         assert "Status" in lines[0]
+
+
+class TestFormulaInjection:
+    def test_neutraliza_campos_de_formula(self):
+        rows = [
+            StudentExportRow(
+                student_number="=1+1",
+                full_name='=HYPERLINK("http://mal.example","x")',
+                email="@evil",
+                enrollment_date="2026-01-01",
+                is_active=True,
+                medical_certificates=0,
+                referral_info="+cmd",
+                observations="-2+3",
+            ),
+        ]
+        line = _decode(build_students_csv(rows)).splitlines()[1]
+        # Todo valor que começa com =,+,-,@ é prefixado com apóstrofo.
+        assert "'=1+1" in line
+        assert "'=HYPERLINK" in line
+        assert "'@evil" in line
+        assert "'+cmd" in line
+        assert "'-2+3" in line
+
+    def test_valores_normais_nao_sao_alterados(self):
+        rows = [
+            StudentExportRow(
+                student_number="2024001",
+                full_name="João Silva",
+                email="joao@x.com",
+                enrollment_date="2026-01-01",
+                is_active=True,
+                medical_certificates=0,
+                referral_info=None,
+                observations=None,
+            ),
+        ]
+        line = _decode(build_students_csv(rows)).splitlines()[1]
+        assert "João Silva" in line
+        assert "'" not in line  # nada foi prefixado

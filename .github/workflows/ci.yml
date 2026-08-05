@@ -38,6 +38,15 @@ jobs:
           SUPABASE_JWT_SECRET: stub-jwt-secret
         run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=50
 
+      - name: Auditoria de dependências (pip-audit)
+        # Reporta CVEs conhecidos. Ainda não bloqueia o build (continue-on-error)
+        # para não travar o CI em advisories sem correção disponível; remova o
+        # continue-on-error para transformá-lo em gate quando a árvore estiver limpa.
+        continue-on-error: true
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
   frontend:
     name: Frontend (tsc + build)
     runs-on: ubuntu-latest
@@ -56,6 +65,11 @@ jobs:
 
       - name: Instalar dependências
         run: npm ci
+
+      - name: Auditoria de dependências (npm audit)
+        # Não bloqueia o build ainda (ver nota no job backend).
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Lint (eslint)
         run: npm run lint

@@ -218,7 +218,9 @@ def update_user(
     """Atualiza dados de um usuário. Apenas admin."""
     db = get_admin_db()
 
-    update_data = body.model_dump(exclude_none=True)
+    # exclude_unset: só os campos que o cliente enviou explicitamente (permite
+    # limpar um campo mandando null, ao contrário de exclude_none).
+    update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

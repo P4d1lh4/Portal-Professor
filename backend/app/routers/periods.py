@@ -201,7 +201,8 @@ def update_period(
 ) -> Period:
     db = get_admin_db()
 
-    update_data = body.model_dump(exclude_none=True)
+    # exclude_unset permite limpar campos (ex.: end_date=null) — exclude_none os descartava.
+    update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar.")
 
