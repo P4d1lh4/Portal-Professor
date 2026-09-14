@@ -10,6 +10,8 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | Etapa | Item | Severidade | Status | Testes | Documento |
 |:-----:|------|:----------:|--------|--------|-----------|
 | 27 | [O-03] Triagem dos 10 PRs do Dependabot + `groups`/`ignore` | 🟡 Média | ✅ Concluída | ✅ 162 pytest · CI verde | [27-triagem-prs-dependabot.md](27-triagem-prs-dependabot.md) |
+| 28 | [O-03] Vite 8 (Rolldown) + plugin-react 6 + vitest 4 | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/vitest/build | [28-vite-8.md](28-vite-8.md) |
+| 29 | [Fase 0] Keep-alive, B-01 backend, seed sem default, docs de migração | 🔴 Crítica | ✅ Concluída | ✅ 162 pytest · pip-audit limpo | [29-fase-0-emergencia.md](29-fase-0-emergencia.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 
@@ -74,6 +76,6 @@ Bugs encontrados por revisão adversarial multi-agente do estado já mergeado (c
 
 `M12 restante` Sentry (precisa DSN) + formatter JSON · `M2 restante` (`sheets`/`import_csv`/`medical`/`dashboard` + professor↔aluno) · `M1` camada de repositório (grande — reavaliar escopo/necessidade).
 
-> ⏳ **Ações manuais do responsável pelo deploy:** aplicar `0008`, `0009` e `0010` no SQL Editor do Supabase (nesta ordem; a `0010` **antes** de subir o backend novo); rotacionar segredos (A6).
+> ✅ `0008`–`0011` já aplicadas em produção (confirmado em 2026-08-05). ⏳ **Ação manual pendente:** rotacionar segredos (A6).
 
 > Backlog completo e prioridades: `docs/auditoria/00-estado-atual.md` (seções 6 e 8).

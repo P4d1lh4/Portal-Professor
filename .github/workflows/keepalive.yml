@@ -1,0 +1,20 @@
+name: Keep-alive
+
+# Bate no readyz a cada 10 min: mantém o Supabase free ativo (pausa após 7 dias
+# sem tráfego) e o Render free acordado (dorme após 15 min). Falha = e-mail do
+# GitHub avisando que a produção está fora do ar.
+# ponytail: o GitHub desativa cron em repo público após 60 dias sem commits;
+# se acontecer, reative em Actions. Saída definitiva: Supabase Pro / Render Starter (O-02).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /api/readyz
+        # Cold start do Render free leva ~25-50 s; o retry cobre o 502/503 enquanto acorda.
+        run: curl -fsS --max-time 60 --retry 4 --retry-delay 15 --retry-all-errors https://portal-professor.onrender.com/api/readyz
