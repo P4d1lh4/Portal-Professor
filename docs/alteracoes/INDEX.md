@@ -31,6 +31,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 46 | [Fase 3] P-N2: seção "Atenção" no relatório de período em PDF (mesma regra e ordem do card do professor); helpers `grade_risk`/`risk_sort_key` usados por Notas, dashboard e relatório | 🟠 Alta | ✅ Concluída | ✅ 2 pytest novos · mutações pegas | [46-relatorio-periodo-atencao.md](46-relatorio-periodo-atencao.md) |
 | 47 | [Fase 3] P-Q5/B-S3: "Novo período a partir de…" copia os módulos ativos (sem alunos: `student_number` é único global, B-08); import acusa no preview matrícula de outro período | 🟠 Alta | ✅ Concluída | ✅ 9 pytest novos · cobertura 82,1% · 5 mutações pegas | [47-clonar-periodo.md](47-clonar-periodo.md) |
 | 48 | [Fase 3] P-Q4/B-S4/F-S4: export CSV da frequência do módulo (matriz aluno × dia com P/F/J e totais) + botão na Chamada; permissão compartilhada com o export de notas | 🟡 Média | ✅ Concluída | ✅ pytest + vitest · 5 mutações pegas | [48-export-frequencia.md](48-export-frequencia.md) |
+| 49 | [Fase 3] P-06: regra de situação única — boletim em PDF e ficha do aluno sem cópias manuais; tabela de casos compartilhada entre pytest e vitest | 🟡 Média | ✅ Concluída | ✅ 8 casos × 4 implementações · 3 mutações pegas | [49-classificacao-unica.md](49-classificacao-unica.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 

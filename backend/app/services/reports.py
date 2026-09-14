@@ -18,6 +18,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from .classification import classify_label
+
 
 # ---------------------------------------------------------------
 # Dataclasses de entrada — desacoplam o renderer dos schemas/banco
@@ -36,13 +38,8 @@ class StudentModuleLine:
 
     @property
     def status(self) -> str:
-        if self.absences > self.max_absences:
-            return "Rep. faltas"
-        if self.final_grade >= 7:
-            return "Aprovado"
-        if self.final_grade >= 5:
-            return "Recuperação"
-        return "Reprovado"
+        # Regra única (P-06); antes era uma cópia manual dos limiares.
+        return classify_label(self.final_grade, self.absences, self.max_absences)
 
 
 @dataclass

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { classifyStatus } from "./classification";
+import { classifyStatus, type Status } from "./classification";
+// Mesma tabela que o backend confere em tests/test_classification_cases.py:
+// front e back não conseguem divergir sem quebrar os dois lados (P-06).
+import cases from "./classification.cases.json";
 
 describe("classifyStatus", () => {
   it("reprovação por faltas tem prioridade sobre a nota", () => {
@@ -18,4 +21,11 @@ describe("classifyStatus", () => {
   it("reprova abaixo de 5", () => {
     expect(classifyStatus(4.99, 0, 10)).toBe("reprovado");
   });
+
+  it.each(cases)(
+    "tabela compartilhada com o backend: final $final, $absences/$max faltas → $status",
+    ({ final, absences, max, status }) => {
+      expect(classifyStatus(final, absences, max)).toBe(status as Status);
+    },
+  );
 });

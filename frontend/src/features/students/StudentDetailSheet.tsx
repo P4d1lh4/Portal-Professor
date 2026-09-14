@@ -33,19 +33,27 @@ import { useModules } from "@/features/modules/useModules";
 import { useDownloadStudentReport } from "@/features/reports/useReports";
 import { useEnrollStudent, useStudentDetail, useUnenrollStudent } from "./useStudents";
 import type { ModuleGradeSummary, StudentItem } from "./api";
+import { classifyStatus, type Status } from "@/lib/classification";
+
+// Rótulos da ficha, mais explícitos que os da tabela; a regra de situação é a
+// de lib/classification (P-06: antes era uma cópia manual dos limiares).
+const STATUS_BADGE: Record<
+  Status,
+  { variant: "success" | "warning" | "destructive"; label: string }
+> = {
+  aprovado: { variant: "success", label: "Aprovado" },
+  recuperacao: { variant: "warning", label: "Recuperação" },
+  rep_faltas: { variant: "destructive", label: "Reprovado — Faltas" },
+  reprovado: { variant: "destructive", label: "Reprovado — Nota" },
+};
 
 function GradeStatusBadge({ grade, maxAbsences, absences }: {
   grade: number;
   maxAbsences: number;
   absences: number;
 }) {
-  if (absences > maxAbsences)
-    return <Badge variant="destructive">Reprovado — Faltas</Badge>;
-  if (grade >= 7)
-    return <Badge variant="success">Aprovado</Badge>;
-  if (grade >= 5)
-    return <Badge variant="warning">Recuperação</Badge>;
-  return <Badge variant="destructive">Reprovado — Nota</Badge>;
+  const { variant, label } = STATUS_BADGE[classifyStatus(grade, absences, maxAbsences)];
+  return <Badge variant={variant}>{label}</Badge>;
 }
 
 function AbsenceBar({ absences, max }: { absences: number; max: number }) {

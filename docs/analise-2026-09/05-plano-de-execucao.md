@@ -89,7 +89,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [ ] **F-S1** Filtro por situação na GradesPage. — P
 - [ ] **F-08** Cards mobile em Notas e Chamada (padrão de `StudentsPage`). — M
 - [ ] **P-N4** "faltas / chamadas registradas" ao lado de "faltas / máximo". — P
-- [ ] **P-06** `reports.py` usar `classify_status`; teste que compara as 4 implementações. — P
+- [x] **P-06** `reports.py` usar `classify_status`; teste que compara as 4 implementações. — P · ✅ + selo da ficha do aluno; tabela `classification.cases.json` lida por pytest e vitest (alteração 49)
 
 ## Fase 4 — Consistência e dívida técnica (contínuo · ~4 dias)
 
