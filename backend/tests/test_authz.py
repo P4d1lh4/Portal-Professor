@@ -228,3 +228,23 @@ class TestDashboardAuthz:
         resp = client.get("/api/dashboard?period_id=periodo-de-outro-coordenador")
         assert resp.status_code == 403
         assert db.writes == []  # nenhuma escrita
+
+    def test_professor_ve_so_os_proprios_modulos(self, as_user, monkeypatch):
+        as_user("professor", "prof-1")
+        db = FakeDb({
+            "modules": Resp([{"id": "m1", "name": "Mat", "code": "M1", "max_absences": 10, "is_active": True}]),
+            "enrollments": Resp([
+                {"id": "e1", "module_id": "m1", "grade": {"final_grade": 8, "absences": 0}},
+                {"id": "e2", "module_id": "m1", "grade": {"final_grade": 4, "absences": 0}},
+            ]),
+        })
+        monkeypatch.setattr(dashboard_router, "get_admin_db", lambda: db)
+
+        # period_id alheio é ignorado: o professor só enxerga os módulos dele.
+        resp = client.get("/api/dashboard?period_id=periodo-alheio")
+        assert resp.status_code == 200
+        assert resp.json()["summary"] == {
+            "modules": 1, "students": 2, "approvals": 1, "approval_rate": 50,
+        }
+        assert ("eq", ("professor_id", "prof-1")) in db.calls("modules")
+        assert "academic_periods" not in db.tables

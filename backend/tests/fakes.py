@@ -7,6 +7,9 @@ Uso:
 - Cada tabela devolve a resposta configurada; sem configuração, Resp([]).
   A chave "tabela.<op>" (update/insert/upsert/delete) responde só às escritas
   nessa tabela; sem ela, a escrita devolve a mesma resposta das leituras.
+- A resposta pode ser uma função query -> Resp, para quando a mesma tabela é
+  lida duas vezes com filtros diferentes (ex.: o período e a checagem de dono);
+  a função decide olhando query.calls.
 - Filtros não filtram (a resposta é a configurada), mas ficam registrados:
   db.calls("students") -> [("select", ("*",)), ("eq", ("id", "s1")), ...].
 - Escritas: db.writes -> [(tabela, op, payload)]. Tabelas consultadas, em
@@ -66,6 +69,8 @@ class _Query:
     def execute(self):
         responses = self._db.responses
         resp = responses.get(f"{self.table}.{self.op}") or responses.get(self.table, Resp([]))
+        if callable(resp):
+            resp = resp(self)
         if not isinstance(resp.data, list):
             return resp
         lo, hi = self._range or (0, POSTGREST_MAX_ROWS - 1)

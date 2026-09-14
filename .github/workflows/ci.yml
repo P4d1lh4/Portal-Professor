@@ -36,7 +36,7 @@ jobs:
           SUPABASE_ANON_KEY: stub-anon-key
           SUPABASE_SERVICE_ROLE_KEY: stub-service-role-key
           SUPABASE_JWT_SECRET: stub-jwt-secret
-        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=60
+        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=70
 
       - name: Auditoria de dependências (pip-audit)
         # Reporta CVEs conhecidos. Ainda não bloqueia o build (continue-on-error)
