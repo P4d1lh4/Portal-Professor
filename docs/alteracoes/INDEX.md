@@ -5,6 +5,12 @@ Controle de progresso das melhorias da auditoria. Fluxo por melhoria:
 
 Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída · Bloqueada.
 
+## Análise 2026-09
+
+| Etapa | Item | Severidade | Status | Testes | Documento |
+|:-----:|------|:----------:|--------|--------|-----------|
+| 27 | [O-03] Triagem dos 10 PRs do Dependabot + `groups`/`ignore` | 🟡 Média | ✅ Concluída | ✅ 162 pytest · CI verde | [27-triagem-prs-dependabot.md](27-triagem-prs-dependabot.md) |
+
 ## Correções pós-merge (revisão adversarial do PR #28)
 
 Bugs encontrados por revisão adversarial multi-agente do estado já mergeado (código novo do main Q4/Q5/S2 + minhas mudanças). 4 confirmados, 0 refutados.
