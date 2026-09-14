@@ -27,7 +27,7 @@ Levar para o banco as travas que hoje só existem na aplicação, para os caminh
 
 - **I-02:** a policy vira `profiles_select_own_or_admin USING (id = auth.uid() OR is_admin())`. O frontend só lê a própria linha no login; os dropdowns vêm da API, que usa service_role.
 - **I-01:** `CHECK (end_date >= start_date)`. Datas nulas continuam aceitas.
-- **I-03:** as FKs `students.academic_period_id` e `modules.academic_period_id` passam a `ON DELETE RESTRICT`. O erro é `restrict_violation` (23001). A API já recusa antes, em `periods.delete_period`.
+- **I-03:** as FKs `students.academic_period_id` e `modules.academic_period_id` passam a `ON DELETE RESTRICT`. O erro é `foreign_key_violation` (23503) até o Postgres 17, a versão do Supabase, e `restrict_violation` (23001) no 18. A API já recusa antes, em `periods.delete_period`.
 - **I-04:** `UNIQUE (email)` em `profiles`.
 - **I-05:** trigger `trg_profiles_protect_privileges` (`BEFORE UPDATE`). Se a atualização muda `role` ou `is_active`, vem com JWT (`auth.uid()` não nulo) e o autor não é admin, ela é recusada com `insufficient_privilege`. O service_role do backend e o SQL Editor não têm `sub` e passam.
 - **I-06:** `ALTER FUNCTION ... SET search_path = public, pg_temp` nas 4 funções.

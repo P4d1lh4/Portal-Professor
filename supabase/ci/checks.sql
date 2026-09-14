@@ -33,7 +33,8 @@ DO $$ BEGIN
   BEGIN
     DELETE FROM public.academic_periods WHERE id = '00000000-0000-0000-0000-0000000000f1';
     RAISE EXCEPTION 'I-03 FALHOU: apagou período com aluno';
-  EXCEPTION WHEN restrict_violation THEN RAISE NOTICE 'I-03 ok (com vínculo, recusa)';
+  -- PG <= 17 levanta foreign_key_violation (23503); PG 18, restrict_violation (23001)
+  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN RAISE NOTICE 'I-03 ok (com vínculo, recusa)';
   END;
   DELETE FROM public.academic_periods WHERE id = '00000000-0000-0000-0000-0000000000f2';
   RAISE NOTICE 'I-03 ok (sem vínculo, apaga)';

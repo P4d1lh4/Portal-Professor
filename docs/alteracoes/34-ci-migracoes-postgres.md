@@ -36,7 +36,9 @@ A sequência exata do job, num Postgres 18 local descartável: cluster novo, `st
 
 ## Resultado dos testes
 
-✅ **Passou**: 0001 a 0012 aplicadas pelo script (exit 0; `--status` mostra todas OK); 12/12 checks ok. A confirmação final é o próprio job no PR.
+✅ **Passou localmente**: 0001 a 0012 aplicadas pelo script (exit 0; `--status` mostra todas OK); 12/12 checks ok.
+
+⚠️ **1ª execução no CI (`postgres:17`) falhou no check da I-03.** A migração estava certa (o delete foi recusado), mas o Postgres 17 levanta `foreign_key_violation` (23503) na violação de `RESTRICT`, e o 18, usado localmente, levanta `restrict_violation` (23001). O check passou a aceitar os dois. É exatamente o tipo de diferença que o job existe para pegar.
 
 ## Observações
 
