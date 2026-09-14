@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,13 +68,16 @@ export default function PeriodsPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = (period: PeriodWithCoordinator) => {
-    if (
-      !confirm(
-        `Deseja excluir o período "${period.name}"? Esta ação não pode ser desfeita.`
-      )
-    )
-      return;
+  const { confirm, confirmDialog } = useConfirm();
+
+  const handleDelete = async (period: PeriodWithCoordinator) => {
+    const ok = await confirm({
+      title: `Excluir o período "${period.name}"?`,
+      description: "Esta ação não pode ser desfeita.",
+      confirmLabel: "Excluir",
+      destructive: true,
+    });
+    if (!ok) return;
     deleteMutation.mutate(period.id);
   };
 
@@ -238,6 +242,7 @@ export default function PeriodsPage() {
           currentUrl={syncPeriod.csv_sync_url}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

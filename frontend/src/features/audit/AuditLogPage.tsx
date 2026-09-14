@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -205,9 +205,8 @@ export default function AuditLogPage() {
                 {items.map((entry) => {
                   const isOpen = expanded.has(entry.id);
                   return (
-                    <>
+                    <Fragment key={entry.id}>
                       <TableRow
-                        key={entry.id}
                         className="cursor-pointer"
                         onClick={() => toggle(entry.id)}
                       >
@@ -235,13 +234,13 @@ export default function AuditLogPage() {
                         </TableCell>
                       </TableRow>
                       {isOpen && (
-                        <TableRow key={`${entry.id}-detail`}>
+                        <TableRow>
                           <TableCell colSpan={6} className="bg-muted/20 p-4">
                             <DiffBlock entry={entry} />
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </TableBody>

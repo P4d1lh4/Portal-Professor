@@ -14,6 +14,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 29 | [Fase 0] Keep-alive, B-01 backend, seed sem default, docs de migração | 🔴 Crítica | ✅ Concluída | ✅ 162 pytest · pip-audit limpo | [29-fase-0-emergencia.md](29-fase-0-emergencia.md) |
 | 30 | [O-03/B-01] recharts 3 + eslint 10 + `npm audit fix` (e fim do `vendor-charts`) | 🟡 Média | ✅ Concluída | ✅ lint/tsc/vitest/build + chunks | [30-recharts-3-eslint-10.md](30-recharts-3-eslint-10.md) |
 | 31 | [Fase 1] Backend: sync em período fechado, exports paginados, `create_user`, schemas (B-02/04/06/09) | 🟠 Alta | ✅ Concluída | ✅ 174 pytest (+12) | [31-fase-1-backend.md](31-fase-1-backend.md) |
+| 32 | [Fase 1] Frontend: rascunho da Chamada, dashboard invalidado, `useConfirm`, `formatGrade`, a11y (F-01..06, F-16) | 🟠 Alta | ✅ Concluída | ✅ lint/tsc/vitest/build | [32-fase-1-frontend.md](32-fase-1-frontend.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 

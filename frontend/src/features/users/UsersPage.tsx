@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import type { Profile, UserRole } from "@/types";
 
@@ -118,24 +119,28 @@ export default function UsersPage() {
     setDialogOpen(true);
   };
 
-  const handleDeactivate = (user: Profile) => {
+  const { confirm, confirmDialog } = useConfirm();
+
+  const handleDeactivate = async (user: Profile) => {
     if (user.id === profile?.id) return; // backend já bloqueia, mas evita UI confusa
-    if (
-      !confirm(
-        `Desativar "${user.full_name}"? Ele(a) não conseguirá mais entrar no sistema. Os dados permanecem.`
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: `Desativar "${user.full_name}"?`,
+      description:
+        "Ele(a) não conseguirá mais entrar no sistema. Os dados permanecem.",
+      confirmLabel: "Desativar",
+      destructive: true,
+    });
+    if (!ok) return;
     deactivate.mutate(user.id);
   };
 
-  const handleReactivate = (user: Profile) => {
-    if (
-      !confirm(
-        `Reativar "${user.full_name}"? Ele(a) volta a conseguir entrar no sistema.`
-      )
-    )
-      return;
+  const handleReactivate = async (user: Profile) => {
+    const ok = await confirm({
+      title: `Reativar "${user.full_name}"?`,
+      description: "Ele(a) volta a conseguir entrar no sistema.",
+      confirmLabel: "Reativar",
+    });
+    if (!ok) return;
     reactivate.mutate(user.id);
   };
 
@@ -453,6 +458,7 @@ export default function UsersPage() {
           await update.mutateAsync({ id: editing.id, body: data });
         }}
       />
+      {confirmDialog}
     </div>
   );
 }

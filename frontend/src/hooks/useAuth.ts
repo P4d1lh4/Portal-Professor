@@ -109,7 +109,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
     }
     const parsed = profileSchema.safeParse(data);
     if (!parsed.success) {
-      console.error("[auth] Profile com formato inesperado:", parsed.error.issues);
+      debugError("Profile com formato inesperado:", parsed.error.issues);
       return null;
     }
     return parsed.data as Profile;

@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatGrade } from "@/lib/utils";
 import { MedicalCertificatesSheet } from "@/features/medical-certificates/MedicalCertificatesSheet";
 import { useDownloadStudentReport } from "@/features/reports/useReports";
 import { useStudentDetail } from "./useStudents";
@@ -164,9 +165,7 @@ export function StudentDetailSheet({
                     student.avg_final_grade !== undefined && (
                       <span className="ml-auto font-mono text-sm font-semibold">
                         Média:{" "}
-                        {student.avg_final_grade
-                          .toFixed(1)
-                          .replace(".", ",")}
+                        {formatGrade(student.avg_final_grade)}
                       </span>
                     )}
                 </div>
@@ -197,7 +196,7 @@ export function StudentDetailSheet({
                         <span>
                           Nota:{" "}
                           <span className="font-mono font-semibold text-foreground">
-                            {mod.final_grade.toFixed(1).replace(".", ",")}
+                            {formatGrade(mod.final_grade)}
                           </span>
                         </span>
                       </div>
