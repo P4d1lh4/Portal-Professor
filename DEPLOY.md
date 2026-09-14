@@ -15,7 +15,7 @@ Deploy em **Vercel** (frontend) + **Render** (backend) + **Supabase** (banco/aut
 
 - [ ] Código no GitHub (o CI em `.github/workflows/ci.yml` já valida cada push)
 - [ ] Conta na [Vercel](https://vercel.com) e no [Render](https://render.com) (login com GitHub facilita)
-- [ ] Migrações 0001–0007 aplicadas no Supabase (ver [Segurança: RLS e service role](#segurança-rls-e-service-role))
+- [ ] Migrações 0001–0011 aplicadas no Supabase, todas e em ordem (ver [Segurança: RLS e service role](#segurança-rls-e-service-role))
 
 ### Coletando os segredos do Supabase
 

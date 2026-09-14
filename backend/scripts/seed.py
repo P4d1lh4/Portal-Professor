@@ -36,8 +36,9 @@ from supabase import create_client, Client
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SERVICE_KEY  = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-ADMIN_PASS   = os.environ.get("SEED_ADMIN_PASSWORD", "Admin@1234!")
-DEFAULT_PASS = os.environ.get("SEED_DEFAULT_PASSWORD", "Escola@2024!")
+# Sem default: dev e prod dividem o Supabase; senha documentada criaria usuários reais fracos.
+ADMIN_PASS   = os.environ["SEED_ADMIN_PASSWORD"]
+DEFAULT_PASS = os.environ["SEED_DEFAULT_PASSWORD"]
 
 supabase: Client = create_client(SUPABASE_URL, SERVICE_KEY)
 

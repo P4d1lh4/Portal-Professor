@@ -15,7 +15,7 @@ def test_healthz():
 
 def test_me_sem_token_retorna_401():
     resp = client.get("/api/me")
-    assert resp.status_code == 403  # HTTPBearer retorna 403 quando sem token
+    assert resp.status_code == 401  # HTTPBearer devolve 401 sem token desde o FastAPI 0.122 (antes: 403)
 
 
 def test_me_com_token_invalido_retorna_401():

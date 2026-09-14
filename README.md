@@ -11,7 +11,7 @@ Sistema acadêmico para gestão de alunos, módulos/disciplinas, notas e faltas,
 | Camada | Tecnologias |
 |--------|-------------|
 | **Frontend** | React 18 · TypeScript · Vite · TailwindCSS · shadcn/ui · TanStack Query v5 · React Hook Form + Zod · Recharts · Zustand |
-| **Backend** | FastAPI 0.115 · Pydantic v2 · supabase-py 2.8 · JWT via JWKS (RS256/ES256; HS256 legado) |
+| **Backend** | FastAPI 0.141 · Pydantic v2 · supabase-py 2.8 · JWT via JWKS (RS256/ES256; HS256 legado) |
 | **Banco** | Supabase (PostgreSQL) · Supabase Auth · Row Level Security |
 | **Testes** | pytest 8.3 (backend) · vitest (frontend) · cobertura mínima 50% no CI |
 
@@ -37,10 +37,10 @@ Sistema acadêmico para gestão de alunos, módulos/disciplinas, notas e faltas,
 │   │   └── main.py
 │   ├── scripts/seed.py     # seed idempotente via Supabase Admin API
 │   └── tests/              # suíte pytest (authz, regras, anti-injeção)
-├── supabase/migrations/    # 0001–0007 (+ seed): schema, RLS, atestados,
-│   │                       # is_active, faltas, auditoria, RPC de aluno
+├── supabase/migrations/    # 0001–0011 (+ seed): schema, RLS, atestados,
+│   │                       # is_active, faltas, auditoria, RPCs, CHECKs, índices
 │   ├── 0001_initial_schema.sql
-│   └── 0002_rls_granular.sql … 0007_create_student_with_enrollments.sql
+│   └── 0002_rls_granular.sql … 0011_lock_postgrest_writes.sql
 └── docker-compose.yml
 ```
 
@@ -113,9 +113,9 @@ supabase/migrations/0011_lock_postgrest_writes.sql
 ### 4. Seed de dados de exemplo
 
 ```bash
-# Definir senhas no .env do backend
-SEED_ADMIN_PASSWORD=admin123
-SEED_DEFAULT_PASSWORD=senha123
+# Definir senhas no .env do backend (obrigatórias; o seed falha sem elas)
+SEED_ADMIN_PASSWORD=<senha-forte>
+SEED_DEFAULT_PASSWORD=<senha-forte>
 
 python backend/scripts/seed.py
 ```
