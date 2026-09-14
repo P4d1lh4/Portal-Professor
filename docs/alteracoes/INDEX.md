@@ -29,6 +29,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 44 | [Fase 3] P-Q3/B-05: auditoria em usuários (papel/ativo), atestados e anexos (sem dado de saúde), exclusão de chamada (com as marcações), planilha, import e `insert` nas criações de período/módulo/aluno; encerrar período | 🟡 Média | ✅ Concluída | ✅ 13 pytest · cobertura 79,9% · 9 mutações pegas | [44-auditoria-completa.md](44-auditoria-completa.md) |
 | 45 | [Fase 3] P-N1/B-S1/F-S2: alunos em risco (faltas ≥ 80% do limite; nota < 5 com prova lançada) — card no dashboard do professor e selo na Chamada; regra única `risk_reasons` | 🟠 Alta | ✅ Concluída | ✅ 11 pytest + 4 vitest · cobertura 80,5% · 7 mutações pegas | [45-alunos-em-risco.md](45-alunos-em-risco.md) |
 | 46 | [Fase 3] P-N2: seção "Atenção" no relatório de período em PDF (mesma regra e ordem do card do professor); helpers `grade_risk`/`risk_sort_key` usados por Notas, dashboard e relatório | 🟠 Alta | ✅ Concluída | ✅ 2 pytest novos · mutações pegas | [46-relatorio-periodo-atencao.md](46-relatorio-periodo-atencao.md) |
+| 47 | [Fase 3] P-Q5/B-S3: "Novo período a partir de…" copia os módulos ativos (sem alunos: `student_number` é único global, B-08); import acusa no preview matrícula de outro período | 🟠 Alta | ✅ Concluída | ✅ 9 pytest novos · cobertura 82,1% · 5 mutações pegas | [47-clonar-periodo.md](47-clonar-periodo.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 

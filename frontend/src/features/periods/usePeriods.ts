@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { periodsApi, type PeriodUpdate } from "./api";
+import { periodsApi, type PeriodCreate, type PeriodUpdate } from "./api";
 
 export const PERIODS_KEY = ["periods"] as const;
 
@@ -25,6 +25,20 @@ export function useCreatePeriod() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PERIODS_KEY });
       toast.success("Período acadêmico criado com sucesso.");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useClonePeriod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: PeriodCreate }) =>
+      periodsApi.clone(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PERIODS_KEY });
+      qc.invalidateQueries({ queryKey: ["modules"] });
+      toast.success("Período criado com os módulos copiados.");
     },
     onError: (err: Error) => toast.error(err.message),
   });

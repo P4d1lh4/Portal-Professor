@@ -42,6 +42,8 @@ interface PeriodDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   period?: PeriodWithCoordinator;
+  /** Criar um período novo copiando os módulos deste (P-Q5). */
+  cloneFrom?: PeriodWithCoordinator;
   onSubmit: (data: FormData) => Promise<void>;
 }
 
@@ -49,6 +51,7 @@ export function PeriodDialog({
   open,
   onOpenChange,
   period,
+  cloneFrom,
   onSubmit,
 }: PeriodDialogProps) {
   const isEdit = !!period;
@@ -93,10 +96,11 @@ export function PeriodDialog({
           is_active: period.is_active,
         });
       } else {
-        reset({ is_active: true, name: "", coordinator_id: "" });
+        // No clone, o coordenador do período de origem vem sugerido.
+        reset({ is_active: true, name: "", coordinator_id: cloneFrom?.coordinator_id ?? "" });
       }
     }
-  }, [open, period, reset]);
+  }, [open, period, cloneFrom, reset]);
 
   const handleFormSubmit = async (data: FormData) => {
     await onSubmit(data);
@@ -108,8 +112,18 @@ export function PeriodDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? "Editar período acadêmico" : "Novo período acadêmico"}
+            {isEdit
+              ? "Editar período acadêmico"
+              : cloneFrom
+                ? `Novo período a partir de ${cloneFrom.name}`
+                : "Novo período acadêmico"}
           </DialogTitle>
+          {cloneFrom && !isEdit && (
+            <p className="text-sm text-muted-foreground">
+              Os módulos ativos de {cloneFrom.name} serão copiados, com professor, créditos
+              e limite de faltas. Os alunos não são copiados.
+            </p>
+          )}
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
@@ -219,7 +233,11 @@ export function PeriodDialog({
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="animate-spin" />}
-              {isEdit ? "Salvar alterações" : "Criar período"}
+              {isEdit
+                ? "Salvar alterações"
+                : cloneFrom
+                  ? "Criar e copiar módulos"
+                  : "Criar período"}
             </Button>
           </DialogFooter>
         </form>

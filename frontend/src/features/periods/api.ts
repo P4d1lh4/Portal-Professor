@@ -32,4 +32,10 @@ export const periodsApi = {
     api.put<PeriodWithCoordinator>(`/api/periods/${id}`, body).then((r) => r.data),
 
   delete: (id: string) => api.delete(`/api/periods/${id}`),
+
+  /** Cria um período novo com cópia dos módulos ativos de `id` (P-Q5). */
+  clone: (id: string, body: PeriodCreate) =>
+    api
+      .post<PeriodWithCoordinator>(`/api/periods/${id}/clone`, body)
+      .then((r) => r.data),
 };

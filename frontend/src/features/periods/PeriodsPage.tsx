@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   CalendarRange,
+  Copy,
   Download,
   Pencil,
   Plus,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import {
   usePeriods,
+  useClonePeriod,
   useCreatePeriod,
   useUpdatePeriod,
   useDeletePeriod,
@@ -49,24 +51,25 @@ export default function PeriodsPage() {
 
   const { data: periods = [], isLoading } = usePeriods();
   const createMutation = useCreatePeriod();
+  const cloneMutation = useClonePeriod();
   const updateMutation = useUpdatePeriod();
   const deleteMutation = useDeletePeriod();
   const downloadReport = useDownloadPeriodReport();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<PeriodWithCoordinator | undefined>();
+  const [cloning, setCloning] = useState<PeriodWithCoordinator | undefined>();
 
   const [syncPeriod, setSyncPeriod] = useState<PeriodWithCoordinator | null>(null);
 
-  const openCreate = () => {
-    setEditing(undefined);
+  const openDialog = (edit?: PeriodWithCoordinator, clone?: PeriodWithCoordinator) => {
+    setEditing(edit);
+    setCloning(clone);
     setDialogOpen(true);
   };
-
-  const openEdit = (period: PeriodWithCoordinator) => {
-    setEditing(period);
-    setDialogOpen(true);
-  };
+  const openCreate = () => openDialog();
+  const openEdit = (period: PeriodWithCoordinator) => openDialog(period);
+  const openClone = (period: PeriodWithCoordinator) => openDialog(undefined, period);
 
   const { confirm, confirmDialog } = useConfirm();
 
@@ -90,6 +93,8 @@ export default function PeriodsPage() {
   }) => {
     if (editing) {
       await updateMutation.mutateAsync({ id: editing.id, body: data });
+    } else if (cloning) {
+      await cloneMutation.mutateAsync({ id: cloning.id, body: data });
     } else {
       await createMutation.mutateAsync(data);
     }
@@ -139,7 +144,7 @@ export default function PeriodsPage() {
                 <TableHead>Fim</TableHead>
                 <TableHead>Status</TableHead>
                 {(isAdmin || canSync) && (
-                  <TableHead className="w-28 text-right">Ações</TableHead>
+                  <TableHead className="w-44 text-right">Ações</TableHead>
                 )}
               </TableRow>
             </TableHeader>
@@ -197,6 +202,15 @@ export default function PeriodsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              aria-label={`Novo período a partir de ${period.name}`}
+                              title="Novo período a partir deste (copia os módulos)"
+                              onClick={() => openClone(period)}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               aria-label="Editar período"
                               onClick={() => openEdit(period)}
                             >
@@ -229,6 +243,7 @@ export default function PeriodsPage() {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           period={editing}
+          cloneFrom={cloning}
           onSubmit={handleSubmit}
         />
       )}

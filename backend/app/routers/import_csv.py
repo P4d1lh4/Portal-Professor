@@ -19,7 +19,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
 
-from ..db import get_admin_db
+from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.students import _check_enrollment_date
 from ..schemas.users import Profile
@@ -195,14 +195,19 @@ def _run_import(period_id: str, content: bytes, dry_run: bool, current_user: Pro
     valid_rows: list[dict] = []
     invalid_rows: list[dict] = []
 
-    # Buscar matrículas já existentes no período para checar duplicatas
-    existing_resp = (
-        db.table("students")
-        .select("student_number")
-        .eq("academic_period_id", period_id)
-        .execute()
-    )
-    existing_numbers = {r["student_number"] for r in (existing_resp.data or [])}
+    # student_number é único no banco inteiro (0001), não por período: a
+    # checagem olha todos, senão o preview aprovava a linha e a gravação falhava
+    # na RPC com o erro cru do banco. fetch_all: sem ele, passava de 1000 alunos
+    # e a duplicata escapava.
+    period_of_number = {
+        r["student_number"]: r["academic_period_id"]
+        for r in fetch_all(
+            lambda lo, hi: db.table("students")
+            .select("student_number, academic_period_id")
+            .range(lo, hi)
+        )
+    }
+    seen: set[str] = set()
 
     for idx, raw in enumerate(raw_rows, start=2):  # linha 1 = cabeçalho
         data, err = _validate_row(raw, idx)
@@ -210,16 +215,20 @@ def _run_import(period_id: str, content: bytes, dry_run: bool, current_user: Pro
             invalid_rows.append({"line": idx, "raw": raw, "error": err})
             continue
 
-        if data["student_number"] in existing_numbers:
-            invalid_rows.append({
-                "line": idx,
-                "raw": raw,
-                "error": f"Linha {idx}: matrícula {data['student_number']} já existe no período.",
-            })
+        number = data["student_number"]
+        owner = period_of_number.get(number)
+        if number in seen:
+            err = f"Linha {idx}: matrícula {number} repetida neste arquivo."
+        elif owner == period_id:
+            err = f"Linha {idx}: matrícula {number} já existe no período."
+        elif owner:
+            err = f"Linha {idx}: matrícula {number} já pertence a um aluno de outro período."
+        if err:
+            invalid_rows.append({"line": idx, "raw": raw, "error": err})
             continue
 
         valid_rows.append(data)
-        existing_numbers.add(data["student_number"])  # evita duplicata dentro do próprio CSV
+        seen.add(number)
 
     if dry_run:
         return {
