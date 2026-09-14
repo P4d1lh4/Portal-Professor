@@ -15,7 +15,7 @@ Deploy em **Vercel** (frontend) + **Render** (backend) + **Supabase** (banco/aut
 
 - [ ] Código no GitHub (o CI em `.github/workflows/ci.yml` já valida cada push)
 - [ ] Conta na [Vercel](https://vercel.com) e no [Render](https://render.com) (login com GitHub facilita)
-- [ ] Migrações 0001–0011 aplicadas no Supabase, todas e em ordem (ver [Segurança: RLS e service role](#segurança-rls-e-service-role))
+- [ ] Migrações 0001–0012 aplicadas no Supabase, todas e em ordem (ver [Segurança: RLS e service role](#segurança-rls-e-service-role))
 
 ### Coletando os segredos do Supabase
 
@@ -158,12 +158,15 @@ Se a 0002 não estiver aplicada, rode-a (SQL Editor ou `supabase db push`).
 ### Migrações a aplicar
 
 Aplique em ordem **todas** as migrações em [`supabase/migrations/`](supabase/migrations/)
-(0001 → 0011). Não pare em nenhum número intermediário: o backend depende de
+(0001 → 0012). Não pare em nenhum número intermediário: o backend depende de
 objetos criados até a **0010** (`save_attendance_day`, usada ao salvar frequência)
 e da **0007** (`create_student_with_enrollments`) — precisam existir **antes** do
-deploy do backend que as chama. Aplique a **0011** (revoga escrita direta via
-PostgREST de `anon`/`authenticated`; fecha a escalada de privilégio a admin) por
-último.
+deploy do backend que as chama. A **0011** (revoga escrita direta via PostgREST
+de `anon`/`authenticated`; fecha a escalada de privilégio a admin) e a **0012**
+(endurecimento: RLS de `profiles`, CHECK de datas, FKs de período sem cascata,
+e-mail único, trigger de papel, `search_path`) vêm por último. A 0012 aborta se
+houver período com `end_date < start_date` ou e-mail repetido em `profiles`: as
+consultas de conferência estão no cabeçalho do arquivo.
 
 ---
 

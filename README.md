@@ -37,10 +37,10 @@ Sistema acadêmico para gestão de alunos, módulos/disciplinas, notas e faltas,
 │   │   └── main.py
 │   ├── scripts/seed.py     # seed idempotente via Supabase Admin API
 │   └── tests/              # suíte pytest (authz, regras, anti-injeção)
-├── supabase/migrations/    # 0001–0011 (+ seed): schema, RLS, atestados,
-│   │                       # is_active, faltas, auditoria, RPCs, CHECKs, índices
+├── supabase/migrations/    # 0001–0012 (+ seed): schema, RLS, atestados,
+│   │                       # is_active, faltas, auditoria, RPCs, CHECKs, índices, hardening
 │   ├── 0001_initial_schema.sql
-│   └── 0002_rls_granular.sql … 0011_lock_postgrest_writes.sql
+│   └── 0002_rls_granular.sql … 0012_hardening.sql
 └── docker-compose.yml
 ```
 
@@ -90,7 +90,7 @@ CORS_ORIGINS=http://localhost:5173
 
 ### 3. Aplicar migrations
 
-No **SQL Editor** do Supabase, **aplique TODOS os arquivos de `supabase/migrations/` em ordem numérica** (0001 → 0011). Não pare em nenhum número intermediário: o backend depende de objetos criados até a `0011` (ex.: a RPC `save_attendance_day` da `0010` — sem ela, salvar frequência quebra em runtime).
+No **SQL Editor** do Supabase, **aplique TODOS os arquivos de `supabase/migrations/` em ordem numérica** (0001 → 0012). Não pare em nenhum número intermediário: o backend depende de objetos criados até a `0011` (ex.: a RPC `save_attendance_day` da `0010` — sem ela, salvar frequência quebra em runtime).
 
 Estado atual das migrations:
 
@@ -106,9 +106,10 @@ supabase/migrations/0008_grade_check_constraints.sql
 supabase/migrations/0009_search_indexes.sql
 supabase/migrations/0010_save_attendance_day_rpc.sql
 supabase/migrations/0011_lock_postgrest_writes.sql
+supabase/migrations/0012_hardening.sql
 ```
 
-> **Atenção**: `0002` remove as policies temporárias e ativa as policies granulares por papel. As `0003`–`0010` adicionam atestados médicos, `is_active` de perfil, registro de faltas, log de auditoria, RPCs transacionais, CHECK constraints e índices de busca — **todas necessárias**. A `0011` revoga escrita direta via PostgREST de `anon`/`authenticated` (fecha a escalada de privilégio a admin) — aplique-a por último.
+> **Atenção**: `0002` remove as policies temporárias e ativa as policies granulares por papel. As `0003`–`0010` adicionam atestados médicos, `is_active` de perfil, registro de faltas, log de auditoria, RPCs transacionais, CHECK constraints e índices de busca — **todas necessárias**. A `0011` revoga escrita direta via PostgREST de `anon`/`authenticated` (fecha a escalada de privilégio a admin). A `0012` endurece o banco: `profiles` legível só pelo dono (ou admin), CHECK de datas do período, alunos/módulos sem cascata ao apagar período, e-mail único, trigger contra troca de papel por não-admin e `search_path` fixo nas funções `SECURITY DEFINER`.
 
 ### 4. Seed de dados de exemplo
 
