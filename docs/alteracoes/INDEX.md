@@ -21,6 +21,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 36 | [Fase 2] B-12: fake de banco único (`tests/fakes.py`) com registro de filtros + `as_user` no conftest; 11 fakes migrados | 🟡 Média | ✅ Concluída | ✅ 174 pytest · −599 linhas · mutação pega | [36-fake-db-unico.md](36-fake-db-unico.md) |
 | 37 | [Fase 2] B-13: testes HTTP de authz em users, atestados, sheets, reports, exports, audit + professor no dashboard; piso de cobertura 70% | 🟠 Alta | ✅ Concluída | ✅ 243 pytest (+69) · cobertura 73,6% · 3 mutações pegas | [37-testes-http-routers.md](37-testes-http-routers.md) |
 | 38 | [Fase 2] F-17a: infra de testes de componente (jsdom + Testing Library) + smoke test do `useConfirm` | 🟠 Alta | ✅ Concluída | ✅ vitest 10/10 · lint/tsc/build · mutação pega | [38-infra-testes-componente.md](38-infra-testes-componente.md) |
+| 39 | [Fase 2] F-17b: suítes de componente (interceptors do axios, `ProtectedRoute`, `useAuth`, Notas, Chamada/F-01), sem `msw` | 🟠 Alta | ✅ Concluída | ✅ vitest 43/43 (+33) · lint/tsc/build · 6 mutações pegas | [39-suites-componente.md](39-suites-componente.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 
