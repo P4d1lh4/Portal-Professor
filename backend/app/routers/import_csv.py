@@ -4,17 +4,24 @@ Importação de alunos via CSV.
 Endpoint único com query-param dry_run:
   dry_run=true  → valida e retorna preview sem persistir
   dry_run=false → valida e persiste as linhas válidas
+
+Aceita o cabeçalho técnico (student_number, full_name...) e o do export de
+alunos (Matrícula, Nome, Data de matrícula...), com ou sem acento (P-Q2): o CSV
+exportado pelo sistema volta sem edição.
 """
 import asyncio
 import csv
 import io
 import logging
+import unicodedata
+from datetime import date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
 
 from ..db import get_admin_db
 from ..deps import require_role
+from ..schemas.students import _check_enrollment_date
 from ..schemas.users import Profile
 
 logger = logging.getLogger(__name__)
@@ -27,7 +34,42 @@ REQUIRED_COLS = {"student_number", "full_name", "enrollment_date"}
 OPTIONAL_COLS = {"email", "medical_certificates", "referral_info", "observations"}
 ALL_COLS = REQUIRED_COLS | OPTIONAL_COLS
 
+# Cabeçalhos do export (services/exports.py, build_students_csv), já sem acento.
+# "Ativo" é ignorado: aluno importado entra sempre ativo.
+_HEADER_ALIASES = {
+    "matricula": "student_number",
+    "nome": "full_name",
+    "e-mail": "email",
+    "data de matricula": "enrollment_date",
+    "atestados medicos": "medical_certificates",
+    "encaminhamento": "referral_info",
+    "observacoes": "observations",
+}
+_REQUIRED_LABELS = {
+    "student_number": "Matrícula",
+    "full_name": "Nome",
+    "enrollment_date": "Data de matrícula",
+}
+# ISO é o que o export grava; dd/mm/aaaa é como o Excel pt-BR salva de volta.
+_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y")
+
 MAX_ROWS = 500
+
+
+def _canon(header: str) -> str:
+    """Nome canônico da coluna: minúsculo, sem acento e com o alias do export."""
+    key = unicodedata.normalize("NFKD", " ".join(header.lower().split()))
+    key = "".join(c for c in key if not unicodedata.combining(c))
+    return _HEADER_ALIASES.get(key, key)
+
+
+def _parse_date(raw: str) -> date | None:
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 def _parse_csv(content: bytes) -> tuple[list[dict], str | None]:
@@ -53,14 +95,18 @@ def _parse_csv(content: bytes) -> tuple[list[dict], str | None]:
     if not reader.fieldnames:
         return [], "O arquivo não contém cabeçalho."
 
-    cols = {c.strip().lower() for c in reader.fieldnames}
+    cols = {_canon(c) for c in reader.fieldnames if c}
     missing = REQUIRED_COLS - cols
     if missing:
-        return [], f"Colunas obrigatórias ausentes: {', '.join(sorted(missing))}."
+        names = ", ".join(f"{_REQUIRED_LABELS[c]} ({c})" for c in sorted(missing))
+        return [], f"Colunas obrigatórias ausentes: {names}."
 
     rows = []
     for row in reader:
-        normalised = {k.strip().lower(): (v.strip() if v else "") for k, v in row.items()}
+        # Chave None = valores além do cabeçalho (linha com colunas a mais).
+        normalised = {
+            _canon(k): (v.strip() if v else "") for k, v in row.items() if k is not None
+        }
         rows.append(normalised)
         if len(rows) >= MAX_ROWS:
             break
@@ -85,10 +131,21 @@ def _validate_row(raw: dict, idx: int) -> tuple[dict | None, str | None]:
     if errors:
         return None, f"Linha {idx}: {', '.join(errors)}."
 
+    parsed_date = _parse_date(enrollment_date)
+    if parsed_date is None:
+        return None, (
+            f"Linha {idx}: data de matrícula inválida ({enrollment_date}); "
+            "use AAAA-MM-DD ou DD/MM/AAAA."
+        )
+    try:
+        _check_enrollment_date(parsed_date)  # mesma regra do formulário de aluno
+    except ValueError as exc:
+        return None, f"Linha {idx}: {exc}"
+
     data: dict = {
         "student_number": student_number,
         "full_name": full_name,
-        "enrollment_date": enrollment_date,
+        "enrollment_date": parsed_date.isoformat(),
     }
     if raw.get("email"):
         data["email"] = raw["email"]
