@@ -12,6 +12,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 27 | [O-03] Triagem dos 10 PRs do Dependabot + `groups`/`ignore` | 🟡 Média | ✅ Concluída | ✅ 162 pytest · CI verde | [27-triagem-prs-dependabot.md](27-triagem-prs-dependabot.md) |
 | 28 | [O-03] Vite 8 (Rolldown) + plugin-react 6 + vitest 4 | 🟢 Baixa | ✅ Concluída | ✅ lint/tsc/vitest/build | [28-vite-8.md](28-vite-8.md) |
 | 29 | [Fase 0] Keep-alive, B-01 backend, seed sem default, docs de migração | 🔴 Crítica | ✅ Concluída | ✅ 162 pytest · pip-audit limpo | [29-fase-0-emergencia.md](29-fase-0-emergencia.md) |
+| 30 | [O-03/B-01] recharts 3 + eslint 10 + `npm audit fix` (e fim do `vendor-charts`) | 🟡 Média | ✅ Concluída | ✅ lint/tsc/vitest/build + chunks | [30-recharts-3-eslint-10.md](30-recharts-3-eslint-10.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 
