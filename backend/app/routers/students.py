@@ -223,7 +223,17 @@ def create_period_student(
         payload["enrollment_date"] = str(payload["enrollment_date"])
 
     resp = db.table("students").insert(payload).execute()
-    return _to_student(resp.data[0])
+    created = _to_student(resp.data[0])
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="students",
+        entity_id=created.id,
+        summary=f"Aluno criado: {created.full_name} ({created.student_number})",
+        after={k: getattr(created, k, None) for k in _STUDENT_AUDIT_FIELDS},
+    )
+    return created
 
 
 # ---------------------------------------------------------------
@@ -335,6 +345,18 @@ def create_professor_student(
     student_id = _create_student_with_enrollments(db, payload, module_ids)
     student_row = (
         db.table("students").select("*").eq("id", student_id).single().execute().data
+    )
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="students",
+        entity_id=student_id,
+        summary=(
+            f"Aluno criado: {student_row['full_name']} ({student_row['student_number']}), "
+            f"matriculado em {len(module_ids)} módulo(s)"
+        ),
+        after={k: student_row.get(k) for k in _STUDENT_AUDIT_FIELDS},
     )
 
     return _build_detail(student_row, db)

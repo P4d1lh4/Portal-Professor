@@ -10,6 +10,8 @@ router = APIRouter(prefix="/api", tags=["períodos"])
 
 _SELECT = "*, coordinator:profiles!coordinator_id(id, full_name)"
 
+_PERIOD_AUDIT_FIELDS = ("name", "coordinator_id", "start_date", "end_date", "is_active")
+
 
 def _to_period(row: dict) -> Period:
     return Period(**row)
@@ -156,7 +158,7 @@ def get_period(
 @router.post("/periods", response_model=Period, status_code=status.HTTP_201_CREATED)
 def create_period(
     body: PeriodCreate,
-    _: Profile = Depends(require_role("admin")),
+    current_user: Profile = Depends(require_role("admin")),
 ) -> Period:
     db = get_admin_db()
 
@@ -190,6 +192,15 @@ def create_period(
         .single()
         .execute()
     )
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="periods",
+        entity_id=created_id,
+        summary=f"Período criado: {body.name}",
+        after={k: full.data.get(k) for k in _PERIOD_AUDIT_FIELDS},
+    )
     return _to_period(full.data)
 
 
@@ -197,7 +208,7 @@ def create_period(
 def update_period(
     period_id: str,
     body: PeriodUpdate,
-    _: Profile = Depends(require_role("admin")),
+    current_user: Profile = Depends(require_role("admin")),
 ) -> Period:
     db = get_admin_db()
 
@@ -210,6 +221,12 @@ def update_period(
         if date_field in update_data and update_data[date_field]:
             update_data[date_field] = str(update_data[date_field])
 
+    before = (
+        db.table("academic_periods").select("*").eq("id", period_id).maybe_single().execute()
+    )
+    if not before.data:
+        raise HTTPException(status_code=404, detail="Período não encontrado.")
+
     db.table("academic_periods").update(update_data).eq("id", period_id).execute()
 
     resp = (
@@ -221,6 +238,23 @@ def update_period(
     )
     if not resp.data:
         raise HTTPException(status_code=404, detail="Período não encontrado.")
+
+    # Encerrar/reabrir é o que trava ou libera notas e chamada do período.
+    was_active, is_active = before.data.get("is_active"), resp.data.get("is_active")
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="update",
+        entity="periods",
+        entity_id=period_id,
+        summary=(
+            f"Período {'reaberto' if is_active else 'encerrado'}: {resp.data.get('name')}"
+            if was_active != is_active
+            else f"Período atualizado: {resp.data.get('name')}"
+        ),
+        before={k: before.data.get(k) for k in update_data},
+        after={k: resp.data.get(k) for k in update_data},
+    )
     return _to_period(resp.data)
 
 

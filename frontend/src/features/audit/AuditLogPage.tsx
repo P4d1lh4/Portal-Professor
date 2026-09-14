@@ -41,6 +41,12 @@ const ENTITY_LABELS: Record<string, string> = {
   students: "Alunos",
   modules: "Módulos",
   periods: "Períodos",
+  enrollments: "Matrículas",
+  attendance: "Chamada",
+  sheets: "Planilha",
+  users: "Usuários",
+  medical_certificates: "Atestados",
+  medical_certificate_attachments: "Anexos de atestado",
 };
 
 const ACTION_LABELS: Record<AuditAction, string> = {

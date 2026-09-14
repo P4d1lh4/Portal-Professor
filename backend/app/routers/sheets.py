@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
+from ..services.audit import write_audit_log
 from ..services.grades import recalc_final
 from ..services.guards import assert_period_active
 
@@ -95,7 +96,7 @@ def set_sync_url(
 
     period = (
         db.table("academic_periods")
-        .select("id, coordinator_id")
+        .select("id, coordinator_id, csv_sync_url")
         .eq("id", period_id)
         .maybe_single()
         .execute()
@@ -108,8 +109,22 @@ def set_sync_url(
     if url:
         _validate_sync_url(url)
 
-    db.table("academic_periods").update({"csv_sync_url": url or None}).eq("id", period_id).execute()
-    return {"csv_sync_url": url or None}
+    new_url = url or None
+    db.table("academic_periods").update({"csv_sync_url": new_url}).eq("id", period_id).execute()
+
+    # A URL decide de onde as próximas sincronizações puxam notas.
+    if period.data.get("csv_sync_url") != new_url:
+        write_audit_log(
+            db,
+            actor=current_user,
+            action="update",
+            entity="periods",
+            entity_id=period_id,
+            summary="URL da planilha de notas alterada",
+            before={"csv_sync_url": period.data.get("csv_sync_url")},
+            after={"csv_sync_url": new_url},
+        )
+    return {"csv_sync_url": new_url}
 
 
 def _apply_sheet_grades(db, period_id: str, rows: list[dict]) -> dict:
@@ -239,4 +254,21 @@ async def sync_sheets(
         )
 
     # Bloco síncrono (queries + N updates) no threadpool — não trava o event loop.
-    return await asyncio.to_thread(_apply_sheet_grades, db, period_id, rows)
+    result = await asyncio.to_thread(_apply_sheet_grades, db, period_id, rows)
+
+    # Um registro agregado: o sync mexe em dezenas de notas de uma vez.
+    await asyncio.to_thread(
+        lambda: write_audit_log(
+            db,
+            actor=current_user,
+            action="update",
+            entity="sheets",
+            entity_id=period_id,
+            summary=(
+                f"Sync de planilha: {result['updated']} aluno(s) atualizado(s), "
+                f"{result['not_found_count']} não encontrado(s)"
+            ),
+            after={"updated": result["updated"], "not_found_count": result["not_found_count"]},
+        )
+    )
+    return result

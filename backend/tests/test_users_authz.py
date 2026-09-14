@@ -74,14 +74,19 @@ def test_admin_muda_papel(as_user, db):
     as_user("admin")
     resp = client.put("/api/users/u2", json={"role": "coordinator"})
     assert resp.status_code == 200
-    assert db.writes == [("profiles", "update", {"role": "coordinator"})]
+    # A entrada do audit_log é coberta em test_audit_coverage.py.
+    assert [w for w in db.writes if w[0] == "profiles"] == [
+        ("profiles", "update", {"role": "coordinator"})
+    ]
 
 
 def test_admin_desativa_outro_usuario(as_user, db):
     as_user("admin", "admin-1")
     resp = client.delete("/api/users/u2")
     assert resp.status_code == 204
-    assert db.writes == [("profiles", "update", {"is_active": False})]
+    assert [w for w in db.writes if w[0] == "profiles"] == [
+        ("profiles", "update", {"is_active": False})
+    ]
     assert ("eq", ("id", "u2")) in db.calls("profiles")
 
 
