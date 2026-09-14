@@ -211,14 +211,21 @@ export default function ImportPage() {
                 Formato esperado do CSV
               </summary>
               <div className="mt-2 rounded-md bg-muted p-3 font-mono leading-relaxed">
+                <p className="font-sans mb-2">
+                  O CSV de alunos exportado pelo sistema pode ser importado de volta como está.
+                </p>
                 <p className="font-semibold mb-1">Colunas obrigatórias:</p>
-                <p>student_number, full_name, enrollment_date</p>
+                <p>Matrícula, Nome, Data de matrícula</p>
                 <p className="font-semibold mt-2 mb-1">Colunas opcionais:</p>
-                <p>email, medical_certificates, referral_info, observations</p>
+                <p>E-mail, Atestados médicos, Encaminhamento, Observações</p>
+                <p className="font-sans mt-2">
+                  Também valem os nomes técnicos (student_number, full_name, enrollment_date…).
+                  Data em AAAA-MM-DD ou DD/MM/AAAA.
+                </p>
                 <p className="font-semibold mt-2 mb-1">Exemplo:</p>
-                <p>student_number,full_name,enrollment_date</p>
-                <p>2024001,Ana Silva,2024-02-01</p>
-                <p>2024002,Bruno Costa,2024-02-01</p>
+                <p>Matrícula;Nome;Data de matrícula</p>
+                <p>2024001;Ana Silva;01/02/2024</p>
+                <p>2024002;Bruno Costa;2024-02-01</p>
               </div>
             </details>
 
