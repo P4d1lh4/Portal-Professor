@@ -194,8 +194,17 @@ def create_module(
     _assert_code_unique(db, body.code, body.academic_period_id)
 
     resp = db.table("modules").insert(body.model_dump()).execute()
-    created_id = resp.data[0]["id"]
-    return _fetch_module(db, created_id)
+    created = _fetch_module(db, resp.data[0]["id"])
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="modules",
+        entity_id=created.id,
+        summary=f"Módulo criado: {created.code} — {created.name}",
+        after={k: getattr(created, k, None) for k in _MODULE_AUDIT_FIELDS},
+    )
+    return created
 
 
 @router.post(
@@ -222,8 +231,17 @@ def coordinator_create_module(
     _assert_code_unique(db, body.code, period_id)
 
     resp = db.table("modules").insert(body.model_dump()).execute()
-    created_id = resp.data[0]["id"]
-    return _fetch_module(db, created_id)
+    created = _fetch_module(db, resp.data[0]["id"])
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="modules",
+        entity_id=created.id,
+        summary=f"Módulo criado: {created.code} — {created.name}",
+        after={k: getattr(created, k, None) for k in _MODULE_AUDIT_FIELDS},
+    )
+    return created
 
 
 # ---------------------------------------------------------------

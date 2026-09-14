@@ -15,6 +15,7 @@ from ..schemas.users import (
     UserRole,
 )
 from ..config import settings
+from ..services.audit import write_audit_log
 from ..services.search import build_ilike_or
 from ..services.ratelimit import check_rate_limit
 from supabase import create_client
@@ -22,6 +23,8 @@ from supabase import create_client
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["usuários"])
+
+_USER_AUDIT_FIELDS = ("username", "full_name", "email", "role", "is_active")
 
 
 # ---------------------------------------------------------------
@@ -169,7 +172,7 @@ def list_professors(
 @router.post("/users", response_model=Profile, status_code=status.HTTP_201_CREATED)
 def create_user(
     body: UserCreate,
-    _: Profile = Depends(require_role("admin")),
+    current_user: Profile = Depends(require_role("admin")),
 ) -> Profile:
     """Cria um novo usuário via Supabase Admin API. Apenas admin."""
     db = get_admin_db()
@@ -226,14 +229,24 @@ def create_user(
     }).eq("id", user_id).execute()
 
     resp = db.table("profiles").select("*").eq("id", user_id).single().execute()
-    return Profile(**resp.data)
+    created = Profile(**resp.data)
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="users",
+        entity_id=user_id,
+        summary=f"Usuário criado: {created.full_name} ({created.role})",
+        after={k: getattr(created, k) for k in _USER_AUDIT_FIELDS},
+    )
+    return created
 
 
 @router.put("/users/{user_id}", response_model=Profile)
 def update_user(
     user_id: str,
     body: UserUpdate,
-    _: Profile = Depends(require_role("admin")),
+    current_user: Profile = Depends(require_role("admin")),
 ) -> Profile:
     """Atualiza dados de um usuário. Apenas admin."""
     db = get_admin_db()
@@ -247,16 +260,33 @@ def update_user(
             detail="Nenhum campo para atualizar.",
         )
 
-    db.table("profiles").update(update_data).eq("id", user_id).execute()
-    invalidate_profile_cache(user_id)
-
-    resp = db.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
-    if not resp.data:
+    before = db.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
+    if not before.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Usuário não encontrado.",
         )
-    return Profile(**resp.data)
+
+    db.table("profiles").update(update_data).eq("id", user_id).execute()
+    invalidate_profile_cache(user_id)
+
+    after = db.table("profiles").select("*").eq("id", user_id).single().execute().data
+    old_role, new_role = before.data.get("role"), after.get("role")
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="update",
+        entity="users",
+        entity_id=user_id,
+        summary=(
+            f"Papel alterado: {after.get('full_name')} ({old_role} → {new_role})"
+            if old_role != new_role
+            else f"Usuário atualizado: {after.get('full_name')}"
+        ),
+        before={k: before.data.get(k) for k in update_data},
+        after={k: after.get(k) for k in update_data},
+    )
+    return Profile(**after)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -279,7 +309,7 @@ def deactivate_user(
     db = get_admin_db()
     target = (
         db.table("profiles")
-        .select("id, is_active")
+        .select("id, is_active, full_name")
         .eq("id", user_id)
         .maybe_single()
         .execute()
@@ -296,11 +326,22 @@ def deactivate_user(
     db.table("profiles").update({"is_active": False}).eq("id", user_id).execute()
     invalidate_profile_cache(user_id)
 
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="update",
+        entity="users",
+        entity_id=user_id,
+        summary=f"Usuário desativado: {target.data.get('full_name', user_id)}",
+        before={"is_active": True},
+        after={"is_active": False},
+    )
+
 
 @router.post("/users/{user_id}/reactivate", response_model=Profile)
 def reactivate_user(
     user_id: str,
-    _: Profile = Depends(require_role("admin")),
+    current_user: Profile = Depends(require_role("admin")),
 ) -> Profile:
     """Reativa um usuário previamente desativado. Apenas admin."""
     db = get_admin_db()
@@ -320,6 +361,18 @@ def reactivate_user(
 
     db.table("profiles").update({"is_active": True}).eq("id", user_id).execute()
     invalidate_profile_cache(user_id)
+
+    if not target.data.get("is_active", True):
+        write_audit_log(
+            db,
+            actor=current_user,
+            action="update",
+            entity="users",
+            entity_id=user_id,
+            summary=f"Usuário reativado: {target.data.get('full_name', user_id)}",
+            before={"is_active": False},
+            after={"is_active": True},
+        )
 
     resp = db.table("profiles").select("*").eq("id", user_id).single().execute()
     return Profile(**resp.data)

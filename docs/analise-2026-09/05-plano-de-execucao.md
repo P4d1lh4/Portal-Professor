@@ -80,7 +80,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 
 - [x] **P-Q1 / B-S2** `POST /api/modules/{id}/enrollments` (aluno existente) + `DELETE` de matrícula + botão em `ModulesPage`/`StudentDetailSheet`. Ao criar aluno com `student_number` existente, oferecer "matricular o existente". — M · ✅ endpoints (admin/coordenador) + controles na ficha do aluno; o 409 aponta o caminho. Botão em lote na `ModulesPage` fica para junto do P-Q5 (alteração 42)
 - [x] **P-Q2** Import aceita cabeçalhos pt-BR e snake_case (mapa de aliases). — P · ✅ + sem acento, data DD/MM/AAAA e regra de data do formulário; teste de round-trip com o CSV do export (alteração 43)
-- [ ] **P-Q3 / B-05** `write_audit_log` em `users` (role/is_active), `sheets` (resumo), `attendance` delete, `medical_certificates`; `action="insert"` nas criações. — M
+- [x] **P-Q3 / B-05** `write_audit_log` em `users` (role/is_active), `sheets` (resumo), `attendance` delete, `medical_certificates`; `action="insert"` nas criações. — M · ✅ + anexos, import (resumo), URL da planilha, encerrar/reabrir período; atestado sem motivo no log; chamada excluída guarda as marcações (alteração 44)
 - [ ] **P-N1 / B-S1 / F-S2** `GET /api/modules/{id}/students/at-risk` + card no dashboard do professor + destaque na Chamada. — M
 - [ ] **P-N2** Seção "atenção" no relatório de período em PDF. — P
 - [ ] **P-Q5 / B-S3** `POST /api/periods/{id}/clone` (módulos sem alunos) + botão em `PeriodsPage`. — M

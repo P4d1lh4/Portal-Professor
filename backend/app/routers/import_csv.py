@@ -23,6 +23,7 @@ from ..db import get_admin_db
 from ..deps import require_role
 from ..schemas.students import _check_enrollment_date
 from ..schemas.users import Profile
+from ..services.audit import write_audit_log
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +261,17 @@ def _run_import(period_id: str, content: bytes, dry_run: bool, current_user: Pro
         except Exception as e:
             logger.warning("Falha ao importar aluno %s: %s", data.get("student_number"), e)
             errors_on_save.append(f"Matrícula {data['student_number']}: {e}")
+
+    # Um registro agregado por importação (até MAX_ROWS alunos de uma vez).
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="students",
+        entity_id=period_id,
+        summary=f"Importação CSV: {imported} aluno(s) importado(s)",
+        after={"imported": imported, "invalid_count": len(invalid_rows) + len(errors_on_save)},
+    )
 
     return {
         "dry_run": False,

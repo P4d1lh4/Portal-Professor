@@ -24,6 +24,7 @@ from ..schemas.medical_certificates import (
     MedicalCertificateUpdate,
 )
 from ..schemas.users import Profile
+from ..services.audit import write_audit_log
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,16 @@ def _load_certificate(db, certificate_id: str) -> dict:
     if not resp.data:
         raise HTTPException(404, "Atestado não encontrado.")
     return resp.data
+
+
+def _cert_audit(cert: dict) -> dict:
+    """Recorte do atestado para o audit_log. É dado de saúde: o log guarda
+    aluno e datas, nunca o motivo nem a observação."""
+    return {
+        "student_id": cert["student_id"],
+        "start_date": str(cert["start_date"]),
+        "end_date": str(cert["end_date"]),
+    }
 
 
 def _sanitize_filename(name: str) -> str:
@@ -221,7 +232,17 @@ def create_certificate(
         "created_by": current_user.id,
     }
     resp = db.table("medical_certificates").insert(payload).execute()
-    return _hydrate_certificate(db, resp.data[0])
+    created = resp.data[0]
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="medical_certificates",
+        entity_id=created["id"],
+        summary=f"Atestado registrado ({created['start_date']} a {created['end_date']})",
+        after=_cert_audit(created),
+    )
+    return _hydrate_certificate(db, created)
 
 
 @router.get(
@@ -271,7 +292,18 @@ def update_certificate(
         update_data["end_date"] = str(update_data["end_date"])
 
     db.table("medical_certificates").update(update_data).eq("id", certificate_id).execute()
-    cert = _load_certificate(db, certificate_id)
+    before, cert = cert, _load_certificate(db, certificate_id)
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="update",
+        entity="medical_certificates",
+        entity_id=certificate_id,
+        summary="Atestado alterado"
+        + (" (motivo/observação)" if {"reason", "notes"} & update_data.keys() else ""),
+        before=_cert_audit(before),
+        after=_cert_audit(cert),
+    )
     return _hydrate_certificate(db, cert)
 
 
@@ -303,6 +335,16 @@ def delete_certificate(
             logger.warning("Falha ao remover blobs do atestado %s: %s", certificate_id, exc)
 
     db.table("medical_certificates").delete().eq("id", certificate_id).execute()
+
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="delete",
+        entity="medical_certificates",
+        entity_id=certificate_id,
+        summary=f"Atestado excluído ({cert['start_date']} a {cert['end_date']})",
+        before={**_cert_audit(cert), "attachments": len(paths)},
+    )
 
 
 # ---------------------------------------------------------------
@@ -396,7 +438,17 @@ async def upload_attachment(
         logger.exception("Falha ao persistir anexo: %s", exc)
         raise HTTPException(500, "Falha ao registrar o anexo.") from exc
 
-    return _hydrate_attachments(db, [resp.data[0]])[0]
+    attachment = resp.data[0]
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="medical_certificate_attachments",
+        entity_id=attachment["id"],
+        summary=f"Anexo enviado: {safe_name}",
+        after={"certificate_id": certificate_id, "file_name": safe_name, "file_size": size},
+    )
+    return _hydrate_attachments(db, [attachment])[0]
 
 
 @router.delete(
@@ -433,3 +485,13 @@ def delete_attachment(
         )
 
     db.table("medical_certificate_attachments").delete().eq("id", attachment_id).execute()
+
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="delete",
+        entity="medical_certificate_attachments",
+        entity_id=attachment_id,
+        summary=f"Anexo removido: {attachment.data['file_name']}",
+        before={"certificate_id": certificate_id, "file_name": attachment.data["file_name"]},
+    )

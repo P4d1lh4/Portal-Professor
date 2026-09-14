@@ -15,6 +15,7 @@ from ..schemas.attendance import (
     AttendanceSummary,
 )
 from ..schemas.users import Profile
+from ..services.audit import write_audit_log
 from ..services.guards import assert_module_period_active
 from ..services.permissions import assert_coordinator_owns_period
 
@@ -288,7 +289,7 @@ def delete_attendance_day(
 
     record = (
         db.table("attendance_records")
-        .select("id")
+        .select("id, notes")
         .eq("module_id", module_id)
         .eq("attendance_date", str(attendance_date))
         .maybe_single()
@@ -297,5 +298,29 @@ def delete_attendance_day(
     if not record.data:
         raise HTTPException(404, "Não há chamada registrada nesta data.")
 
+    # As marcações saem em cascata: o audit_log guarda cada uma para que uma
+    # exclusão por engano possa ser refeita.
+    entries = (
+        db.table("attendance_entries")
+        .select("enrollment_id, status")
+        .eq("attendance_record_id", record.data["id"])
+        .execute()
+    )
+
     # ON DELETE CASCADE apaga as entries; trigger recalcula grades.absences
     db.table("attendance_records").delete().eq("id", record.data["id"]).execute()
+
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="delete",
+        entity="attendance",
+        entity_id=record.data["id"],
+        summary=f"Chamada excluída ({attendance_date:%d/%m/%Y})",
+        before={
+            "module_id": module_id,
+            "attendance_date": str(attendance_date),
+            "notes": record.data.get("notes"),
+            "entries": {e["enrollment_id"]: e["status"] for e in (entries.data or [])},
+        },
+    )
