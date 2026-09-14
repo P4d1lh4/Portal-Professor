@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Nota com uma casa e vírgula decimal: 7.5 → "7,5". */
+export function formatGrade(n: number): string {
+  return n.toFixed(1).replace(".", ",");
+}
+
 export function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];

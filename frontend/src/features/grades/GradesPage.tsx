@@ -33,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatGrade } from "@/lib/utils";
 import { useModules } from "@/features/modules/useModules";
 import { useDownloadModuleGrades } from "@/features/exports/useExports";
 import { useModuleGrades, useUpdateGrade } from "./useGrades";
@@ -49,6 +50,7 @@ interface GradeCellProps {
   inputRef?: React.RefCallback<HTMLInputElement>;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   disabled?: boolean;
+  ariaLabel: string;
 }
 
 function GradeCell({
@@ -60,6 +62,7 @@ function GradeCell({
   inputRef,
   onKeyDown,
   disabled = false,
+  ariaLabel,
 }: GradeCellProps) {
   const [local, setLocal] = useState(String(value));
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,6 +107,7 @@ function GradeCell({
       step={step}
       value={local}
       disabled={disabled}
+      aria-label={ariaLabel}
       onChange={(e) => {
         setLocal(e.target.value);
         schedule(e.target.value);
@@ -430,6 +434,7 @@ export default function GradesPage() {
                       <TableCell className="text-center">
                         <GradeCell
                           value={row.tutor_grade}
+                          ariaLabel={`Tutoria de ${row.full_name}`}
                           disabled={periodClosed}
                           inputRef={makeRef(rowIdx, 0)}
                           onKeyDown={handleKeyNav(rowIdx, 0)}
@@ -443,6 +448,7 @@ export default function GradesPage() {
                       <TableCell className="text-center">
                         <GradeCell
                           value={row.regular_exam_grade}
+                          ariaLabel={`Prova regular de ${row.full_name}`}
                           disabled={periodClosed}
                           inputRef={makeRef(rowIdx, 1)}
                           onKeyDown={handleKeyNav(rowIdx, 1)}
@@ -456,6 +462,7 @@ export default function GradesPage() {
                       <TableCell className="text-center">
                         <GradeCell
                           value={row.makeup_exam_grade}
+                          ariaLabel={`Recuperação de ${row.full_name}`}
                           disabled={periodClosed}
                           inputRef={makeRef(rowIdx, 2)}
                           onKeyDown={handleKeyNav(rowIdx, 2)}
@@ -468,7 +475,7 @@ export default function GradesPage() {
                       {/* Final — read-only, server-calculated */}
                       <TableCell className="text-center">
                         <span className="font-mono text-sm font-semibold tabular-nums">
-                          {row.final_grade.toFixed(1)}
+                          {formatGrade(row.final_grade)}
                         </span>
                       </TableCell>
 
@@ -476,6 +483,7 @@ export default function GradesPage() {
                       <TableCell className="text-center">
                         <GradeCell
                           value={row.absences}
+                          ariaLabel={`Faltas de ${row.full_name}`}
                           min={0}
                           max={999}
                           step={1}

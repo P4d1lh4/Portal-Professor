@@ -35,13 +35,13 @@ Critério: nenhum achado Alto de código aberto; migração 0012 aplicada; dashb
 - [x] **B-09** `EmailStr` em `StudentCreate`; `ge=0` em `credits`/`max_absences`; `max_length` em textos livres. — P · ✅ alteração 31
 
 ### Frontend
-- [ ] **F-01** `AttendancePage`: `useConfirm` antes de trocar módulo/data quando `isDirty`. — P
-- [ ] **F-02** Invalidar `["dashboard"]` nas mutations de students/modules/grades/attendance. — P
-- [ ] **F-03** Trocar os 4 `confirm()` nativos por `useConfirm` (`ModulesPage:53`, `PeriodsPage:72`, `UsersPage:124,134`). — P
-- [ ] **F-04** `<Fragment key>` em `AuditLogPage:208`. — P
-- [ ] **F-05** `formatGrade()` em `lib/utils.ts`; usar em `GradesPage:471` e `StudentDetailSheet`. — P
-- [ ] **F-06** `aria-label` nos `GradeCell`. — P
-- [ ] **F-16** `console.error` de `useAuth.ts:112` atrás de `isDev`. — P
+- [x] **F-01** `AttendancePage`: `useConfirm` antes de trocar módulo/data quando `isDirty`. — P · ✅ alteração 32
+- [x] **F-02** Invalidar `["dashboard"]` nas mutations de students/modules/grades/attendance. — P · ✅ global, via `MutationCache` (alteração 32)
+- [x] **F-03** Trocar os 4 `confirm()` nativos por `useConfirm` (`ModulesPage:53`, `PeriodsPage:72`, `UsersPage:124,134`). — P · ✅ alteração 32
+- [x] **F-04** `<Fragment key>` em `AuditLogPage:208`. — P · ✅ alteração 32
+- [x] **F-05** `formatGrade()` em `lib/utils.ts`; usar em `GradesPage:471` e `StudentDetailSheet`. — P · ✅ alteração 32
+- [x] **F-06** `aria-label` nos `GradeCell`. — P · ✅ alteração 32
+- [x] **F-16** `console.error` de `useAuth.ts:112` atrás de `isDev`. — P · ✅ alteração 32
 
 ### Banco — migração `0012_hardening.sql`
 - [ ] **I-02** `profiles_select`: `USING (id = auth.uid() OR is_admin())`. — P

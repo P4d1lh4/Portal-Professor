@@ -5,6 +5,7 @@ import { AlertCircle, BookOpen, ClipboardList, Pencil, Plus, Trash2 } from "luci
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,9 +50,16 @@ export default function ModulesPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = (mod: ModuleItem) => {
-    if (!confirm(`Excluir o módulo "${mod.name}"? Esta ação não pode ser desfeita.`))
-      return;
+  const { confirm, confirmDialog } = useConfirm();
+
+  const handleDelete = async (mod: ModuleItem) => {
+    const ok = await confirm({
+      title: `Excluir o módulo "${mod.name}"?`,
+      description: "Esta ação não pode ser desfeita.",
+      confirmLabel: "Excluir",
+      destructive: true,
+    });
+    if (!ok) return;
     deleteMutation.mutate(mod.id);
   };
 
@@ -216,6 +224,7 @@ export default function ModulesPage() {
         module={editing}
         onSubmit={handleSubmit}
       />
+      {confirmDialog}
     </div>
   );
 }

@@ -205,12 +205,27 @@ export default function AttendancePage() {
     setSearchParams({ module: moduleId, date });
   };
 
-  const handleModuleChange = (id: string) => {
+  const { confirm, confirmDialog } = useConfirm();
+
+  // Trocar módulo/data recarrega o rascunho do servidor: sem esta pergunta, a
+  // chamada marcada e não salva era descartada em silêncio.
+  const confirmDiscard = async () =>
+    !isDirty ||
+    (await confirm({
+      title: "Descartar a chamada não salva?",
+      description: "As marcações feitas nesta data serão perdidas.",
+      confirmLabel: "Descartar",
+      destructive: true,
+    }));
+
+  const handleModuleChange = async (id: string) => {
+    if (!(await confirmDiscard())) return;
     setSelectedModuleId(id);
     updateUrl(id, selectedDate);
   };
 
-  const handleDateChange = (d: string) => {
+  const handleDateChange = async (d: string) => {
+    if (!(await confirmDiscard())) return;
     setSelectedDate(d);
     if (activeModuleId) updateUrl(activeModuleId, d);
   };
@@ -236,8 +251,6 @@ export default function AttendancePage() {
       })),
     });
   };
-
-  const { confirm, confirmDialog } = useConfirm();
 
   const handleDelete = async () => {
     if (!day?.record_id || !activeModuleId) return;
