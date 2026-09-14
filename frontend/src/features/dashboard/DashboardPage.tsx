@@ -136,7 +136,7 @@ function GradeDistChart({ data }: { data: GradeBucket[] }) {
             borderRadius: "8px",
             fontSize: "13px",
           }}
-          formatter={(v: number) => [v, "alunos"]}
+          formatter={(v) => [v, "alunos"]}
         />
         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
           {data.map((d) => (
