@@ -1,4 +1,4 @@
-"""Endpoints de exportação CSV: alunos do período e notas do módulo."""
+"""Endpoints de exportação CSV: alunos do período, notas e frequência do módulo."""
 from __future__ import annotations
 
 import re
@@ -12,8 +12,10 @@ from ..deps import require_role
 from ..schemas.users import Profile
 from ..services.permissions import assert_coordinator_owns_period
 from ..services.exports import (
+    AttendanceExportRow,
     GradeExportRow,
     StudentExportRow,
+    build_attendance_csv,
     build_grades_csv,
     build_students_csv,
     classify,
@@ -40,6 +42,28 @@ def _csv_response(content: bytes, filename: str) -> Response:
             "Cache-Control": "no-store",
         },
     )
+
+
+def _module_for_export(db, module_id: str, current_user: Profile) -> dict:
+    """Módulo a exportar, com a permissão já checada: professor só o próprio
+    módulo; coordenador só os dos seus períodos; admin qualquer um."""
+    mod = (
+        db.table("modules")
+        .select("id, name, code, professor_id, max_absences, academic_period_id")
+        .eq("id", module_id)
+        .maybe_single()
+        .execute()
+    )
+    if not mod.data:
+        raise HTTPException(404, "Módulo não encontrado.")
+
+    if current_user.role == "professor" and mod.data["professor_id"] != current_user.id:
+        raise HTTPException(403, "Você não leciona este módulo.")
+    assert_coordinator_owns_period(
+        db, mod.data["academic_period_id"], current_user,
+        detail="Você não coordena este período.",
+    )
+    return mod.data
 
 
 # ---------------------------------------------------------------
@@ -116,26 +140,9 @@ def export_module_grades(
     current_user: Profile = Depends(_ANY_ROLE),
 ):
     db = get_admin_db()
+    mod = _module_for_export(db, module_id, current_user)
 
-    mod = (
-        db.table("modules")
-        .select("id, name, code, professor_id, max_absences, academic_period_id")
-        .eq("id", module_id)
-        .maybe_single()
-        .execute()
-    )
-    if not mod.data:
-        raise HTTPException(404, "Módulo não encontrado.")
-
-    # Permissão: professor só do próprio módulo; coord só dos seus períodos
-    if current_user.role == "professor" and mod.data["professor_id"] != current_user.id:
-        raise HTTPException(403, "Você não leciona este módulo.")
-    assert_coordinator_owns_period(
-        db, mod.data["academic_period_id"], current_user,
-        detail="Você não coordena este período.",
-    )
-
-    max_abs = int(mod.data.get("max_absences", 10))
+    max_abs = int(mod.get("max_absences", 10))
 
     data = fetch_all(
         lambda lo, hi: db.table("enrollments")
@@ -170,5 +177,64 @@ def export_module_grades(
         )
 
     csv_bytes = build_grades_csv(rows)
-    filename = f"notas-{_slugify(mod.data['code'])}.csv"
+    filename = f"notas-{_slugify(mod['code'])}.csv"
+    return _csv_response(csv_bytes, filename)
+
+
+# ---------------------------------------------------------------
+# Frequência de um módulo (P-Q4)
+# ---------------------------------------------------------------
+
+# Não é /attendance/export.csv: o GET /modules/{id}/attendance/{data} da Chamada
+# pegaria "export.csv" como data (422).
+@router.get("/modules/{module_id}/attendance.csv")
+def export_module_attendance(
+    module_id: str,
+    current_user: Profile = Depends(_ANY_ROLE),
+):
+    db = get_admin_db()
+    mod = _module_for_export(db, module_id, current_user)
+
+    records = fetch_all(
+        lambda lo, hi: db.table("attendance_records")
+        .select("id, attendance_date")
+        .eq("module_id", module_id)
+        .order("attendance_date")
+        .range(lo, hi)
+    )
+    record_ids = [r["id"] for r in records]
+
+    # ponytail: in_ com os ids das chamadas do módulo (umas 60 por semestre
+    # cabem na URL); se passar de centenas, filtrar pelo módulo via join.
+    entries = (
+        fetch_all(
+            lambda lo, hi: db.table("attendance_entries")
+            .select("attendance_record_id, enrollment_id, status")
+            .in_("attendance_record_id", record_ids)
+            .range(lo, hi)
+        )
+        if record_ids
+        else []
+    )
+    status_of = {(e["enrollment_id"], e["attendance_record_id"]): e["status"] for e in entries}
+
+    enrollments = fetch_all(
+        lambda lo, hi: db.table("enrollments")
+        .select("id, student:students!student_id(student_number, full_name)")
+        .eq("module_id", module_id)
+        .order("student(full_name)")
+        .range(lo, hi)
+    )
+
+    rows = [
+        AttendanceExportRow(
+            student_number=(e.get("student") or {}).get("student_number", ""),
+            full_name=(e.get("student") or {}).get("full_name", ""),
+            statuses=[status_of.get((e["id"], rid)) for rid in record_ids],
+        )
+        for e in enrollments
+    ]
+
+    csv_bytes = build_attendance_csv([r["attendance_date"] for r in records], rows)
+    filename = f"frequencia-{_slugify(mod['code'])}.csv"
     return _csv_response(csv_bytes, filename)

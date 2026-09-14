@@ -41,4 +41,11 @@ export const exportsApi = {
     );
     triggerDownload(blob, `notas-${slugify(moduleCode)}.csv`);
   },
+
+  downloadModuleAttendance: async (moduleId: string, moduleCode: string) => {
+    const blob = await fetchCsv(
+      `/api/modules/${moduleId}/attendance.csv`,
+    );
+    triggerDownload(blob, `frequencia-${slugify(moduleCode)}.csv`);
+  },
 };
