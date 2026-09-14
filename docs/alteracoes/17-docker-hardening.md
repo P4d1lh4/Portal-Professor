@@ -38,6 +38,8 @@ Endurecer o contêiner do backend e desfazer a ambiguidade do frontend, sem queb
 
 ✅ **Revisado** (backend healthcheck validado offline). ⏳ **Build Docker pendente** de validação num ambiente com daemon ativo.
 
+> ✅ **Atualização (2026-09-14):** build, `HEALTHCHECK` e usuário non-root validados com Docker, e o CI passou a buildar e subir a imagem a cada PR. Ver [35-ci-docker-cobertura.md](35-ci-docker-cobertura.md).
+
 ## Observações
 
 - **Verificar num ambiente com Docker:** `docker build ./backend` e `docker compose up` — em especial o bind-mount do backend com `USER appuser` (em alguns hosts Linux, arquivos montados pertencem ao uid do host; no Docker Desktop costuma funcionar). Se houver atrito no dev, o compose pode sobrescrever `user: root` só no serviço de dev.

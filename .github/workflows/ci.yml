@@ -36,7 +36,7 @@ jobs:
           SUPABASE_ANON_KEY: stub-anon-key
           SUPABASE_SERVICE_ROLE_KEY: stub-service-role-key
           SUPABASE_JWT_SECRET: stub-jwt-secret
-        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=50
+        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=60
 
       - name: Auditoria de dependências (pip-audit)
         # Reporta CVEs conhecidos. Ainda não bloqueia o build (continue-on-error)
@@ -46,6 +46,28 @@ jobs:
         run: |
           pip install pip-audit
           pip-audit -r requirements.txt
+
+  docker:
+    name: Backend (docker build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build da imagem
+        run: docker build -t portal-backend:ci ./backend
+
+      - name: Smoke test (healthz + usuário non-root)
+        # Stubs: o Settings() exige as variáveis; o /api/healthz não toca o banco.
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            -e SUPABASE_URL=https://stub.supabase.co \
+            -e SUPABASE_ANON_KEY=stub-anon-key \
+            -e SUPABASE_SERVICE_ROLE_KEY=stub-service-role-key \
+            -e SUPABASE_JWT_SECRET=stub-jwt-secret \
+            portal-backend:ci
+          for i in $(seq 1 20); do curl -fsS localhost:8000/api/healthz && break; sleep 1; done
+          curl -fsS localhost:8000/api/healthz || { docker logs api; exit 1; }
+          test "$(docker exec api id -un)" = appuser
 
   migrations:
     name: Migrações (Postgres)
