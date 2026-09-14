@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 def _check_enrollment_date(v: date | None) -> date | None:
@@ -47,12 +47,12 @@ class StudentDetail(Student):
 
 class StudentCreate(BaseModel):
     student_number: str
-    full_name: str
-    email: str | None = None
+    full_name: str = Field(max_length=200)
+    email: EmailStr | None = None
     enrollment_date: date
     medical_certificates: int = 0
-    referral_info: str | None = None
-    observations: str | None = None
+    referral_info: str | None = Field(None, max_length=2000)
+    observations: str | None = Field(None, max_length=2000)
     is_active: bool = True
 
     _validate_enrollment_date = field_validator("enrollment_date")(
@@ -61,12 +61,12 @@ class StudentCreate(BaseModel):
 
 
 class StudentUpdate(BaseModel):
-    full_name: str | None = None
-    email: str | None = None
+    full_name: str | None = Field(None, max_length=200)
+    email: EmailStr | None = None
     enrollment_date: date | None = None
     medical_certificates: int | None = None
-    referral_info: str | None = None
-    observations: str | None = None
+    referral_info: str | None = Field(None, max_length=2000)
+    observations: str | None = Field(None, max_length=2000)
     is_active: bool | None = None
 
     _validate_enrollment_date = field_validator("enrollment_date")(

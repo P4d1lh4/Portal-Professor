@@ -7,7 +7,7 @@ import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from ..db import get_admin_db
+from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
 from ..services.permissions import assert_coordinator_owns_period
@@ -70,17 +70,22 @@ def export_period_students(
     ):
         raise HTTPException(403, "Você não coordena este período.")
 
-    q = (
-        db.table("students")
-        .select(
-            "student_number, full_name, email, enrollment_date, "
-            "is_active, medical_certificates, referral_info, observations"
+    # Builder novo a cada página: os do supabase-py acumulam parâmetros, então
+    # reusar um só repetiria o offset/limit.
+    def _page(lo: int, hi: int):
+        q = (
+            db.table("students")
+            .select(
+                "student_number, full_name, email, enrollment_date, "
+                "is_active, medical_certificates, referral_info, observations"
+            )
+            .eq("academic_period_id", period_id)
         )
-        .eq("academic_period_id", period_id)
-    )
-    if active_only:
-        q = q.eq("is_active", True)
-    resp = q.order("full_name").execute()
+        if active_only:
+            q = q.eq("is_active", True)
+        return q.order("full_name").range(lo, hi)
+
+    data = fetch_all(_page)
 
     rows = [
         StudentExportRow(
@@ -93,7 +98,7 @@ def export_period_students(
             referral_info=r.get("referral_info"),
             observations=r.get("observations"),
         )
-        for r in resp.data
+        for r in data
     ]
 
     csv_bytes = build_students_csv(rows)
@@ -132,8 +137,8 @@ def export_module_grades(
 
     max_abs = int(mod.data.get("max_absences", 10))
 
-    resp = (
-        db.table("enrollments")
+    data = fetch_all(
+        lambda lo, hi: db.table("enrollments")
         .select(
             "id, "
             "student:students!student_id(student_number, full_name), "
@@ -141,11 +146,11 @@ def export_module_grades(
         )
         .eq("module_id", module_id)
         .order("student(full_name)")
-        .execute()
+        .range(lo, hi)
     )
 
     rows: list[GradeExportRow] = []
-    for r in resp.data:
+    for r in data:
         s = r.get("student") or {}
         g = r.get("grade") or {}
         final = float(g.get("final_grade", 0))

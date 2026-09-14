@@ -28,11 +28,11 @@ Critério de pronto: `readyz` 200, login funcionando, cron rodando, CVEs de uplo
 Critério: nenhum achado Alto de código aberto; migração 0012 aplicada; dashboard consistente.
 
 ### Backend
-- [ ] **B-02** `sheets.py`: recusar sync em período inativo (exceto admin) — reutilizar a checagem de `guards.py`. Teste: coordenador em período inativo → 403. — P
+- [x] **B-02** `sheets.py`: recusar sync em período inativo (exceto admin) — reutilizar a checagem de `guards.py`. Teste: coordenador em período inativo → 403. — P · ✅ 409, como o `PUT /grades` (alteração 31)
 - [ ] **B-03** `sheets.py:128-131`: `student:students!student_id!inner(...)` + `.eq("student.academic_period_id", …)`. Teste de integração contra staging/real. — P
-- [ ] **B-04** `exports.py`: `fetch_all` nos dois endpoints. Teste com fake que devolve páginas. — P
-- [ ] **B-06** `create_user`: validar `username` antes do Auth; logar exceção e devolver mensagem genérica. — M
-- [ ] **B-09** `EmailStr` em `StudentCreate`; `ge=0` em `credits`/`max_absences`; `max_length` em textos livres. — P
+- [x] **B-04** `exports.py`: `fetch_all` nos dois endpoints. Teste com fake que devolve páginas. — P · ✅ alteração 31
+- [x] **B-06** `create_user`: validar `username` antes do Auth; logar exceção e devolver mensagem genérica. — M · ✅ alteração 31
+- [x] **B-09** `EmailStr` em `StudentCreate`; `ge=0` em `credits`/`max_absences`; `max_length` em textos livres. — P · ✅ alteração 31
 
 ### Frontend
 - [ ] **F-01** `AttendancePage`: `useConfirm` antes de trocar módulo/data quando `isDirty`. — P

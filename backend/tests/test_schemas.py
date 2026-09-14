@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.grades import GradeUpdate
+from app.schemas.modules import ModuleCreate, ModuleUpdate
 from app.schemas.students import StudentCreate, StudentUpdate
 
 
@@ -37,6 +38,36 @@ class TestEnrollmentDateValidator:
     def test_update_data_futura_rejeitada(self):
         with pytest.raises(ValidationError):
             StudentUpdate(enrollment_date=date.today() + timedelta(days=10))
+
+
+class TestValidacoesB09:
+    def _aluno(self, **kw):
+        return {"student_number": "1", "full_name": "Maria", "enrollment_date": date.today(), **kw}
+
+    def test_email_invalido_rejeitado(self):
+        with pytest.raises(ValidationError):
+            StudentCreate(**self._aluno(email="nao-e-email"))
+
+    def test_email_ausente_valido(self):
+        assert StudentCreate(**self._aluno()).email is None
+
+    def test_update_email_invalido_rejeitado(self):
+        with pytest.raises(ValidationError):
+            StudentUpdate(email="x@")
+
+    def test_texto_livre_longo_rejeitado(self):
+        with pytest.raises(ValidationError):
+            StudentCreate(**self._aluno(observations="x" * 2001))
+
+    @pytest.mark.parametrize("campo", ["credits", "max_absences"])
+    def test_modulo_negativo_rejeitado(self, campo):
+        with pytest.raises(ValidationError):
+            ModuleCreate(
+                name="M", code="M1", professor_id="p", academic_period_id="a",
+                **{campo: -1},
+            )
+        with pytest.raises(ValidationError):
+            ModuleUpdate(**{campo: -1})
 
 
 class TestGradeUpdateValidator:
