@@ -10,8 +10,9 @@ from fastapi.responses import Response
 from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
-from ..services.classification import Status, classify_status
+from ..services.classification import Status, classify_status, grade_risk, risk_sort_key
 from ..services.reports import (
+    AttentionLine,
     PeriodReportData,
     PeriodReportRow,
     StudentModuleLine,
@@ -167,14 +168,16 @@ def period_report(
     )
 
     rows: list[PeriodReportRow] = []
+    attention: list[AttentionLine] = []
     if students_data:
         student_ids = [s["id"] for s in students_data]
         enrollments_data = fetch_all(
             lambda lo, hi: db.table("enrollments")
             .select(
                 "student_id, "
-                "module:modules!module_id(max_absences), "
-                "grade:grades!enrollment_id(final_grade, absences)"
+                "module:modules!module_id(code, max_absences), "
+                "grade:grades!enrollment_id("
+                "final_grade, absences, regular_exam_grade, makeup_exam_grade)"
             )
             .in_("student_id", student_ids)
             .range(lo, hi)
@@ -194,7 +197,7 @@ def period_report(
             max_abs = [int(m.get("max_absences", 10)) for m in mods]
 
             approved = recovery = failed = 0
-            for f, a, ma in zip(finals, absences, max_abs):
+            for g, m, f, a, ma in zip(grades, mods, finals, absences, max_abs):
                 cls = _classify(f, a, ma)
                 if cls == "approved":
                     approved += 1
@@ -202,6 +205,21 @@ def period_report(
                     recovery += 1
                 else:
                     failed += 1
+
+                # P-N2: a mesma regra do card do professor (P-N1).
+                reasons = grade_risk(g, ma)
+                if reasons:
+                    attention.append(
+                        AttentionLine(
+                            student_number=s["student_number"],
+                            full_name=s["full_name"],
+                            module_code=m.get("code", ""),
+                            absences=a,
+                            max_absences=ma,
+                            final_grade=f,
+                            reasons=reasons,
+                        )
+                    )
 
             avg = sum(finals) / len(finals) if finals else 0.0
 
@@ -217,11 +235,14 @@ def period_report(
                 )
             )
 
+    attention.sort(key=lambda a: risk_sort_key(a.reasons, a.absences, a.full_name))
+
     coord = period.data.get("coordinator") or {}
     data = PeriodReportData(
         period_name=period.data["name"],
         coordinator_name=coord.get("full_name"),
         rows=rows,
+        attention=attention,
     )
 
     pdf = build_period_report_pdf(data)

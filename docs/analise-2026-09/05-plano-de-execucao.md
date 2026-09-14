@@ -82,7 +82,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [x] **P-Q2** Import aceita cabeçalhos pt-BR e snake_case (mapa de aliases). — P · ✅ + sem acento, data DD/MM/AAAA e regra de data do formulário; teste de round-trip com o CSV do export (alteração 43)
 - [x] **P-Q3 / B-05** `write_audit_log` em `users` (role/is_active), `sheets` (resumo), `attendance` delete, `medical_certificates`; `action="insert"` nas criações. — M · ✅ + anexos, import (resumo), URL da planilha, encerrar/reabrir período; atestado sem motivo no log; chamada excluída guarda as marcações (alteração 44)
 - [x] **P-N1 / B-S1 / F-S2** `GET /api/modules/{id}/students/at-risk` + card no dashboard do professor + destaque na Chamada. — M · ✅ sem endpoint novo: campo `risk` em `/modules/{id}/students` + `at_risk` no dashboard, regra única `risk_reasons` (alteração 45)
-- [ ] **P-N2** Seção "atenção" no relatório de período em PDF. — P
+- [x] **P-N2** Seção "atenção" no relatório de período em PDF. — P · ✅ mesma regra/ordem do P-N1 via `grade_risk`/`risk_sort_key` (alteração 46)
 - [ ] **P-Q5 / B-S3** `POST /api/periods/{id}/clone` (módulos sem alunos) + botão em `PeriodsPage`. — M
 - [ ] **P-Q4 / B-S4 / F-S4** Export CSV de frequência + botão na Chamada. — P
 - [ ] **P-Q8** Paginar `/api/professor/students`. — P

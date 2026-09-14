@@ -58,3 +58,27 @@ def risk_reasons(
     if graded and final_grade < 5:
         reasons.append("nota")
     return reasons
+
+
+def grade_risk(grade: dict, max_absences: int) -> list[str]:
+    """`risk_reasons` a partir de uma linha de `grades` como vem do banco.
+
+    "Prova lançada" = regular ou recuperação acima de zero: o banco não
+    distingue o 0 lançado do 0 padrão da coluna.
+    """
+    graded = (
+        float(grade.get("regular_exam_grade") or 0) > 0
+        or float(grade.get("makeup_exam_grade") or 0) > 0
+    )
+    return risk_reasons(
+        float(grade.get("final_grade") or 0),
+        int(grade.get("absences") or 0),
+        max_absences,
+        graded=graded,
+    )
+
+
+def risk_sort_key(reasons: list[str], absences: int, name: str) -> tuple:
+    """Mais urgente primeiro: faltas (reprovam sem recuperação) e, dentro
+    delas, quem tem mais faltas; empate por nome."""
+    return ("faltas" not in reasons, -absences, name)

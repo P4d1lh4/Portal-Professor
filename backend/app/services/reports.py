@@ -1,7 +1,7 @@
 """Geração de PDFs: boletim individual do aluno e relatório consolidado do período."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
 from typing import Iterable
@@ -85,10 +85,23 @@ class PeriodReportRow:
 
 
 @dataclass
+class AttentionLine:
+    """Aluno em risco num módulo (P-N2), com os motivos de `grade_risk`."""
+    student_number: str
+    full_name: str
+    module_code: str
+    absences: int
+    max_absences: int
+    final_grade: float
+    reasons: list[str]
+
+
+@dataclass
 class PeriodReportData:
     period_name: str
     coordinator_name: str | None
     rows: list[PeriodReportRow]
+    attention: list[AttentionLine] = field(default_factory=list)
 
     @property
     def total_students(self) -> int:
@@ -378,6 +391,53 @@ def build_period_report_pdf(data: PeriodReportData) -> bytes:
         )
     )
     story.append(summary)
+    story.append(Spacer(1, 8 * mm))
+
+    # Atenção (P-N2): quem ainda dá tempo de ajudar antes do fechamento
+    story.append(Paragraph(f"Atenção ({len(data.attention)})", _SECTION_STYLE))
+    if data.attention:
+        attention_rows = [["Matrícula", "Aluno", "Módulo", "Faltas", "Final", "Motivo"]]
+        for a in data.attention:
+            attention_rows.append(
+                [
+                    a.student_number,
+                    a.full_name,
+                    a.module_code,
+                    f"{a.absences}/{a.max_absences}",
+                    _fmt_grade(a.final_grade),
+                    " e ".join(a.reasons),
+                ]
+            )
+        attention = Table(
+            attention_rows,
+            colWidths=[22 * mm, 62 * mm, 22 * mm, 18 * mm, 16 * mm, 40 * mm],
+            repeatRows=1,
+        )
+        attention.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#92400e")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("ALIGN", (3, 0), (4, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#fffbeb")),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e5e5")),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#d4d4d4")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        story.append(attention)
+    else:
+        story.append(
+            Paragraph(
+                "Nenhum aluno perto do limite de faltas ou com nota abaixo de 5.",
+                _LABEL_STYLE,
+            )
+        )
     story.append(Spacer(1, 8 * mm))
 
     # Tabela de alunos
