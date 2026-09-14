@@ -62,6 +62,8 @@ class StudentGradeInfo(BaseModel):
     final_grade: float
     absences: int
     last_updated: datetime | None = None
+    # Motivos de alerta (services/classification.risk_reasons): "faltas", "nota".
+    risk: list[str] = []
 
 
 class EnrollmentCreate(BaseModel):

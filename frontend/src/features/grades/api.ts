@@ -32,6 +32,8 @@ export interface StudentGradeRow {
   final_grade: number;
   absences: number;
   last_updated?: string;
+  /** Motivos de alerta calculados no backend: "faltas" e/ou "nota" (P-N1). */
+  risk?: string[];
 }
 
 export const gradesApi = {
