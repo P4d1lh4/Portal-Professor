@@ -5,9 +5,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.routers.users as users_router
-from app.deps import get_current_user
 from app.main import app
-from tests.fakes import FakeDb, Resp, profile
+from tests.fakes import FakeDb, Resp
 
 client = TestClient(app)
 
@@ -18,10 +17,8 @@ BODY = {
 
 
 @pytest.fixture(autouse=True)
-def as_admin():
-    app.dependency_overrides[get_current_user] = lambda: profile("admin", "admin-1")
-    yield
-    app.dependency_overrides.pop(get_current_user, None)
+def _admin(as_user):
+    as_user("admin", "admin-1")
 
 
 def test_username_duplicado_409_sem_criar_no_auth(monkeypatch):

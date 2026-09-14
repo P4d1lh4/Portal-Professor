@@ -3,9 +3,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.routers.exports as exports_router
-from app.deps import get_current_user
 from app.main import app
-from tests.fakes import FakeDb, Resp, profile
+from tests.fakes import FakeDb, Resp
 
 client = TestClient(app)
 
@@ -13,10 +12,8 @@ N = 1500  # acima do teto de 1000 do PostgREST
 
 
 @pytest.fixture(autouse=True)
-def as_admin():
-    app.dependency_overrides[get_current_user] = lambda: profile("admin", "admin-1")
-    yield
-    app.dependency_overrides.pop(get_current_user, None)
+def _admin(as_user):
+    as_user("admin", "admin-1")
 
 
 def _linhas(resp) -> int:

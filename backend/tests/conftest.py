@@ -27,6 +27,23 @@ def pytest_configure(config):
     )
 
 
+@pytest.fixture
+def as_user():
+    """Loga nas rotas como `role` (override de get_current_user, que também
+    alimenta require_role). Devolve o Profile; o override sai no teardown."""
+    from app.deps import get_current_user
+    from app.main import app
+    from tests.fakes import profile
+
+    def _set(role: str, uid: str | None = None):
+        user = profile(role, uid)
+        app.dependency_overrides[get_current_user] = lambda: user
+        return user
+
+    yield _set
+    app.dependency_overrides.pop(get_current_user, None)
+
+
 @pytest.fixture(scope="session")
 def integration_db():
     """Cliente supabase-py com service role para o banco de teste.

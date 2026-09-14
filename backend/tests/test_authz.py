@@ -4,22 +4,18 @@ Como o backend usa o service role do Supabase (que faz bypass de RLS), a
 autorização é garantida na camada de aplicação. Estes testes travam
 regressões nesse isolamento para os endpoints mais sensíveis.
 
-Estratégia: sobrescreve a dependency `get_current_user` (que também alimenta
-`require_role`) para simular um usuário com um papel, e faz monkeypatch de
-`get_admin_db` no módulo do router para injetar um banco falso configurável.
+Estratégia: o fixture `as_user` (conftest) sobrescreve `get_current_user`
+(que também alimenta `require_role`) e o monkeypatch de `get_admin_db` no
+módulo do router injeta o FakeDb (tests/fakes.py).
 """
-from datetime import datetime, timezone
-
-import pytest
 from fastapi.testclient import TestClient
 
 import app.routers.dashboard as dashboard_router
 import app.routers.modules as modules_router
 import app.routers.periods as periods_router
 import app.routers.students as students_router
-from app.deps import get_current_user
 from app.main import app
-from app.schemas.users import Profile
+from tests.fakes import FakeDb, Resp
 
 client = TestClient(app)
 
@@ -27,21 +23,6 @@ client = TestClient(app)
 # ---------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------
-
-def _profile(role: str, uid: str | None = None) -> Profile:
-    now = datetime.now(timezone.utc)
-    uid = uid or f"user-{role}"
-    return Profile(
-        id=uid,
-        username=role,
-        full_name=f"Usuário {role}",
-        email=f"{role}@x.com",
-        role=role,
-        is_active=True,
-        created_at=now,
-        updated_at=now,
-    )
-
 
 def _period_row(pid: str, coordinator_id: str) -> dict:
     return {
@@ -84,96 +65,14 @@ def _student_row(sid: str, *, full_name: str = "Maria", is_active: bool = True) 
     }
 
 
-class _Resp:
-    def __init__(self, data=None, count=None):
-        self.data = data
-        self.count = count
-
-
-class _Query:
-    """Encadeamento que ignora filtros e devolve a resposta pré-configurada.
-
-    Operações de escrita (update/insert/delete) são registradas no `recorder`
-    para permitir asserções sobre o payload efetivamente enviado.
-    """
-
-    def __init__(self, table: str, resp: _Resp, recorder: list):
-        self._table = table
-        self._resp = resp
-        self._recorder = recorder
-
-    def select(self, *a, **k):
-        return self
-
-    def eq(self, *a, **k):
-        return self
-
-    def in_(self, *a, **k):
-        return self
-
-    def or_(self, *a, **k):
-        return self
-
-    def order(self, *a, **k):
-        return self
-
-    def limit(self, *a, **k):
-        return self
-
-    def range(self, *a, **k):
-        return self
-
-    def maybe_single(self):
-        return self
-
-    def single(self):
-        return self
-
-    def update(self, payload):
-        self._recorder.append((self._table, "update", payload))
-        return self
-
-    def insert(self, payload):
-        self._recorder.append((self._table, "insert", payload))
-        return self
-
-    def delete(self):
-        self._recorder.append((self._table, "delete", None))
-        return self
-
-    def execute(self):
-        return self._resp
-
-
-class _FakeDb:
-    def __init__(self, responses: dict[str, _Resp]):
-        self._responses = responses
-        self.recorder: list = []
-
-    def table(self, name: str):
-        resp = self._responses.get(name, _Resp(data=[], count=0))
-        return _Query(name, resp, self.recorder)
-
-
-@pytest.fixture
-def as_user():
-    """Permite logar como um papel e limpa o override ao final."""
-
-    def _set(profile: Profile):
-        app.dependency_overrides[get_current_user] = lambda: profile
-
-    yield _set
-    app.dependency_overrides.pop(get_current_user, None)
-
-
 # ---------------------------------------------------------------
 # S1 — GET /periods/{id} isolado por papel
 # ---------------------------------------------------------------
 
 class TestGetPeriodAuthz:
     def test_admin_acessa_qualquer_periodo(self, as_user, monkeypatch):
-        as_user(_profile("admin"))
-        db = _FakeDb({"academic_periods": _Resp(_period_row("p1", "coord-x"))})
+        as_user("admin")
+        db = FakeDb({"academic_periods": Resp(_period_row("p1", "coord-x"))})
         monkeypatch.setattr(periods_router, "get_admin_db", lambda: db)
 
         resp = client.get("/api/periods/p1")
@@ -181,26 +80,26 @@ class TestGetPeriodAuthz:
         assert resp.json()["id"] == "p1"
 
     def test_coordenador_acessa_proprio_periodo(self, as_user, monkeypatch):
-        as_user(_profile("coordinator", uid="coord-1"))
-        db = _FakeDb({"academic_periods": _Resp(_period_row("p1", "coord-1"))})
+        as_user("coordinator", "coord-1")
+        db = FakeDb({"academic_periods": Resp(_period_row("p1", "coord-1"))})
         monkeypatch.setattr(periods_router, "get_admin_db", lambda: db)
 
         resp = client.get("/api/periods/p1")
         assert resp.status_code == 200
 
     def test_coordenador_nao_acessa_periodo_de_outro(self, as_user, monkeypatch):
-        as_user(_profile("coordinator", uid="coord-1"))
-        db = _FakeDb({"academic_periods": _Resp(_period_row("p1", "coord-OUTRO"))})
+        as_user("coordinator", "coord-1")
+        db = FakeDb({"academic_periods": Resp(_period_row("p1", "coord-OUTRO"))})
         monkeypatch.setattr(periods_router, "get_admin_db", lambda: db)
 
         resp = client.get("/api/periods/p1")
         assert resp.status_code == 404
 
     def test_professor_acessa_periodo_com_seu_modulo(self, as_user, monkeypatch):
-        as_user(_profile("professor", uid="prof-1"))
-        db = _FakeDb({
-            "academic_periods": _Resp(_period_row("p1", "coord-x")),
-            "modules": _Resp([{"id": "m1"}]),
+        as_user("professor", "prof-1")
+        db = FakeDb({
+            "academic_periods": Resp(_period_row("p1", "coord-x")),
+            "modules": Resp([{"id": "m1"}]),
         })
         monkeypatch.setattr(periods_router, "get_admin_db", lambda: db)
 
@@ -208,10 +107,10 @@ class TestGetPeriodAuthz:
         assert resp.status_code == 200
 
     def test_professor_sem_modulo_nao_acessa(self, as_user, monkeypatch):
-        as_user(_profile("professor", uid="prof-1"))
-        db = _FakeDb({
-            "academic_periods": _Resp(_period_row("p1", "coord-x")),
-            "modules": _Resp([]),
+        as_user("professor", "prof-1")
+        db = FakeDb({
+            "academic_periods": Resp(_period_row("p1", "coord-x")),
+            "modules": Resp([]),
         })
         monkeypatch.setattr(periods_router, "get_admin_db", lambda: db)
 
@@ -225,11 +124,11 @@ class TestGetPeriodAuthz:
 
 class TestUpdateProfessorStudentWhitelist:
     def test_professor_nao_altera_is_active(self, as_user, monkeypatch):
-        as_user(_profile("professor", uid="prof-1"))
-        db = _FakeDb({
-            "modules": _Resp([{"id": "m1"}]),       # _assert_prof_has_student
-            "enrollments": _Resp([], count=1),       # aluno matriculado
-            "students": _Resp(_student_row("s1", full_name="Novo Nome")),
+        as_user("professor", "prof-1")
+        db = FakeDb({
+            "modules": Resp([{"id": "m1"}]),       # _assert_prof_has_student
+            "enrollments": Resp([], count=1),      # aluno matriculado
+            "students": Resp(_student_row("s1", full_name="Novo Nome")),
         })
         monkeypatch.setattr(students_router, "get_admin_db", lambda: db)
 
@@ -239,7 +138,7 @@ class TestUpdateProfessorStudentWhitelist:
         )
         assert resp.status_code == 200
 
-        updates = [r for r in db.recorder if r[0] == "students" and r[1] == "update"]
+        updates = [w for w in db.writes if w[0] == "students" and w[1] == "update"]
         assert len(updates) == 1
         payload = updates[0][2]
         assert "is_active" not in payload  # campo proibido foi removido
@@ -247,10 +146,8 @@ class TestUpdateProfessorStudentWhitelist:
 
     def test_admin_pode_alterar_is_active(self, as_user, monkeypatch):
         # Controle: para admin a allowlist do professor não se aplica.
-        as_user(_profile("admin"))
-        db = _FakeDb({
-            "students": _Resp(_student_row("s1", is_active=False)),
-        })
+        as_user("admin")
+        db = FakeDb({"students": Resp(_student_row("s1", is_active=False))})
         monkeypatch.setattr(students_router, "get_admin_db", lambda: db)
 
         resp = client.put(
@@ -259,7 +156,7 @@ class TestUpdateProfessorStudentWhitelist:
         )
         assert resp.status_code == 200
 
-        updates = [r for r in db.recorder if r[0] == "students" and r[1] == "update"]
+        updates = [w for w in db.writes if w[0] == "students" and w[1] == "update"]
         assert len(updates) == 1
         assert updates[0][2].get("is_active") is False
 
@@ -270,34 +167,34 @@ class TestUpdateProfessorStudentWhitelist:
 
 class TestGetModuleAuthz:
     def test_admin_acessa_qualquer_modulo(self, as_user, monkeypatch):
-        as_user(_profile("admin"))
-        db = _FakeDb({"modules": _Resp(_module_row("m1", "prof-x"))})
+        as_user("admin")
+        db = FakeDb({"modules": Resp(_module_row("m1", "prof-x"))})
         monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
 
         resp = client.get("/api/modules/m1")
         assert resp.status_code == 200
 
     def test_professor_acessa_proprio_modulo(self, as_user, monkeypatch):
-        as_user(_profile("professor", uid="prof-1"))
-        db = _FakeDb({"modules": _Resp(_module_row("m1", "prof-1"))})
+        as_user("professor", "prof-1")
+        db = FakeDb({"modules": Resp(_module_row("m1", "prof-1"))})
         monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
 
         resp = client.get("/api/modules/m1")
         assert resp.status_code == 200
 
     def test_professor_nao_acessa_modulo_de_outro(self, as_user, monkeypatch):
-        as_user(_profile("professor", uid="prof-1"))
-        db = _FakeDb({"modules": _Resp(_module_row("m1", "prof-OUTRO"))})
+        as_user("professor", "prof-1")
+        db = FakeDb({"modules": Resp(_module_row("m1", "prof-OUTRO"))})
         monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
 
         resp = client.get("/api/modules/m1")
         assert resp.status_code == 404
 
     def test_coordenador_acessa_modulo_do_seu_periodo(self, as_user, monkeypatch):
-        as_user(_profile("coordinator", uid="coord-1"))
-        db = _FakeDb({
-            "modules": _Resp(_module_row("m1", "prof-x", period_id="per1")),
-            "academic_periods": _Resp({"id": "per1"}),  # período é do coordenador
+        as_user("coordinator", "coord-1")
+        db = FakeDb({
+            "modules": Resp(_module_row("m1", "prof-x", period_id="per1")),
+            "academic_periods": Resp({"id": "per1"}),  # período é do coordenador
         })
         monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
 
@@ -305,10 +202,10 @@ class TestGetModuleAuthz:
         assert resp.status_code == 200
 
     def test_coordenador_nao_acessa_modulo_de_outro_periodo(self, as_user, monkeypatch):
-        as_user(_profile("coordinator", uid="coord-1"))
-        db = _FakeDb({
-            "modules": _Resp(_module_row("m1", "prof-x", period_id="per1")),
-            "academic_periods": _Resp(None),  # período não é do coordenador
+        as_user("coordinator", "coord-1")
+        db = FakeDb({
+            "modules": Resp(_module_row("m1", "prof-x", period_id="per1")),
+            "academic_periods": Resp(None),  # período não é do coordenador
         })
         monkeypatch.setattr(modules_router, "get_admin_db", lambda: db)
 
@@ -322,12 +219,12 @@ class TestGetModuleAuthz:
 
 class TestDashboardAuthz:
     def test_coordenador_nao_ve_dashboard_de_periodo_alheio(self, as_user, monkeypatch):
-        as_user(_profile("coordinator", uid="coord-1"))
+        as_user("coordinator", "coord-1")
         # academic_periods sem match para (id, coordinator_id) → maybe_single vazio
         # → assert_coordinator_owns_period levanta 403 antes de montar a resposta.
-        db = _FakeDb({"academic_periods": _Resp(None)})
+        db = FakeDb({"academic_periods": Resp(None)})
         monkeypatch.setattr(dashboard_router, "get_admin_db", lambda: db)
 
         resp = client.get("/api/dashboard?period_id=periodo-de-outro-coordenador")
         assert resp.status_code == 403
-        assert db.recorder == []  # nenhuma escrita
+        assert db.writes == []  # nenhuma escrita
