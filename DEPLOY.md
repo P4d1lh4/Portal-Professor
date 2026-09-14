@@ -202,6 +202,61 @@ Fluxo recomendado: trabalhe em branch → abra PR → CI valida → **merge só 
 
 ---
 
+## Backup
+
+O plano free do Supabase não tem backup nem PITR. O workflow
+[`backup.yml`](.github/workflows/backup.yml) roda toda segunda às 03:00
+(Brasília), e sob demanda em **Actions → Backup → Run workflow**. Ele gera um
+pacote criptografado com:
+
+- `db/roles.sql`, `db/schema.sql` e `db/data.sql`, via `supabase db dump`;
+- `storage/`: os anexos do bucket `medical-certificates`.
+
+O pacote fica 90 dias como artifact do run. ⚠️ **O repositório é público.** Sem
+a criptografia, qualquer conta do GitHub poderia baixar notas, dados de alunos,
+atestados e os hashes de senha.
+
+### Secrets (GitHub → Settings → Secrets and variables → Actions)
+
+| Secret | Valor |
+|---|---|
+| `SUPABASE_DB_URL` | Supabase → **Connect** → **Session pooler**: `postgresql://postgres.<ref>:<senha>@aws-0-<região>.pooler.supabase.com:5432/postgres`. A conexão direta (`db.<ref>.supabase.co`) só tem IPv6, e o runner do GitHub não tem IPv6. |
+| `SUPABASE_URL` | O mesmo do backend. |
+| `SUPABASE_SERVICE_ROLE_KEY` | O mesmo do backend. |
+| `BACKUP_PASSPHRASE` | Senha longa, só para isso (ex.: `openssl rand -base64 32`). Guarde num gerenciador de senhas **fora** do GitHub: sem ela, o backup não abre. |
+
+Se faltar algum, o workflow falha no primeiro passo e diz o nome do secret.
+Depois de cadastrar, rode uma vez à mão e confira se o artifact aparece.
+
+### Restore
+
+1. Baixe o artifact (Actions → run do Backup → **Artifacts**) e extraia o `.zip`.
+2. Decifre e abra (o `gpg` pede a `BACKUP_PASSPHRASE`):
+   ```bash
+   mkdir restore && gpg --decrypt portal-backup-AAAA-MM-DD.tar.gz.gpg | tar -xzf - -C restore
+   ```
+3. **Banco**, num projeto Supabase novo, com a URL do session pooler dele:
+   ```bash
+   psql --single-transaction -v ON_ERROR_STOP=1 \
+     -f restore/db/roles.sql -f restore/db/schema.sql \
+     -c 'SET session_replication_role = replica' \
+     -f restore/db/data.sql \
+     -d "$NOVO_DB_URL"
+   ```
+   O `session_replication_role = replica` desliga triggers e checagem de FK
+   durante a carga; os dados já vêm consistentes do dump.
+4. **Anexos**: com `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` do projeto novo
+   no ambiente,
+   ```bash
+   python backend/scripts/backup_storage.py enviar restore/storage
+   ```
+   O registro do bucket `medical-certificates` (migração 0003) volta com o
+   `data.sql`. Se ele não existir, crie-o privado antes.
+5. Troque `SUPABASE_URL`, as chaves e o `SUPABASE_JWT_SECRET` no Render, na
+   Vercel e no `.env` local (seções acima) e rode o [smoke test](#verificação-final-smoke-test).
+
+---
+
 ## Notas importantes
 
 - **Banco compartilhado**: dev local e produção usam o **mesmo** projeto Supabase.
