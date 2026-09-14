@@ -23,6 +23,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 38 | [Fase 2] F-17a: infra de testes de componente (jsdom + Testing Library) + smoke test do `useConfirm` | 🟠 Alta | ✅ Concluída | ✅ vitest 10/10 · lint/tsc/build · mutação pega | [38-infra-testes-componente.md](38-infra-testes-componente.md) |
 | 39 | [Fase 2] F-17b: suítes de componente (interceptors do axios, `ProtectedRoute`, `useAuth`, Notas, Chamada/F-01), sem `msw` | 🟠 Alta | ✅ Concluída | ✅ vitest 43/43 (+33) · lint/tsc/build · 6 mutações pegas | [39-suites-componente.md](39-suites-componente.md) |
 | 40 | [Fase 2] I-24/I-25: workflow `backup.yml` semanal (banco via `supabase db dump` + anexos do bucket), criptografado com gpg por o repo ser público; restore no DEPLOY.md | 🟠 Alta | ✅ Concluída (⏳ secrets) | ✅ dump → restore local idêntico · gpg ida e volta · 3 pytest | [40-backup-semanal.md](40-backup-semanal.md) |
+| 41 | [Fase 2] I-26: runbook `docs/runbook.md` (triagem healthz/readyz, Supabase pausado, Render, chaves, restore) | 🟡 Média | ✅ Concluída | ✅ comandos, variáveis e links conferidos | [41-runbook.md](41-runbook.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 
