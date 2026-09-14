@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 import app.db as db_module
 from app.main import app
 from app.observability import RequestIdFilter, set_request_id
+from tests.fakes import FakeDb
 
 client = TestClient(app)
 
@@ -22,24 +23,8 @@ def test_request_id_do_cliente_e_ecoado():
     assert resp.headers.get("X-Request-ID") == "abc-123"
 
 
-class _OkChain:
-    def select(self, *a, **k):
-        return self
-
-    def limit(self, *a, **k):
-        return self
-
-    def execute(self):
-        return type("R", (), {"data": [{"id": "1"}]})()
-
-
-class _OkDb:
-    def table(self, _n):
-        return _OkChain()
-
-
 def test_readyz_ok_quando_supabase_responde(monkeypatch):
-    monkeypatch.setattr(db_module, "get_admin_db", lambda: _OkDb())
+    monkeypatch.setattr(db_module, "get_admin_db", lambda: FakeDb())
     resp = client.get("/api/readyz")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ready"

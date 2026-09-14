@@ -1,24 +1,35 @@
-"""Fake mínimo do client supabase-py para testes HTTP de router.
+"""Fake único do client supabase-py para os testes (B-12).
 
-Filtros (`select`, `eq`, `order`, `maybe_single`...) encadeiam sem efeito; cada
-tabela devolve a resposta configurada. Imita o teto de 1000 linhas do PostgREST
-quando a query não usa `.range()`. Escritas ficam em `FakeDb.writes`.
+Uso:
+    db = FakeDb({"modules": Resp(row), "grades.update": Resp([linha])})
+    monkeypatch.setattr(router, "get_admin_db", lambda: db)
 
-ponytail: semente do B-12 — os fakes locais dos testes antigos migram para cá
-lá, junto com o registro dos filtros aplicados.
+- Cada tabela devolve a resposta configurada; sem configuração, Resp([]).
+  A chave "tabela.<op>" (update/insert/upsert/delete) responde só às escritas
+  nessa tabela; sem ela, a escrita devolve a mesma resposta das leituras.
+- Filtros não filtram (a resposta é a configurada), mas ficam registrados:
+  db.calls("students") -> [("select", ("*",)), ("eq", ("id", "s1")), ...].
+- Escritas: db.writes -> [(tabela, op, payload)]. Tabelas consultadas, em
+  ordem: db.tables. RPC: db.rpc_calls -> [(nome, params)].
+- rpc: FakeDb(rpc={"nome": Resp(...)}) ou uma função params -> Resp (pode
+  levantar, para simular falha).
+- Sem .range(), listas são cortadas em 1000 linhas, como no PostgREST.
 """
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 from app.schemas.users import Profile
 
 POSTGREST_MAX_ROWS = 1000
+_WRITE_OPS = ("update", "insert", "upsert", "delete")
 
 
-def profile(role: str, uid: str) -> Profile:
+def profile(role: str, uid: str | None = None) -> Profile:
     now = datetime.now(timezone.utc)
     return Profile(
-        id=uid, username=role, full_name=role, email=f"{role}@x.com",
-        role=role, is_active=True, created_at=now, updated_at=now,
+        id=uid or f"user-{role}", username=role, full_name=role,
+        email=f"{role}@x.com", role=role, is_active=True,
+        created_at=now, updated_at=now,
     )
 
 
@@ -30,27 +41,31 @@ class Resp:
 
 class _Query:
     def __init__(self, db: "FakeDb", table: str):
+        self.table = table
+        self.op = "select"
+        self.calls: list[tuple] = []
         self._db = db
-        self._table = table
-        self._range: tuple[int, int] | None = None
+        self._range: tuple | None = None
 
-    def __getattr__(self, _name):
-        return lambda *a, **k: self
+    def __getattr__(self, method: str):
+        # select, eq, in_, or_, order, limit, maybe_single...: registra e encadeia
+        if method.startswith("_"):
+            raise AttributeError(method)
 
-    def range(self, lo: int, hi: int):
-        self._range = (lo, hi)
-        return self
+        def chain(*args, **_kwargs):
+            self.calls.append((method, args))
+            if method in _WRITE_OPS:
+                self.op = method
+                self._db.writes.append((self.table, method, args[0] if args else None))
+            elif method == "range":
+                self._range = args
+            return self
 
-    def update(self, payload):
-        self._db.writes.append((self._table, "update", payload))
-        return self
-
-    def insert(self, payload):
-        self._db.writes.append((self._table, "insert", payload))
-        return self
+        return chain
 
     def execute(self):
-        resp = self._db.responses.get(self._table, Resp([]))
+        responses = self._db.responses
+        resp = responses.get(f"{self.table}.{self.op}") or responses.get(self.table, Resp([]))
         if not isinstance(resp.data, list):
             return resp
         lo, hi = self._range or (0, POSTGREST_MAX_ROWS - 1)
@@ -59,9 +74,26 @@ class _Query:
 
 
 class FakeDb:
-    def __init__(self, responses: dict[str, Resp]):
-        self.responses = responses
-        self.writes: list = []
+    def __init__(self, responses: dict[str, Resp] | None = None, *, rpc: dict | None = None):
+        self.responses = responses or {}
+        self.rpc_responses = rpc or {}
+        self.writes: list[tuple] = []
+        self.rpc_calls: list[tuple] = []
+        self.queries: list[_Query] = []
 
     def table(self, name: str) -> _Query:
-        return _Query(self, name)
+        query = _Query(self, name)
+        self.queries.append(query)
+        return query
+
+    def rpc(self, name: str, params: dict):
+        self.rpc_calls.append((name, params))
+        resp = self.rpc_responses.get(name, Resp(None))
+        return SimpleNamespace(execute=lambda: resp(params) if callable(resp) else resp)
+
+    @property
+    def tables(self) -> list[str]:
+        return [q.table for q in self.queries]
+
+    def calls(self, table: str) -> list[tuple]:
+        return [c for q in self.queries if q.table == table for c in q.calls]

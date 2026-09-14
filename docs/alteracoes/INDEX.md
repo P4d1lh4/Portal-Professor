@@ -18,6 +18,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 33 | [Fase 1] Migração `0012_hardening` (I-01..I-06) + `DATABASE_URL` no `.env.example` (I-13) + `credits > 0` | 🟡 Média | ✅ Concluída | ✅ PG 18 local: 11 checks + rollback · ⏳ aplicar no Supabase | [33-migracao-0012-hardening.md](33-migracao-0012-hardening.md) |
 | 34 | [Fase 2] I-15: job de CI aplica 0001→última em `postgres:17` + checks de schema | 🟡 Média | ✅ Concluída | ✅ local PG 18: apply `--all` + 12 checks | [34-ci-migracoes-postgres.md](34-ci-migracoes-postgres.md) |
 | 35 | [Fase 2] I-16: CI builda e sobe a imagem do backend (healthz + non-root) · I-18: cobertura ≥ 60% | 🟠 Alta | ✅ Concluída | ✅ docker build + smoke local · pytest ≥ 60% | [35-ci-docker-cobertura.md](35-ci-docker-cobertura.md) |
+| 36 | [Fase 2] B-12: fake de banco único (`tests/fakes.py`) com registro de filtros + `as_user` no conftest; 11 fakes migrados | 🟡 Média | ✅ Concluída | ✅ 174 pytest · −599 linhas · mutação pega | [36-fake-db-unico.md](36-fake-db-unico.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 

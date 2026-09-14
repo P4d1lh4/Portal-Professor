@@ -68,7 +68,7 @@ Critério: backup semanal rodando, staging existindo, CI validando migrações e
 - [x] **I-15** Job de CI com `services: postgres` rodando `apply_migration.py --all`. — M · ✅ + `supabase/ci/checks.sql` (alteração 34)
 - [x] **I-16** Job de CI `docker build ./backend`. — P · ✅ + smoke test (healthz, non-root) (alteração 35)
 - [x] **I-18** `--cov-fail-under=60`. — P · ✅ alteração 35
-- [ ] **B-12** Fake de DB único em `conftest.py` que **registra** os filtros aplicados (`.eq/.in_/.or_`) para asserção. Migrar os 6 fakes duplicados. — M
+- [x] **B-12** Fake de DB único em `conftest.py` que **registra** os filtros aplicados (`.eq/.in_/.or_`) para asserção. Migrar os 6 fakes duplicados. — M · ✅ `tests/fakes.py` + `as_user` no conftest; eram 11 fakes (alteração 36)
 - [ ] **B-13** Testes HTTP (3 papéis × dono/não-dono) para `users`, `medical_certificates`, `sheets`, `reports`, `exports`, `audit`; `professor` no dashboard. — G
 - [ ] **F-17a** Infra: `environment: "jsdom"` + `setupFiles` no `vite.config.ts`; `@testing-library/react`, `jest-dom`, `user-event`, `msw`. — M
 - [ ] **F-17b** Suítes: `axios.ts` interceptors → `ProtectedRoute` → `useAuth` → `GradesPage` (edit → PUT → indicador, rollback) → `AttendancePage` (rascunho, F-01). — G

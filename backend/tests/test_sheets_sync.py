@@ -1,11 +1,9 @@
 """B-02: sync de planilha respeita período encerrado (mesma trava do PUT /grades)."""
-import pytest
 from fastapi.testclient import TestClient
 
 import app.routers.sheets as sheets_router
-from app.deps import get_current_user
 from app.main import app
-from tests.fakes import FakeDb, Resp, profile
+from tests.fakes import FakeDb, Resp
 
 client = TestClient(app)
 
@@ -19,14 +17,6 @@ def _db(is_active: bool) -> FakeDb:
             "csv_sync_url": SHEET_URL, "is_active": is_active,
         }),
     })
-
-
-@pytest.fixture
-def as_user():
-    def _set(role: str, uid: str):
-        app.dependency_overrides[get_current_user] = lambda: profile(role, uid)
-    yield _set
-    app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_coordenador_periodo_encerrado_409_sem_baixar_nem_gravar(as_user, monkeypatch):
