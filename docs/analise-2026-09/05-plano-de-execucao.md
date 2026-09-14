@@ -70,7 +70,7 @@ Critério: backup semanal rodando, staging existindo, CI validando migrações e
 - [x] **I-18** `--cov-fail-under=60`. — P · ✅ alteração 35
 - [x] **B-12** Fake de DB único em `conftest.py` que **registra** os filtros aplicados (`.eq/.in_/.or_`) para asserção. Migrar os 6 fakes duplicados. — M · ✅ `tests/fakes.py` + `as_user` no conftest; eram 11 fakes (alteração 36)
 - [x] **B-13** Testes HTTP (3 papéis × dono/não-dono) para `users`, `medical_certificates`, `sheets`, `reports`, `exports`, `audit`; `professor` no dashboard. — G · ✅ +69 testes, cobertura 73,6%, piso 70% (alteração 37)
-- [ ] **F-17a** Infra: `environment: "jsdom"` + `setupFiles` no `vite.config.ts`; `@testing-library/react`, `jest-dom`, `user-event`, `msw`. — M
+- [x] **F-17a** Infra: `environment: "jsdom"` + `setupFiles` no `vite.config.ts`; `@testing-library/react`, `jest-dom`, `user-event`, `msw`. — M · ✅ sem `msw` (entra no F-17b quando uma suíte precisar de rede); smoke test do `useConfirm` (alteração 38)
 - [ ] **F-17b** Suítes: `axios.ts` interceptors → `ProtectedRoute` → `useAuth` → `GradesPage` (edit → PUT → indicador, rollback) → `AttendancePage` (rascunho, F-01). — G
 - [ ] **I-26** Runbook `docs/runbook.md`: Supabase pausado, `readyz` 503, rotação de chaves, restore de backup. — M
 
