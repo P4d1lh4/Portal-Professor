@@ -155,14 +155,8 @@ def get_period(
 # CRUD (admin)
 # ---------------------------------------------------------------
 
-@router.post("/periods", response_model=Period, status_code=status.HTTP_201_CREATED)
-def create_period(
-    body: PeriodCreate,
-    current_user: Profile = Depends(require_role("admin")),
-) -> Period:
-    db = get_admin_db()
-
-    # Verifica unicidade do nome
+def _insert_period(db, body: PeriodCreate) -> str:
+    """Checa o nome (único) e insere o período; devolve o id novo."""
     existing = (
         db.table("academic_periods")
         .select("id")
@@ -183,7 +177,80 @@ def create_period(
         payload["end_date"] = str(payload["end_date"])
 
     resp = db.table("academic_periods").insert(payload).execute()
-    created_id = resp.data[0]["id"]
+    return resp.data[0]["id"]
+
+
+@router.post(
+    "/periods/{period_id}/clone",
+    response_model=Period,
+    status_code=status.HTTP_201_CREATED,
+)
+def clone_period(
+    period_id: str,
+    body: PeriodCreate,
+    current_user: Profile = Depends(require_role("admin")),
+) -> Period:
+    """Cria um período novo com cópia dos módulos ativos de outro (P-Q5).
+
+    Copia código, nome, professor, créditos e limite de faltas. Alunos não:
+    `student_number` é único no banco inteiro (0001) e o vínculo aluno ×
+    período ainda é decisão pendente (B-08).
+    """
+    db = get_admin_db()
+
+    source = (
+        db.table("academic_periods").select("id, name").eq("id", period_id).maybe_single().execute()
+    )
+    if not source.data:
+        raise HTTPException(status_code=404, detail="Período não encontrado.")
+
+    new_id = _insert_period(db, body)
+
+    modules = (
+        db.table("modules")
+        .select("name, code, professor_id, credits, max_absences")
+        .eq("academic_period_id", period_id)
+        .eq("is_active", True)
+        .execute()
+    ).data or []
+    if modules:
+        try:
+            db.table("modules").insert(
+                [{**m, "academic_period_id": new_id, "is_active": True} for m in modules]
+            ).execute()
+        except Exception:
+            # ponytail: compensação no app, como na matrícula (alteração 42); sem
+            # ela sobrava um período novo sem os módulos que o admin pediu.
+            db.table("academic_periods").delete().eq("id", new_id).execute()
+            raise
+
+    full = db.table("academic_periods").select(_SELECT).eq("id", new_id).single().execute()
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="periods",
+        entity_id=new_id,
+        summary=(
+            f"Período criado a partir de {source.data['name']}: "
+            f"{len(modules)} módulo(s) copiado(s)"
+        ),
+        after={
+            **{k: full.data.get(k) for k in _PERIOD_AUDIT_FIELDS},
+            "cloned_from": period_id,
+            "modules": len(modules),
+        },
+    )
+    return _to_period(full.data)
+
+
+@router.post("/periods", response_model=Period, status_code=status.HTTP_201_CREATED)
+def create_period(
+    body: PeriodCreate,
+    current_user: Profile = Depends(require_role("admin")),
+) -> Period:
+    db = get_admin_db()
+    created_id = _insert_period(db, body)
 
     full = (
         db.table("academic_periods")
