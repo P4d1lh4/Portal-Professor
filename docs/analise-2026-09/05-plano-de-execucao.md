@@ -65,7 +65,7 @@ Critério: backup semanal rodando, staging existindo, CI validando migrações e
 - [ ] **I-24 / I-25** Workflow `backup.yml` semanal: `pg_dump | gzip` + download do bucket → artifact (90 dias). Documentar restore no DEPLOY.md. — M
 - [ ] **I-23** Staging: 2º projeto Supabase free + `apply_migration.py --all` + seed + 2º serviço Render + preview Vercel. Fluxo "migração vai primeiro para staging". — M
 - [ ] **I-12** Rotacionar `service_role` e `jwt_secret` no painel; atualizar Render e `.env` local. *Manual.* — M
-- [ ] **I-15** Job de CI com `services: postgres` rodando `apply_migration.py --all`. — M
+- [x] **I-15** Job de CI com `services: postgres` rodando `apply_migration.py --all`. — M · ✅ + `supabase/ci/checks.sql` (alteração 34)
 - [ ] **I-16** Job de CI `docker build ./backend`. — P
 - [ ] **I-18** `--cov-fail-under=60`. — P
 - [ ] **B-12** Fake de DB único em `conftest.py` que **registra** os filtros aplicados (`.eq/.in_/.or_`) para asserção. Migrar os 6 fakes duplicados. — M
