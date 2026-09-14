@@ -47,6 +47,49 @@ jobs:
           pip install pip-audit
           pip-audit -r requirements.txt
 
+  migrations:
+    name: Migrações (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # psql e apply_migration.py falam com o serviço acima.
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Instalar dependências
+        run: pip install -r backend/requirements.txt
+
+      - name: Stub do Supabase (auth, storage, roles)
+        run: psql -v ON_ERROR_STOP=1 -q -f supabase/ci/stub.sql
+
+      - name: Aplicar todas as migrações (apply_migration.py --all)
+        run: python backend/scripts/apply_migration.py --all
+
+      - name: Checks de comportamento do schema
+        run: psql -v ON_ERROR_STOP=1 -q -f supabase/ci/checks.sql
+
   frontend:
     name: Frontend (tsc + build)
     runs-on: ubuntu-latest
