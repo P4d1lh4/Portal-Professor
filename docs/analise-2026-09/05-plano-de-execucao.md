@@ -62,7 +62,7 @@ Critério: nenhum achado Alto de código aberto; migração 0012 aplicada; dashb
 
 Critério: backup semanal rodando, staging existindo, CI validando migrações e Docker, cobertura ≥ 60%, suítes HTTP para todos os routers.
 
-- [ ] **I-24 / I-25** Workflow `backup.yml` semanal: `pg_dump | gzip` + download do bucket → artifact (90 dias). Documentar restore no DEPLOY.md. — M
+- [x] **I-24 / I-25** Workflow `backup.yml` semanal: `pg_dump | gzip` + download do bucket → artifact (90 dias). Documentar restore no DEPLOY.md. — M · ✅ com `supabase db dump` e **gpg** (repo público: artifact é baixável por qualquer um); restore ensaiado localmente. ⏳ Cadastrar os 4 secrets e rodar à mão após o restore do Supabase (alteração 40)
 - [ ] **I-23** Staging: 2º projeto Supabase free + `apply_migration.py --all` + seed + 2º serviço Render + preview Vercel. Fluxo "migração vai primeiro para staging". — M
 - [ ] **I-12** Rotacionar `service_role` e `jwt_secret` no painel; atualizar Render e `.env` local. *Manual.* — M
 - [x] **I-15** Job de CI com `services: postgres` rodando `apply_migration.py --all`. — M · ✅ + `supabase/ci/checks.sql` (alteração 34)

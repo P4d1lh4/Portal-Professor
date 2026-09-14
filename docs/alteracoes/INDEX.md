@@ -22,6 +22,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 37 | [Fase 2] B-13: testes HTTP de authz em users, atestados, sheets, reports, exports, audit + professor no dashboard; piso de cobertura 70% | 🟠 Alta | ✅ Concluída | ✅ 243 pytest (+69) · cobertura 73,6% · 3 mutações pegas | [37-testes-http-routers.md](37-testes-http-routers.md) |
 | 38 | [Fase 2] F-17a: infra de testes de componente (jsdom + Testing Library) + smoke test do `useConfirm` | 🟠 Alta | ✅ Concluída | ✅ vitest 10/10 · lint/tsc/build · mutação pega | [38-infra-testes-componente.md](38-infra-testes-componente.md) |
 | 39 | [Fase 2] F-17b: suítes de componente (interceptors do axios, `ProtectedRoute`, `useAuth`, Notas, Chamada/F-01), sem `msw` | 🟠 Alta | ✅ Concluída | ✅ vitest 43/43 (+33) · lint/tsc/build · 6 mutações pegas | [39-suites-componente.md](39-suites-componente.md) |
+| 40 | [Fase 2] I-24/I-25: workflow `backup.yml` semanal (banco via `supabase db dump` + anexos do bucket), criptografado com gpg por o repo ser público; restore no DEPLOY.md | 🟠 Alta | ✅ Concluída (⏳ secrets) | ✅ dump → restore local idêntico · gpg ida e volta · 3 pytest | [40-backup-semanal.md](40-backup-semanal.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 
