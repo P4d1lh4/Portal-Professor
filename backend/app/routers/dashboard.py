@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from ..db import fetch_all, get_admin_db
 from ..deps import get_current_user
 from ..schemas.users import Profile
-from ..services.classification import Status, classify_status, risk_reasons
+from ..services.classification import Status, classify_status, grade_risk, risk_sort_key
 from ..services.permissions import assert_coordinator_owns_period
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -99,11 +99,7 @@ async def get_dashboard(
 
             # P-N1: quem o professor precisa olhar antes do fechamento.
             student = enr.get("student") or {}
-            graded = (
-                float(grade.get("regular_exam_grade") or 0) > 0
-                or float(grade.get("makeup_exam_grade") or 0) > 0
-            )
-            reasons = risk_reasons(final, absences, max_abs, graded=graded)
+            reasons = grade_risk(grade, max_abs)
             if reasons and student.get("is_active", True):
                 at_risk.append({
                     "enrollment_id": enr["id"],
@@ -117,9 +113,7 @@ async def get_dashboard(
                     "reasons": reasons,
                 })
 
-        # Mais urgente primeiro: faltas (reprovam sem recuperação), e dentro
-        # delas quem tem mais faltas.
-        at_risk.sort(key=lambda r: ("faltas" not in r["reasons"], -r["absences"], r["full_name"]))
+        at_risk.sort(key=lambda r: risk_sort_key(r["reasons"], r["absences"], r["full_name"]))
 
         modules_detail = []
         for m in modules:

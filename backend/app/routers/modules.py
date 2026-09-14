@@ -12,7 +12,7 @@ from ..schemas.modules import (
 )
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
-from ..services.classification import risk_reasons
+from ..services.classification import grade_risk
 from ..services.guards import assert_module_period_active
 from ..services.permissions import assert_coordinator_owns_period
 
@@ -156,10 +156,7 @@ def list_module_students(
                 final_grade=final,
                 absences=absences,
                 last_updated=grade.get("last_updated"),
-                risk=risk_reasons(
-                    float(final), int(absences), max_absences,
-                    graded=float(regular) > 0 or float(makeup) > 0,
-                ),
+                risk=grade_risk(grade, max_absences),
             )
         )
     return results
