@@ -12,6 +12,7 @@ from ..schemas.modules import (
 )
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
+from ..services.classification import risk_reasons
 from ..services.guards import assert_module_period_active
 from ..services.permissions import assert_coordinator_owns_period
 
@@ -112,13 +113,14 @@ def list_module_students(
     db = get_admin_db()
 
     mod_resp = (
-        db.table("modules").select("id, professor_id, academic_period_id")
+        db.table("modules").select("id, professor_id, academic_period_id, max_absences")
         .eq("id", module_id).maybe_single().execute()
     )
     if not mod_resp.data:
         raise HTTPException(status_code=404, detail="Módulo não encontrado.")
 
     _assert_read_access(db, current_user, mod_resp.data)
+    max_absences = int(mod_resp.data.get("max_absences") or 0)
 
     resp = (
         db.table("enrollments")
@@ -136,6 +138,10 @@ def list_module_students(
     for row in resp.data:
         student = row.get("student") or {}
         grade = row.get("grade") or {}
+        regular = grade.get("regular_exam_grade", 0)
+        makeup = grade.get("makeup_exam_grade", 0)
+        final = grade.get("final_grade", 0)
+        absences = grade.get("absences", 0)
         results.append(
             StudentGradeInfo(
                 enrollment_id=row["id"],
@@ -145,11 +151,15 @@ def list_module_students(
                 email=student.get("email"),
                 enrollment_status=row["status"],
                 tutor_grade=grade.get("tutor_grade", 0),
-                regular_exam_grade=grade.get("regular_exam_grade", 0),
-                makeup_exam_grade=grade.get("makeup_exam_grade", 0),
-                final_grade=grade.get("final_grade", 0),
-                absences=grade.get("absences", 0),
+                regular_exam_grade=regular,
+                makeup_exam_grade=makeup,
+                final_grade=final,
+                absences=absences,
                 last_updated=grade.get("last_updated"),
+                risk=risk_reasons(
+                    float(final), int(absences), max_absences,
+                    graded=float(regular) > 0 or float(makeup) > 0,
+                ),
             )
         )
     return results

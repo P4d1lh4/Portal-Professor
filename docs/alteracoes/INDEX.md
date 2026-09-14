@@ -27,6 +27,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 42 | [Fase 3] P-Q1/B-S2: matricular aluno existente e desmatricular (`POST /modules/{id}/enrollments`, `DELETE /enrollments/{id}`) + controles na ficha do aluno | 🟠 Alta | ✅ Concluída | ✅ 15 pytest + 4 vitest · 6 mutações pegas | [42-matricular-aluno-existente.md](42-matricular-aluno-existente.md) |
 | 43 | [Fase 3] P-Q2: import de alunos aceita o cabeçalho pt-BR do export (sem acento também) e data DD/MM/AAAA; round-trip export → import | 🟠 Alta | ✅ Concluída | ✅ 6 pytest novos · 21/21 import · 4 mutações pegas | [43-import-cabecalhos-ptbr.md](43-import-cabecalhos-ptbr.md) |
 | 44 | [Fase 3] P-Q3/B-05: auditoria em usuários (papel/ativo), atestados e anexos (sem dado de saúde), exclusão de chamada (com as marcações), planilha, import e `insert` nas criações de período/módulo/aluno; encerrar período | 🟡 Média | ✅ Concluída | ✅ 13 pytest · cobertura 79,9% · 9 mutações pegas | [44-auditoria-completa.md](44-auditoria-completa.md) |
+| 45 | [Fase 3] P-N1/B-S1/F-S2: alunos em risco (faltas ≥ 80% do limite; nota < 5 com prova lançada) — card no dashboard do professor e selo na Chamada; regra única `risk_reasons` | 🟠 Alta | ✅ Concluída | ✅ 11 pytest + 4 vitest · cobertura 80,5% · 7 mutações pegas | [45-alunos-em-risco.md](45-alunos-em-risco.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from ..db import fetch_all, get_admin_db
 from ..deps import get_current_user
 from ..schemas.users import Profile
-from ..services.classification import Status, classify_status
+from ..services.classification import Status, classify_status, risk_reasons
 from ..services.permissions import assert_coordinator_owns_period
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -61,7 +61,12 @@ async def get_dashboard(
         enrollments = await asyncio.to_thread(
             lambda: fetch_all(
                 lambda lo, hi: db.table("enrollments")
-                .select("id, module_id, grade:grades!enrollment_id(final_grade, absences)")
+                .select(
+                    "id, module_id, "
+                    "student:students!student_id(full_name, student_number, is_active), "
+                    "grade:grades!enrollment_id("
+                    "final_grade, absences, regular_exam_grade, makeup_exam_grade)"
+                )
                 .in_("module_id", module_ids)
                 .range(lo, hi)
             )
@@ -72,6 +77,7 @@ async def get_dashboard(
         dist: dict[str, int] = {b: 0 for b in BUCKETS}
         total_students = 0
         total_approved = 0
+        at_risk: list[dict] = []
 
         for enr in enrollments:
             mid = enr["module_id"]
@@ -90,6 +96,30 @@ async def get_dashboard(
             elif status == Status.APROVADO:
                 mod_map[mid]["approved"] += 1
                 total_approved += 1
+
+            # P-N1: quem o professor precisa olhar antes do fechamento.
+            student = enr.get("student") or {}
+            graded = (
+                float(grade.get("regular_exam_grade") or 0) > 0
+                or float(grade.get("makeup_exam_grade") or 0) > 0
+            )
+            reasons = risk_reasons(final, absences, max_abs, graded=graded)
+            if reasons and student.get("is_active", True):
+                at_risk.append({
+                    "enrollment_id": enr["id"],
+                    "module_id": mid,
+                    "module_code": mod_map[mid]["code"],
+                    "full_name": student.get("full_name", ""),
+                    "student_number": student.get("student_number", ""),
+                    "absences": absences,
+                    "max_absences": max_abs,
+                    "final_grade": final,
+                    "reasons": reasons,
+                })
+
+        # Mais urgente primeiro: faltas (reprovam sem recuperação), e dentro
+        # delas quem tem mais faltas.
+        at_risk.sort(key=lambda r: ("faltas" not in r["reasons"], -r["absences"], r["full_name"]))
 
         modules_detail = []
         for m in modules:
@@ -119,6 +149,7 @@ async def get_dashboard(
             },
             "modules_detail": modules_detail,
             "grade_distribution": [{"label": b, "count": dist[b]} for b in BUCKETS],
+            "at_risk": at_risk,
         }
 
     # ── Coordinator / Admin ───────────────────────────────────────────────────

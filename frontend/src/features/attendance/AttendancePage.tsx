@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useModules } from "@/features/modules/useModules";
+import { RiskBadge } from "@/features/grades/RiskBadge";
 
 import {
   useAttendanceDay,
@@ -453,6 +454,7 @@ export default function AttendancePage() {
                       </TableCell>
                       <TableCell className="font-medium text-sm">
                         {row.full_name}
+                        <RiskBadge moduleId={activeModuleId} enrollmentId={row.enrollment_id} />
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="inline-flex">

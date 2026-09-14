@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import api from "@/lib/axios";
+import { AtRiskCard, type AtRiskItem } from "./AtRiskCard";
 import { useActivePeriods } from "@/features/periods/usePeriods";
 import { useState } from "react";
 import {
@@ -68,6 +69,7 @@ interface DashboardData {
   modules_detail?: ModuleBreakdown[];   // professor
   modules_breakdown?: ModuleBreakdown[]; // coord/admin
   grade_distribution: GradeBucket[];
+  at_risk?: AtRiskItem[];               // professor
 }
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -349,6 +351,9 @@ export default function DashboardPage() {
               </>
             )}
           </div>
+
+          {/* P-N1: quem o professor precisa olhar antes do fechamento */}
+          {isProfessor && <AtRiskCard items={data.at_risk ?? []} />}
 
           {/* Charts + table */}
           <div className="grid gap-6 lg:grid-cols-2">

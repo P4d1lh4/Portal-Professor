@@ -12,11 +12,13 @@ const m = vi.hoisted(() => ({
   getDay: vi.fn(),
   list: vi.fn(),
   save: vi.fn(),
+  getGrades: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ profile: { role: "professor" } }) }));
 vi.mock("@/features/modules/api", () => ({ modulesApi: { list: m.listModules } }));
+vi.mock("@/features/grades/api", () => ({ gradesApi: { getByModule: m.getGrades } }));
 vi.mock("./api", () => ({
   attendanceApi: { getDay: m.getDay, list: m.list, save: m.save, remove: vi.fn() },
 }));
@@ -78,6 +80,7 @@ beforeEach(() => {
   m.getDay.mockImplementation(async (moduleId: string, date: string) => dia(moduleId, date));
   m.list.mockResolvedValue([]);
   m.save.mockResolvedValue({});
+  m.getGrades.mockResolvedValue([]);
 });
 
 describe("AttendancePage: rascunho não salvo (F-01)", () => {
@@ -152,5 +155,20 @@ describe("AttendancePage: salvar", () => {
       }),
     );
     expect(m.toast.success).toHaveBeenCalledWith("Chamada salva.");
+  });
+});
+
+describe("AttendancePage: alunos em risco (P-N1)", () => {
+  it("destaca só quem está em risco no módulo", async () => {
+    m.getGrades.mockResolvedValue([
+      { enrollment_id: "e1", risk: ["faltas"] },
+      { enrollment_id: "e2", risk: [] },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText("Em risco: faltas")).toBeInTheDocument();
+    expect(m.getGrades).toHaveBeenCalledWith("m1");
+    const linhaDoBruno = screen.getByRole("row", { name: /Bruno Lima/ });
+    expect(within(linhaDoBruno).queryByText(/Em risco/)).toBeNull();
   });
 });
