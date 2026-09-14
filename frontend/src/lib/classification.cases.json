@@ -1,0 +1,10 @@
+[
+  { "final": 7, "absences": 0, "max": 10, "status": "aprovado" },
+  { "final": 6.99, "absences": 0, "max": 10, "status": "recuperacao" },
+  { "final": 5, "absences": 0, "max": 10, "status": "recuperacao" },
+  { "final": 4.99, "absences": 0, "max": 10, "status": "reprovado" },
+  { "final": 0, "absences": 0, "max": 10, "status": "reprovado" },
+  { "final": 10, "absences": 11, "max": 10, "status": "rep_faltas" },
+  { "final": 9, "absences": 10, "max": 10, "status": "aprovado" },
+  { "final": 10, "absences": 1, "max": 0, "status": "rep_faltas" }
+]
