@@ -85,7 +85,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [x] **P-N2** Seção "atenção" no relatório de período em PDF. — P · ✅ mesma regra/ordem do P-N1 via `grade_risk`/`risk_sort_key` (alteração 46)
 - [x] **P-Q5 / B-S3** `POST /api/periods/{id}/clone` (módulos sem alunos) + botão em `PeriodsPage`. — M · ✅ + import acusa matrícula de outro período (`student_number` é único global). Levar os alunos depende do 🧭 B-08; a matrícula em lote do P-Q1 não foi necessária (o import já matricula em todos os módulos) (alteração 47)
 - [x] **P-Q4 / B-S4 / F-S4** Export CSV de frequência + botão na Chamada. — P · ✅ matriz aluno × dia (P/F/J + totais), mesmo padrão e permissão do export de notas (alteração 48)
-- [ ] **P-Q8** Paginar `/api/professor/students`. — P
+- [x] **P-Q8** Paginar `/api/professor/students`. — P · ✅ + busca no servidor, detalhe só da página, matrículas com `fetch_all` (antes cortava em 1000) (alteração 50)
 - [ ] **F-S1** Filtro por situação na GradesPage. — P
 - [ ] **F-08** Cards mobile em Notas e Chamada (padrão de `StudentsPage`). — M
 - [ ] **P-N4** "faltas / chamadas registradas" ao lado de "faltas / máximo". — P

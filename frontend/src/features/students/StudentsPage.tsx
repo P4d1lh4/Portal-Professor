@@ -103,7 +103,7 @@ export default function StudentsPage() {
     setPage(0);
   }, [debouncedSearch, periodId]);
 
-  const coordParams = useMemo<ListPeriodStudentsParams>(() => {
+  const listParams = useMemo<ListPeriodStudentsParams>(() => {
     const params: ListPeriodStudentsParams = {
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
@@ -112,45 +112,22 @@ export default function StudentsPage() {
     return params;
   }, [debouncedSearch, page]);
 
+  // Mesma paginação e busca no servidor para os dois papéis (P-Q8); cada um
+  // só dispara a sua query.
   const coordinatorQuery = useStudentsByPeriod(
     isCoordinator || profile?.role === "admin" ? periodId : undefined,
-    coordParams,
+    listParams,
   );
-  const professorQuery = useProfessorStudents();
+  const professorQuery = useProfessorStudents(listParams, isProfessor);
+  const query = isProfessor ? professorQuery : coordinatorQuery;
 
-  // Professor: lista já vem completa (sem paginação no backend ainda).
-  // Filtra/pagina no client.
-  const professorAll: StudentItem[] = professorQuery.data ?? [];
-  const professorFiltered = useMemo(() => {
-    const term = debouncedSearch.trim().toLowerCase();
-    if (!term) return professorAll;
-    return professorAll.filter(
-      (s) =>
-        s.full_name.toLowerCase().includes(term) ||
-        s.student_number.toLowerCase().includes(term),
-    );
-  }, [professorAll, debouncedSearch]);
+  const students: StudentItem[] = query.data?.items ?? [];
+  const total = query.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const canPrev = page > 0;
+  const canNext = page < totalPages - 1;
 
-  const students: StudentItem[] = isProfessor
-    ? professorFiltered
-    : (coordinatorQuery.data?.items ?? []);
-  const total = isProfessor
-    ? professorFiltered.length
-    : (coordinatorQuery.data?.total ?? 0);
-  const totalPages = isProfessor
-    ? 1
-    : Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const canPrev = !isProfessor && page > 0;
-  const canNext = !isProfessor && page < totalPages - 1;
-
-  const isLoading = isProfessor
-    ? professorQuery.isLoading
-    : coordinatorQuery.isLoading;
-  const isError = isProfessor
-    ? professorQuery.isError
-    : coordinatorQuery.isError;
-  const error = isProfessor ? professorQuery.error : coordinatorQuery.error;
-  const isPlaceholderData = !isProfessor && coordinatorQuery.isPlaceholderData;
+  const { isLoading, isError, error, isPlaceholderData } = query;
 
   const createInPeriod = useCreateStudentInPeriod(periodId ?? "");
   const createProfessor = useCreateProfessorStudent();
