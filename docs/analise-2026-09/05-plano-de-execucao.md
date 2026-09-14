@@ -78,7 +78,7 @@ Critério: backup semanal rodando, staging existindo, CI validando migrações e
 
 Critério: jornada do coordenador completa ponta a ponta; professor vê risco antes do fechamento; CSV round-trip.
 
-- [ ] **P-Q1 / B-S2** `POST /api/modules/{id}/enrollments` (aluno existente) + `DELETE` de matrícula + botão em `ModulesPage`/`StudentDetailSheet`. Ao criar aluno com `student_number` existente, oferecer "matricular o existente". — M
+- [x] **P-Q1 / B-S2** `POST /api/modules/{id}/enrollments` (aluno existente) + `DELETE` de matrícula + botão em `ModulesPage`/`StudentDetailSheet`. Ao criar aluno com `student_number` existente, oferecer "matricular o existente". — M · ✅ endpoints (admin/coordenador) + controles na ficha do aluno; o 409 aponta o caminho. Botão em lote na `ModulesPage` fica para junto do P-Q5 (alteração 42)
 - [ ] **P-Q2** Import aceita cabeçalhos pt-BR e snake_case (mapa de aliases). — P
 - [ ] **P-Q3 / B-05** `write_audit_log` em `users` (role/is_active), `sheets` (resumo), `attendance` delete, `medical_certificates`; `action="insert"` nas criações. — M
 - [ ] **P-N1 / B-S1 / F-S2** `GET /api/modules/{id}/students/at-risk` + card no dashboard do professor + destaque na Chamada. — M

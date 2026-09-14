@@ -79,6 +79,38 @@ export function useUpdateStudent() {
   });
 }
 
+// Matrícula mexe na ficha do aluno, na tela de Notas e na Chamada do módulo.
+function useEnrollmentMutation<V extends { moduleId: string }>(
+  mutationFn: (vars: V) => Promise<unknown>,
+  successMessage: string,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: (_data, { moduleId }) => {
+      qc.invalidateQueries({ queryKey: STUDENTS_KEY });
+      qc.invalidateQueries({ queryKey: ["grades", moduleId] });
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+      toast.success(successMessage);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export const useEnrollStudent = () =>
+  useEnrollmentMutation(
+    ({ moduleId, studentId }: { moduleId: string; studentId: string }) =>
+      studentsApi.enroll(moduleId, studentId),
+    "Aluno matriculado.",
+  );
+
+export const useUnenrollStudent = () =>
+  useEnrollmentMutation(
+    ({ enrollmentId }: { enrollmentId: string; moduleId: string }) =>
+      studentsApi.unenroll(enrollmentId),
+    "Matrícula removida.",
+  );
+
 export function useDeactivateStudent() {
   const qc = useQueryClient();
   return useMutation({

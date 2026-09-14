@@ -10,7 +10,9 @@ import {
   Loader2,
   Mail,
   Pencil,
+  Plus,
   UserX,
+  X,
 } from "lucide-react";
 
 import {
@@ -23,11 +25,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { useAuth } from "@/hooks/useAuth";
 import { formatGrade } from "@/lib/utils";
 import { MedicalCertificatesSheet } from "@/features/medical-certificates/MedicalCertificatesSheet";
+import { useModules } from "@/features/modules/useModules";
 import { useDownloadStudentReport } from "@/features/reports/useReports";
-import { useStudentDetail } from "./useStudents";
-import type { StudentItem } from "./api";
+import { useEnrollStudent, useStudentDetail, useUnenrollStudent } from "./useStudents";
+import type { ModuleGradeSummary, StudentItem } from "./api";
 
 function GradeStatusBadge({ grade, maxAbsences, absences }: {
   grade: number;
@@ -59,6 +64,60 @@ function AbsenceBar({ absences, max }: { absences: number; max: number }) {
   );
 }
 
+// Matricula o aluno num módulo ativo do período dele que ainda não cursa.
+// Montado só para quem pode matricular, então a lista de módulos não é
+// buscada à toa para o professor.
+// ponytail: <select> nativo; o Radix Select dos dialogs não traz ganho aqui.
+function EnrollmentPicker({ student }: { student: StudentItem }) {
+  const { data: modules = [] } = useModules(student.academic_period_id);
+  const enroll = useEnrollStudent();
+  const [moduleId, setModuleId] = useState("");
+
+  const enrolled = new Set(student.enrolled_modules?.map((m) => m.module_id));
+  const available = modules.filter(
+    (m) =>
+      m.is_active &&
+      m.academic_period?.is_active !== false &&
+      !enrolled.has(m.id),
+  );
+  if (available.length === 0) return null;
+
+  return (
+    <div className="mt-4 flex gap-2">
+      <select
+        aria-label="Matricular em módulo"
+        value={moduleId}
+        onChange={(e) => setModuleId(e.target.value)}
+        className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <option value="">Matricular em módulo…</option>
+        {available.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.code} — {m.name}
+          </option>
+        ))}
+      </select>
+      <Button
+        variant="outline"
+        disabled={!moduleId || enroll.isPending}
+        onClick={() =>
+          enroll.mutate(
+            { moduleId, studentId: student.id },
+            { onSuccess: () => setModuleId("") },
+          )
+        }
+      >
+        {enroll.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Plus className="h-4 w-4" />
+        )}
+        Matricular
+      </Button>
+    </div>
+  );
+}
+
 interface StudentDetailSheetProps {
   studentId: string | null;
   onClose: () => void;
@@ -77,9 +136,29 @@ export function StudentDetailSheet({
   const { data: student, isLoading } = useStudentDetail(
     studentId ?? undefined
   );
+  const { profile } = useAuth();
+  const { confirm, confirmDialog } = useConfirm();
+  const unenroll = useUnenrollStudent();
 
   const [certificatesOpen, setCertificatesOpen] = useState(false);
   const downloadReport = useDownloadStudentReport();
+
+  // Matrícula é do coordenador/admin (o backend recusa o professor).
+  const canManageEnrollments =
+    canEdit &&
+    !!student?.is_active &&
+    (profile?.role === "admin" || profile?.role === "coordinator");
+
+  const handleUnenroll = async (mod: ModuleGradeSummary) => {
+    const ok = await confirm({
+      title: `Desmatricular de ${mod.module_name}?`,
+      description:
+        "As notas e a frequência do aluno neste módulo serão apagadas. A nota fica registrada na auditoria.",
+      confirmLabel: "Desmatricular",
+      destructive: true,
+    });
+    if (ok) unenroll.mutate({ enrollmentId: mod.enrollment_id, moduleId: mod.module_id });
+  };
 
   return (
     <Sheet open={!!studentId} onOpenChange={(o) => !o && onClose()}>
@@ -185,11 +264,26 @@ export function StudentDetailSheet({
                             {mod.module_code}
                           </p>
                         </div>
-                        <GradeStatusBadge
-                          grade={mod.final_grade}
-                          maxAbsences={mod.max_absences}
-                          absences={mod.absences}
-                        />
+                        <div className="flex items-center gap-1">
+                          <GradeStatusBadge
+                            grade={mod.final_grade}
+                            maxAbsences={mod.max_absences}
+                            absences={mod.absences}
+                          />
+                          {canManageEnrollments && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                              aria-label={`Desmatricular de ${mod.module_name}`}
+                              disabled={unenroll.isPending}
+                              onClick={() => handleUnenroll(mod)}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -210,6 +304,8 @@ export function StudentDetailSheet({
                 </div>
               </>
             )}
+
+            {canManageEnrollments && <EnrollmentPicker student={student} />}
 
             {/* Ações */}
             <Separator className="my-4" />
@@ -251,6 +347,7 @@ export function StudentDetailSheet({
             </div>
           </>
         )}
+        {confirmDialog}
       </SheetContent>
 
       <MedicalCertificatesSheet
