@@ -9,6 +9,8 @@ Deploy em **Vercel** (frontend) + **Render** (backend) + **Supabase** (banco/aut
 > 3. Atualizar o CORS do backend com a URL real do frontend
 > 4. Liberar o redirect de senha no Supabase
 
+> 🚨 **Produção fora do ar, chave vazada ou restore?** Use o [runbook](docs/runbook.md).
+
 ---
 
 ## Pré-requisitos
