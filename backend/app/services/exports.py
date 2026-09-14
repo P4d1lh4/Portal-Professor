@@ -136,6 +136,48 @@ def build_grades_csv(rows: list[GradeExportRow]) -> bytes:
     return buf.getvalue().encode("utf-8")
 
 
+@dataclass
+class AttendanceExportRow:
+    student_number: str
+    full_name: str
+    # Um status por dia de chamada, na ordem das datas; None = sem marcação.
+    statuses: list[str | None]
+
+
+# As mesmas letras dos botões da Chamada.
+_ATTENDANCE_MARK = {"present": "P", "absent": "F", "justified": "J"}
+
+
+def _date_br(iso: str) -> str:
+    y, m, d = iso.split("-")
+    return f"{d}/{m}/{y}"
+
+
+def build_attendance_csv(dates: list[str], rows: list[AttendanceExportRow]) -> bytes:
+    """Frequência de um módulo (P-Q4): uma linha por aluno, uma coluna por dia.
+
+    As faltas contadas aqui são as da chamada; a coluna de faltas das Notas
+    pode ter sido editada à mão (P-08), por isso o nome "Faltas na chamada".
+    """
+    buf = StringIO()
+    buf.write(_BOM)
+    writer = csv.writer(buf, delimiter=_DELIM, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(
+        ["Matrícula", "Nome", *(_date_br(d) for d in dates), "Faltas na chamada", "Justificadas"]
+    )
+    for r in rows:
+        writer.writerow(
+            [
+                _csv_safe(r.student_number),
+                _csv_safe(r.full_name),
+                *(_ATTENDANCE_MARK.get(s, "") if s else "" for s in r.statuses),
+                r.statuses.count("absent"),
+                r.statuses.count("justified"),
+            ]
+        )
+    return buf.getvalue().encode("utf-8")
+
+
 def classify(final_grade: float, absences: int, max_absences: int) -> str:
     """Rótulo PT da situação. Mantido como wrapper da regra centralizada."""
     return classify_label(final_grade, absences, max_absences)

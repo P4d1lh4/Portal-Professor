@@ -13,12 +13,16 @@ const m = vi.hoisted(() => ({
   list: vi.fn(),
   save: vi.fn(),
   getGrades: vi.fn(),
+  downloadAttendance: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ profile: { role: "professor" } }) }));
 vi.mock("@/features/modules/api", () => ({ modulesApi: { list: m.listModules } }));
 vi.mock("@/features/grades/api", () => ({ gradesApi: { getByModule: m.getGrades } }));
+vi.mock("@/features/exports/api", () => ({
+  exportsApi: { downloadModuleAttendance: m.downloadAttendance },
+}));
 vi.mock("./api", () => ({
   attendanceApi: { getDay: m.getDay, list: m.list, save: m.save, remove: vi.fn() },
 }));
@@ -81,6 +85,7 @@ beforeEach(() => {
   m.list.mockResolvedValue([]);
   m.save.mockResolvedValue({});
   m.getGrades.mockResolvedValue([]);
+  m.downloadAttendance.mockResolvedValue(undefined);
 });
 
 describe("AttendancePage: rascunho não salvo (F-01)", () => {
@@ -170,5 +175,16 @@ describe("AttendancePage: alunos em risco (P-N1)", () => {
     expect(m.getGrades).toHaveBeenCalledWith("m1");
     const linhaDoBruno = screen.getByRole("row", { name: /Bruno Lima/ });
     expect(within(linhaDoBruno).queryByText(/Em risco/)).toBeNull();
+  });
+});
+
+describe("AttendancePage: exportar (P-Q4)", () => {
+  it("Exportar CSV baixa a frequência do módulo ativo", async () => {
+    const user = renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /Exportar CSV/ }));
+
+    await waitFor(() => expect(m.downloadAttendance).toHaveBeenCalledWith("m1", "ANA1"));
+    expect(m.toast.success).toHaveBeenCalledWith("Arquivo CSV gerado.");
   });
 });

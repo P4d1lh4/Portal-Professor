@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Check,
   ClipboardList,
+  FileSpreadsheet,
   Loader2,
   Save,
   Search,
@@ -12,6 +13,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useDownloadModuleAttendance } from "@/features/exports/useExports";
 
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -270,6 +272,7 @@ export default function AttendancePage() {
   const isLoading = modulesLoading || dayLoading;
   const noEntries = day?.entries.length === 0;
   const periodClosed = activeModule?.academic_period?.is_active === false;
+  const exportAttendance = useDownloadModuleAttendance();
 
   return (
     <div className="space-y-6">
@@ -279,6 +282,23 @@ export default function AttendancePage() {
           isProfessor
             ? "Registre a frequência dos seus alunos por dia de aula."
             : "Visualize e edite registros de frequência por módulo."
+        }
+        actions={
+          activeModule ? (
+            <Button
+              variant="outline"
+              onClick={() =>
+                exportAttendance.mutate({
+                  moduleId: activeModule.id,
+                  moduleCode: activeModule.code,
+                })
+              }
+              disabled={exportAttendance.isPending}
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Exportar CSV
+            </Button>
+          ) : undefined
         }
       />
 

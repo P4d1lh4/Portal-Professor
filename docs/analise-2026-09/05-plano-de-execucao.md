@@ -84,7 +84,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [x] **P-N1 / B-S1 / F-S2** `GET /api/modules/{id}/students/at-risk` + card no dashboard do professor + destaque na Chamada. — M · ✅ sem endpoint novo: campo `risk` em `/modules/{id}/students` + `at_risk` no dashboard, regra única `risk_reasons` (alteração 45)
 - [x] **P-N2** Seção "atenção" no relatório de período em PDF. — P · ✅ mesma regra/ordem do P-N1 via `grade_risk`/`risk_sort_key` (alteração 46)
 - [x] **P-Q5 / B-S3** `POST /api/periods/{id}/clone` (módulos sem alunos) + botão em `PeriodsPage`. — M · ✅ + import acusa matrícula de outro período (`student_number` é único global). Levar os alunos depende do 🧭 B-08; a matrícula em lote do P-Q1 não foi necessária (o import já matricula em todos os módulos) (alteração 47)
-- [ ] **P-Q4 / B-S4 / F-S4** Export CSV de frequência + botão na Chamada. — P
+- [x] **P-Q4 / B-S4 / F-S4** Export CSV de frequência + botão na Chamada. — P · ✅ matriz aluno × dia (P/F/J + totais), mesmo padrão e permissão do export de notas (alteração 48)
 - [ ] **P-Q8** Paginar `/api/professor/students`. — P
 - [ ] **F-S1** Filtro por situação na GradesPage. — P
 - [ ] **F-08** Cards mobile em Notas e Chamada (padrão de `StudentsPage`). — M

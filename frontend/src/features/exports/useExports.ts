@@ -31,3 +31,18 @@ export function useDownloadModuleGrades() {
     onSuccess: () => toast.success("Arquivo CSV gerado."),
   });
 }
+
+export function useDownloadModuleAttendance() {
+  return useMutation({
+    mutationFn: ({
+      moduleId,
+      moduleCode,
+    }: {
+      moduleId: string;
+      moduleCode: string;
+    }) => exportsApi.downloadModuleAttendance(moduleId, moduleCode),
+    onError: (err: Error) =>
+      toast.error(`Erro ao exportar frequência: ${err.message}`),
+    onSuccess: () => toast.success("Arquivo CSV gerado."),
+  });
+}
