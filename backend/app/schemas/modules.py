@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 
@@ -62,3 +62,15 @@ class StudentGradeInfo(BaseModel):
     final_grade: float
     absences: int
     last_updated: datetime | None = None
+
+
+class EnrollmentCreate(BaseModel):
+    student_id: str
+
+
+class Enrollment(BaseModel):
+    id: str
+    student_id: str
+    module_id: str
+    status: str
+    enrollment_date: date

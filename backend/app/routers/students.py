@@ -213,7 +213,8 @@ def create_period_student(
     if existing.data:
         raise HTTPException(
             409,
-            f"Já existe um aluno com a matrícula '{body.student_number}'.",
+            f"Já existe um aluno com a matrícula '{body.student_number}'. "
+            "Se ele é deste período, abra a ficha dele e use 'Matricular em módulo'.",
         )
 
     payload = body.model_dump(exclude_none=True)

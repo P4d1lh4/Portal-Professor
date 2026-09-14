@@ -87,4 +87,9 @@ export const studentsApi = {
 
   deactivate: (studentId: string) =>
     api.delete(`/api/professor/students/${studentId}`),
+
+  enroll: (moduleId: string, studentId: string) =>
+    api.post(`/api/modules/${moduleId}/enrollments`, { student_id: studentId }),
+
+  unenroll: (enrollmentId: string) => api.delete(`/api/enrollments/${enrollmentId}`),
 };

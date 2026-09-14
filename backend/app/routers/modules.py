@@ -2,9 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..db import get_admin_db
 from ..deps import get_current_user, require_role
-from ..schemas.modules import Module, ModuleCreate, ModuleUpdate, StudentGradeInfo
+from ..schemas.modules import (
+    Enrollment,
+    EnrollmentCreate,
+    Module,
+    ModuleCreate,
+    ModuleUpdate,
+    StudentGradeInfo,
+)
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
+from ..services.guards import assert_module_period_active
 from ..services.permissions import assert_coordinator_owns_period
 
 
@@ -316,6 +324,130 @@ def delete_module(
         summary=f"Módulo excluído: {before.data.get('name', '')}",
         before={k: before.data.get(k) for k in _MODULE_AUDIT_FIELDS},
         after=None,
+    )
+
+
+# ---------------------------------------------------------------
+# Matrículas (P-Q1): aluno já cadastrado ↔ módulo
+# ---------------------------------------------------------------
+
+_NO_MODULE_PERMISSION = "Você não tem permissão para gerenciar módulos neste período."
+
+
+@router.post(
+    "/modules/{module_id}/enrollments",
+    response_model=Enrollment,
+    status_code=status.HTTP_201_CREATED,
+)
+def enroll_student(
+    module_id: str,
+    body: EnrollmentCreate,
+    current_user: Profile = Depends(require_role("admin", "coordinator")),
+) -> Enrollment:
+    """Matricula um aluno já cadastrado no módulo.
+
+    Fecha o P-01: o aluno criado pelo coordenador nasce sem matrícula e ficava
+    fora de Notas e Chamada, que listam por `enrollments`.
+    """
+    db = get_admin_db()
+
+    module = (
+        db.table("modules").select("id, name, academic_period_id")
+        .eq("id", module_id).maybe_single().execute()
+    ).data
+    if not module:
+        raise HTTPException(status_code=404, detail="Módulo não encontrado.")
+    assert_coordinator_owns_period(
+        db, module["academic_period_id"], current_user, detail=_NO_MODULE_PERMISSION
+    )
+    assert_module_period_active(db, module_id, current_user)
+
+    student = (
+        db.table("students").select("id, full_name, academic_period_id, is_active")
+        .eq("id", body.student_id).maybe_single().execute()
+    ).data
+    if not student:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado.")
+    if student["academic_period_id"] != module["academic_period_id"]:
+        raise HTTPException(status_code=422, detail="O aluno é de outro período acadêmico.")
+    if not student["is_active"]:
+        raise HTTPException(status_code=409, detail="O aluno está desativado.")
+
+    existing = (
+        db.table("enrollments").select("id")
+        .eq("student_id", body.student_id).eq("module_id", module_id)
+        .maybe_single().execute()
+    )
+    if existing.data:
+        raise HTTPException(status_code=409, detail="O aluno já está matriculado neste módulo.")
+
+    created = db.table("enrollments").insert(
+        {"student_id": body.student_id, "module_id": module_id, "status": "active"}
+    ).execute().data[0]
+    try:
+        db.table("grades").insert({"enrollment_id": created["id"]}).execute()
+    except Exception:
+        # ponytail: compensação no app em vez de RPC; sem a linha de grades a
+        # matrícula ficaria sem nota. Vira função plpgsql (como a 0007) se a
+        # sequência ganhar mais passos.
+        db.table("enrollments").delete().eq("id", created["id"]).execute()
+        raise
+
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="enrollments",
+        entity_id=created["id"],
+        summary=f"Matrícula: {student['full_name']} em {module['name']}",
+        after={"student_id": body.student_id, "module_id": module_id},
+    )
+    return Enrollment(**created)
+
+
+@router.delete("/enrollments/{enrollment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def unenroll_student(
+    enrollment_id: str,
+    current_user: Profile = Depends(require_role("admin", "coordinator")),
+) -> None:
+    """Desmatricula. Notas e frequência do aluno no módulo saem em cascata
+    (FKs da 0001 e da 0005); a nota fica guardada no audit_log."""
+    db = get_admin_db()
+
+    enrollment = (
+        db.table("enrollments")
+        .select(
+            "id, student_id, module_id, status, "
+            "module:modules!module_id(name, academic_period_id), "
+            "student:students!student_id(full_name), "
+            "grade:grades!enrollment_id(tutor_grade, regular_exam_grade, "
+            "makeup_exam_grade, final_grade, absences)"
+        )
+        .eq("id", enrollment_id).maybe_single().execute()
+    ).data
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Matrícula não encontrada.")
+    module = enrollment.get("module") or {}
+    assert_coordinator_owns_period(
+        db, module.get("academic_period_id"), current_user, detail=_NO_MODULE_PERMISSION
+    )
+    assert_module_period_active(db, enrollment["module_id"], current_user)
+
+    db.table("enrollments").delete().eq("id", enrollment_id).execute()
+
+    student = enrollment.get("student") or {}
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="delete",
+        entity="enrollments",
+        entity_id=enrollment_id,
+        summary=f"Desmatrícula: {student.get('full_name', '')} de {module.get('name', '')}",
+        before={
+            "student_id": enrollment["student_id"],
+            "module_id": enrollment["module_id"],
+            "grade": enrollment.get("grade"),
+        },
     )
 
 
