@@ -172,6 +172,23 @@ def create_user(
     _: Profile = Depends(require_role("admin")),
 ) -> Profile:
     """Cria um novo usuário via Supabase Admin API. Apenas admin."""
+    db = get_admin_db()
+
+    # Checa o username antes de criar a conta: Auth e profiles não têm rollback
+    # entre si, e a colisão depois deixava a conta no Auth sem profile coerente.
+    taken = (
+        db.table("profiles")
+        .select("id")
+        .eq("username", body.username)
+        .maybe_single()
+        .execute()
+    )
+    if taken.data:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe um usuário com este nome de usuário.",
+        )
+
     # Usamos a service role key diretamente para a Admin API
     admin_client = create_client(settings.supabase_url, settings.supabase_service_role_key)
 
@@ -187,18 +204,21 @@ def create_user(
             },
         })
     except Exception as exc:
-        detail = str(exc)
-        if "already registered" in detail.lower():
+        if "already registered" in str(exc).lower():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Já existe um usuário com este e-mail.",
             )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        # Não devolve a mensagem crua do SDK (hosts, detalhes internos).
+        logger.exception("Falha ao criar usuário no Supabase Auth")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não foi possível criar o usuário. Tente novamente mais tarde.",
+        )
 
     user_id = auth_resp.user.id
 
     # O trigger handle_new_user já criou o profile; garante campos corretos
-    db = get_admin_db()
     db.table("profiles").update({
         "username": body.username,
         "full_name": body.full_name,

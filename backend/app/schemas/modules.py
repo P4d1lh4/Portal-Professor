@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProfessorRef(BaseModel):
@@ -32,8 +32,9 @@ class ModuleCreate(BaseModel):
     code: str
     professor_id: str
     academic_period_id: str
-    credits: int = 4
-    max_absences: int = 10
+    # ge=0: o banco tem CHECK, mas sem isto o erro chegava como 500, não 422.
+    credits: int = Field(4, ge=0)
+    max_absences: int = Field(10, ge=0)
     is_active: bool = True
 
 
@@ -41,8 +42,8 @@ class ModuleUpdate(BaseModel):
     name: str | None = None
     code: str | None = None
     professor_id: str | None = None
-    credits: int | None = None
-    max_absences: int | None = None
+    credits: int | None = Field(None, ge=0)
+    max_absences: int | None = Field(None, ge=0)
     is_active: bool | None = None
 
 

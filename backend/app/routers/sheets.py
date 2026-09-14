@@ -23,6 +23,7 @@ from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
 from ..services.grades import recalc_final
+from ..services.guards import assert_period_active
 
 router = APIRouter(tags=["sheets"])
 
@@ -206,7 +207,7 @@ async def sync_sheets(
 
     period = await asyncio.to_thread(
         lambda: db.table("academic_periods")
-        .select("id, coordinator_id, csv_sync_url")
+        .select("id, coordinator_id, csv_sync_url, is_active")
         .eq("id", period_id)
         .maybe_single()
         .execute()
@@ -215,6 +216,8 @@ async def sync_sheets(
         raise HTTPException(404, "Período não encontrado.")
     if current_user.role == "coordinator" and period.data["coordinator_id"] != current_user.id:
         raise HTTPException(403, "Você não gerencia este período.")
+    # A planilha grava notas: mesma trava do PUT /grades para período encerrado.
+    assert_period_active(bool(period.data.get("is_active")), current_user)
 
     sync_url: str | None = period.data.get("csv_sync_url")
     if not sync_url:

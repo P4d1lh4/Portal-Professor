@@ -33,7 +33,14 @@ def assert_module_period_active(db, module_id: str, current_user: Profile) -> No
     """
     if current_user.role == "admin":
         return
-    if not is_period_active_for_module(db, module_id):
+    assert_period_active(is_period_active_for_module(db, module_id), current_user)
+
+
+def assert_period_active(is_active: bool, current_user: Profile) -> None:
+    """Mesma regra de `assert_module_period_active`, para quem já tem o
+    `is_active` do período em mãos (ex.: sync de planilha, que atua no período
+    inteiro)."""
+    if current_user.role != "admin" and not is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
