@@ -44,13 +44,16 @@ Critério: nenhum achado Alto de código aberto; migração 0012 aplicada; dashb
 - [x] **F-16** `console.error` de `useAuth.ts:112` atrás de `isDev`. — P · ✅ alteração 32
 
 ### Banco — migração `0012_hardening.sql`
+
+> 📝 I-01..I-06 escritos e validados em Postgres 18 local (alteração 33). ⏳ Falta **aplicar** no Supabase, depois do restore (O-01a); por isso seguem desmarcados.
+
 - [ ] **I-02** `profiles_select`: `USING (id = auth.uid() OR is_admin())`. — P
 - [ ] **I-01** `CHECK (end_date >= start_date)` em `academic_periods`. — P
 - [ ] **I-03** `students.academic_period_id` e `modules.academic_period_id` → `ON DELETE RESTRICT`. — P
 - [ ] **I-04** `UNIQUE (email)` em `profiles` (checar duplicatas antes). — P
 - [ ] **I-05** Trigger `BEFORE UPDATE ON profiles` rejeitando troca de `role`/`is_active` por não-admin (projetado na `0011`). — M
 - [ ] **I-06** `SET search_path = public, pg_temp` nas 4 funções de `0001:202-244`. — P
-- [ ] **I-13** `DATABASE_URL=` em `backend/.env.example`. — P
+- [x] **I-13** `DATABASE_URL=` em `backend/.env.example`. — P · ✅ alteração 33
 
 ### Dependências
 - [x] **O-03** (✅ 2026-09-14: #49 #51 #53 #55–#57 #62 #63 #65 mesclados; #50 #58 fechados com ignore; #54 #52 superados por #59 #60) Triage dos 10 PRs: mesclar verdes (#51 #53 #56 #57); fechar #58 (TS 7) até `typescript-eslint` suportar; #54 junto com `pytest 9`; majors (#49 #50 #52 #55) um por branch. Adicionar `groups:` no `dependabot.yml`. — M

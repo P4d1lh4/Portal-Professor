@@ -59,15 +59,16 @@ class TestValidacoesB09:
         with pytest.raises(ValidationError):
             StudentCreate(**self._aluno(observations="x" * 2001))
 
-    @pytest.mark.parametrize("campo", ["credits", "max_absences"])
-    def test_modulo_negativo_rejeitado(self, campo):
+    # Mesmos limites dos CHECK da 0008: credits > 0, max_absences >= 0.
+    @pytest.mark.parametrize("campo,valor", [("credits", 0), ("max_absences", -1)])
+    def test_modulo_fora_do_check_rejeitado(self, campo, valor):
         with pytest.raises(ValidationError):
             ModuleCreate(
                 name="M", code="M1", professor_id="p", academic_period_id="a",
-                **{campo: -1},
+                **{campo: valor},
             )
         with pytest.raises(ValidationError):
-            ModuleUpdate(**{campo: -1})
+            ModuleUpdate(**{campo: valor})
 
 
 class TestGradeUpdateValidator:

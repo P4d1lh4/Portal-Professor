@@ -15,6 +15,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 30 | [O-03/B-01] recharts 3 + eslint 10 + `npm audit fix` (e fim do `vendor-charts`) | 🟡 Média | ✅ Concluída | ✅ lint/tsc/vitest/build + chunks | [30-recharts-3-eslint-10.md](30-recharts-3-eslint-10.md) |
 | 31 | [Fase 1] Backend: sync em período fechado, exports paginados, `create_user`, schemas (B-02/04/06/09) | 🟠 Alta | ✅ Concluída | ✅ 174 pytest (+12) | [31-fase-1-backend.md](31-fase-1-backend.md) |
 | 32 | [Fase 1] Frontend: rascunho da Chamada, dashboard invalidado, `useConfirm`, `formatGrade`, a11y (F-01..06, F-16) | 🟠 Alta | ✅ Concluída | ✅ lint/tsc/vitest/build | [32-fase-1-frontend.md](32-fase-1-frontend.md) |
+| 33 | [Fase 1] Migração `0012_hardening` (I-01..I-06) + `DATABASE_URL` no `.env.example` (I-13) + `credits > 0` | 🟡 Média | ✅ Concluída | ✅ PG 18 local: 11 checks + rollback · ⏳ aplicar no Supabase | [33-migracao-0012-hardening.md](33-migracao-0012-hardening.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 

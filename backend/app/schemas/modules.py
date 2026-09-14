@@ -32,8 +32,9 @@ class ModuleCreate(BaseModel):
     code: str
     professor_id: str
     academic_period_id: str
-    # ge=0: o banco tem CHECK, mas sem isto o erro chegava como 500, não 422.
-    credits: int = Field(4, ge=0)
+    # Espelham os CHECK da 0008 (credits > 0, max_absences >= 0): sem isto, o
+    # erro chegava como 500, não 422.
+    credits: int = Field(4, gt=0)
     max_absences: int = Field(10, ge=0)
     is_active: bool = True
 
@@ -42,7 +43,7 @@ class ModuleUpdate(BaseModel):
     name: str | None = None
     code: str | None = None
     professor_id: str | None = None
-    credits: int | None = Field(None, ge=0)
+    credits: int | None = Field(None, gt=0)
     max_absences: int | None = Field(None, ge=0)
     is_active: bool | None = None
 
