@@ -26,10 +26,15 @@ export function useStudentsByPeriod(
   });
 }
 
-export function useProfessorStudents() {
+export function useProfessorStudents(
+  params: ListPeriodStudentsParams = {},
+  enabled = true,
+) {
   return useQuery({
-    queryKey: [...STUDENTS_KEY, "professor"],
-    queryFn: studentsApi.listProfessor,
+    queryKey: [...STUDENTS_KEY, "professor", params],
+    queryFn: () => studentsApi.listProfessor(params),
+    enabled,
+    placeholderData: keepPreviousData,
   });
 }
 

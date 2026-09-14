@@ -1,7 +1,7 @@
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from ..db import get_admin_db
+from ..db import fetch_all, get_admin_db
 from ..deps import get_current_user, require_role
 from ..schemas.common import Paginated
 from ..schemas.students import (
@@ -240,15 +240,19 @@ def create_period_student(
 # Rotas de Professor — /api/professor/students
 # ---------------------------------------------------------------
 
-@router.get("/professor/students", response_model=list[StudentDetail])
+@router.get("/professor/students", response_model=Paginated[StudentDetail])
 def list_professor_students(
+    search: str | None = Query(None, description="Busca por nome ou matrícula"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
-) -> list[StudentDetail]:
+) -> Paginated[StudentDetail]:
     """
-    Agrega todos os alunos matriculados nos módulos do professor.
-    Para coord/admin, retorna via período — use /periods/{id}/students.
+    Alunos ativos matriculados nos módulos do professor, paginados (P-Q8),
+    no mesmo formato de /periods/{id}/students (a rota de coord/admin).
     """
     db = get_admin_db()
+    empty = Paginated[StudentDetail](items=[], total=0, limit=limit, offset=offset)
 
     modules = (
         db.table("modules")
@@ -258,31 +262,39 @@ def list_professor_students(
         .execute()
     )
     if not modules.data:
-        return []
+        return empty
 
     module_ids = [m["id"] for m in modules.data]
 
-    enrollments = (
-        db.table("enrollments")
+    # fetch_all: sem paginar, passava de 1000 matrículas e alunos sumiam.
+    enrollments = fetch_all(
+        lambda lo, hi: db.table("enrollments")
         .select("student_id")
         .in_("module_id", module_ids)
-        .execute()
+        .range(lo, hi)
     )
-    student_ids = list({e["student_id"] for e in enrollments.data})
+    student_ids = sorted({e["student_id"] for e in enrollments})
     if not student_ids:
-        return []
+        return empty
 
-    students = (
+    # ponytail: in_ com os ids dos alunos do professor (centenas cabem na URL);
+    # se crescer, filtrar por matrícula via join.
+    q = (
         db.table("students")
-        .select("*")
+        .select("*", count="exact")
         .in_("id", student_ids)
         .eq("is_active", True)
-        .order("full_name")
-        .execute()
     )
+    if search:
+        or_filter = build_ilike_or(search, ["full_name", "student_number"])
+        if or_filter:
+            q = q.or_(or_filter)
+    resp = q.order("full_name").range(offset, offset + limit - 1).execute()
 
-    # Uma única query de enrollments para TODOS os alunos (evita N+1)
-    return _build_details_batch(students.data, db)
+    # Notas por módulo só dos alunos da página, numa query (evita N+1).
+    items = _build_details_batch(resp.data, db)
+    total = resp.count if resp.count is not None else len(items)
+    return Paginated[StudentDetail](items=items, total=total, limit=limit, offset=offset)
 
 
 @router.post(

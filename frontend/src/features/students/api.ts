@@ -62,8 +62,10 @@ export const studentsApi = {
       .get<PaginatedStudents>(`/api/periods/${periodId}/students`, { params })
       .then((r) => r.data),
 
-  listProfessor: () =>
-    api.get<StudentItem[]>("/api/professor/students").then((r) => r.data),
+  listProfessor: (params: ListPeriodStudentsParams = {}) =>
+    api
+      .get<PaginatedStudents>("/api/professor/students", { params })
+      .then((r) => r.data),
 
   getDetail: (studentId: string) =>
     api
