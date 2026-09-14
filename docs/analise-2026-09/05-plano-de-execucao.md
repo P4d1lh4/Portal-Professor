@@ -66,8 +66,8 @@ Critério: backup semanal rodando, staging existindo, CI validando migrações e
 - [ ] **I-23** Staging: 2º projeto Supabase free + `apply_migration.py --all` + seed + 2º serviço Render + preview Vercel. Fluxo "migração vai primeiro para staging". — M
 - [ ] **I-12** Rotacionar `service_role` e `jwt_secret` no painel; atualizar Render e `.env` local. *Manual.* — M
 - [x] **I-15** Job de CI com `services: postgres` rodando `apply_migration.py --all`. — M · ✅ + `supabase/ci/checks.sql` (alteração 34)
-- [ ] **I-16** Job de CI `docker build ./backend`. — P
-- [ ] **I-18** `--cov-fail-under=60`. — P
+- [x] **I-16** Job de CI `docker build ./backend`. — P · ✅ + smoke test (healthz, non-root) (alteração 35)
+- [x] **I-18** `--cov-fail-under=60`. — P · ✅ alteração 35
 - [ ] **B-12** Fake de DB único em `conftest.py` que **registra** os filtros aplicados (`.eq/.in_/.or_`) para asserção. Migrar os 6 fakes duplicados. — M
 - [ ] **B-13** Testes HTTP (3 papéis × dono/não-dono) para `users`, `medical_certificates`, `sheets`, `reports`, `exports`, `audit`; `professor` no dashboard. — G
 - [ ] **F-17a** Infra: `environment: "jsdom"` + `setupFiles` no `vite.config.ts`; `@testing-library/react`, `jest-dom`, `user-event`, `msw`. — M
