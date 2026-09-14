@@ -9,6 +9,14 @@ updates:
     labels:
       - dependencies
       - backend
+    # minor/patch agrupados num PR; majors seguem um por PR.
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # supabase 2.8.1 exige httpx<0.28: subir junto com o supabase-py (PR #50).
+      - dependency-name: httpx
+        versions: [">=0.28"]
 
   # Frontend npm (package.json / package-lock.json)
   - package-ecosystem: npm
@@ -19,6 +27,13 @@ updates:
     labels:
       - dependencies
       - frontend
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # TS 7 (nativo) sem suporte no typescript-eslint 8 (peer <6.1) (PR #58).
+      - dependency-name: typescript
+        versions: [">=7"]
 
   # GitHub Actions usadas no CI
   - package-ecosystem: github-actions
