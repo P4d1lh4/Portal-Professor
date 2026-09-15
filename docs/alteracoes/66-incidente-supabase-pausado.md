@@ -93,3 +93,4 @@ Confirmar a volta da produção sem perda de dados e fechar o que dependia do re
   - tirar o `last_updated` manual de `grades.py`, `sheets.py` e `import_csv.py`.
 - **I-17** (Auto-Deploy no Render) segue sem conferência.
 - **Pinger externo para o Render:** decisão do dono (O-02).
+- ✅ **Atualização:** 0012 e 0013 aplicadas em 2026-09-15, com o aval do dono (alteração 67).

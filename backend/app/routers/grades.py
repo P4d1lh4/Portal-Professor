@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..db import get_admin_db
@@ -107,9 +105,7 @@ def update_grade(
     current_regular = patch.get("regular_exam_grade", grade["regular_exam_grade"])
     current_makeup = patch.get("makeup_exam_grade", grade["makeup_exam_grade"])
     patch["final_grade"] = recalc_final(current_regular, current_makeup)
-    # ponytail: redundante com o trigger da 0013 (I-08); sai quando ela estiver
-    # aplicada em produção, antes disso o campo pararia de atualizar.
-    patch["last_updated"] = datetime.now(timezone.utc).isoformat()
+    # last_updated: trigger trg_grades_last_updated (0013, I-08).
 
     # NB: o update já retorna a linha alterada (returning=representation).
     # Encadear .select() aqui era inválido — SyncFilterRequestBuilder não tem

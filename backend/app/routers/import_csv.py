@@ -15,7 +15,7 @@ import csv
 import io
 import logging
 import unicodedata
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
@@ -387,7 +387,6 @@ def import_module_grades(
     not_found: list[str] = []
     invalid: list[dict] = []
     seen: set[str] = set()
-    now_iso = datetime.now(timezone.utc).isoformat()
 
     for idx, raw in enumerate(raw_rows, start=2):  # linha 1 = cabeçalho
         number = raw.get("student_number", "")
@@ -413,8 +412,6 @@ def import_module_grades(
             float(patch.get("regular_exam_grade", grade.get("regular_exam_grade") or 0)),
             float(patch.get("makeup_exam_grade", grade.get("makeup_exam_grade") or 0)),
         )
-        # ponytail: redundante com o trigger da 0013 (I-08), como em grades.py.
-        patch["last_updated"] = now_iso
         db.table("grades").update(patch).eq("enrollment_id", enr["id"]).execute()
         updated += 1
 
