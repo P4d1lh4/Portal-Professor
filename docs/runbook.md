@@ -40,7 +40,7 @@ O `healthz` só diz que o processo está vivo. O `readyz` faz uma consulta real 
 
 Aconteceu em 2026-08-05 e em 2026-09-03. **Sinais:** o painel do Supabase mostra *Paused*, e `nslookup vmelydczrdyszbrvlypv.supabase.co` não resolve.
 
-1. Painel do Supabase → projeto → **Restore project**. Leva alguns minutos.
+1. Painel do Supabase → projeto → **Restore project**. Leva alguns minutos, e o DNS volta antes do resto: por um tempo o `readyz` segue 503, o PostgREST responde `PGRST205` (tabela fora do *schema cache*) e o pooler recusa conexão com `tenant/user … not found`. É esperado; aguarde o `readyz` dar 200 (em 2026-09-15 foram uns 5 min).
 2. Confirme: `readyz` volta a 200. Rode *Actions → Keep-alive → Run workflow* e veja se fica verde.
 3. Confira as migrações. Com o `DATABASE_URL` de produção no `backend/.env`:
    ```bash

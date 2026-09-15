@@ -15,8 +15,8 @@
 
 Critério de pronto: `readyz` 200, login funcionando, cron rodando, CVEs de upload/JWT fechados em produção.
 
-- [ ] **O-01a** Restaurar o projeto Supabase no painel (Project → Restore). *Manual.*
-- [x] **O-01b** Workflow `.github/workflows/keepalive.yml`: `schedule` a cada 10 min → `curl -f https://portal-professor.onrender.com/api/readyz`. Falha = e-mail do GitHub. Mantém Supabase ativo **e** Render acordado (O-02). — P · ✅ #67 (2026-09-14)
+- [x] **O-01a** Restaurar o projeto Supabase no painel (Project → Restore). *Manual.* · ✅ 2026-09-15, dados intactos (alteração 66)
+- [x] **O-01b** Workflow `.github/workflows/keepalive.yml`: `schedule` a cada 10 min → `curl -f https://portal-professor.onrender.com/api/readyz`. Falha = e-mail do GitHub. Mantém Supabase ativo **e** Render acordado (O-02). — P · ✅ #67 (2026-09-14). Na prática o GitHub roda o cron de 1 a 5 h: cobre o Supabase, não o Render (alteração 66)
 - [ ] **I-17** Confirmar no Render se Auto-Deploy está ligado; se não, ligar. *Manual.* — P
 - [x] **B-01** Bumps de segurança: `python-multipart>=0.0.31` (mesclar #51), `PyJWT>=2.13`, `fastapi` que puxe `starlette>=0.49.1`; `npm audit fix` (`nanoid`, `postcss`). Rodar suíte, redeploy. — P/M · ✅ backend #51 #62 #67 (pip-audit limpo); frontend #60 #69 (sobram 2 moderados do `react-router` 6 → migrar para o 7)
 - [x] **I-11** `seed.py`: `os.environ["SEED_ADMIN_PASSWORD"]` sem default (falhar se ausente). — P · ✅ #67
@@ -29,7 +29,7 @@ Critério: nenhum achado Alto de código aberto; migração 0012 aplicada; dashb
 
 ### Backend
 - [x] **B-02** `sheets.py`: recusar sync em período inativo (exceto admin) — reutilizar a checagem de `guards.py`. Teste: coordenador em período inativo → 403. — P · ✅ 409, como o `PUT /grades` (alteração 31)
-- [ ] **B-03** `sheets.py:128-131`: `student:students!student_id!inner(...)` + `.eq("student.academic_period_id", …)`. Teste de integração contra staging/real. — P
+- [x] **B-03** `sheets.py:128-131`: `student:students!student_id!inner(...)` + `.eq("student.academic_period_id", …)`. Teste de integração contra staging/real. — P · ✅ refutado no banco real, só com leitura (alteração 66): o filtro zera o `student` das matrículas de outros períodos e o índice do sync as descarta; nenhuma nota de outro período é gravada. Sem mudança de código; a ineficiência ficou num `ponytail:`
 - [x] **B-04** `exports.py`: `fetch_all` nos dois endpoints. Teste com fake que devolve páginas. — P · ✅ alteração 31
 - [x] **B-06** `create_user`: validar `username` antes do Auth; logar exceção e devolver mensagem genérica. — M · ✅ alteração 31
 - [x] **B-09** `EmailStr` em `StudentCreate`; `ge=0` em `credits`/`max_absences`; `max_length` em textos livres. — P · ✅ alteração 31

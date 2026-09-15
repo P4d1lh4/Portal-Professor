@@ -1,8 +1,10 @@
 name: Keep-alive
 
-# Bate no readyz a cada 10 min: mantém o Supabase free ativo (pausa após 7 dias
-# sem tráfego) e o Render free acordado (dorme após 15 min). Falha = e-mail do
-# GitHub avisando que a produção está fora do ar.
+# Bate no readyz: mantém o Supabase free ativo (pausa após 7 dias sem tráfego).
+# Falha = e-mail do GitHub avisando que a produção está fora do ar.
+# O cron pede 10 min, mas o GitHub atrasa e descarta execuções: em 2026-09-14/15
+# o intervalo real foi de 1 a 5 h. Basta para o Supabase; o Render free (dorme
+# após 15 min) não fica acordado, e o primeiro acesso leva até ~50 s.
 # ponytail: o GitHub desativa cron em repo público após 60 dias sem commits;
 # se acontecer, reative em Actions. Saída definitiva: Supabase Pro / Render Starter (O-02).
 on:
