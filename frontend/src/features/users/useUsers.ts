@@ -71,3 +71,12 @@ export function useReactivateUser() {
     onError: (err: Error) => toast.error(err.message),
   });
 }
+
+export function useResetUserPassword() {
+  return useMutation({
+    mutationFn: ({ id, new_password }: { id: string; new_password: string }) =>
+      usersApi.resetPassword(id, new_password),
+    onSuccess: () => toast.success("Senha redefinida."),
+    onError: (err: Error) => toast.error(err.message),
+  });
+}

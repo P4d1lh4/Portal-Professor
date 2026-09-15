@@ -44,3 +44,8 @@ class UserUpdate(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+class PasswordReset(BaseModel):
+    """Senha nova definida pelo admin (B-S5). 72 é o limite do bcrypt no Auth."""
+    new_password: str = Field(min_length=8, max_length=72)

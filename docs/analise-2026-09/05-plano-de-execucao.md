@@ -115,7 +115,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [ ] 🧭 **B-08** Modelagem aluno × período (manter 1:1 ou introduzir "pessoa"). — decisão (G se mudar)
 - [ ] **P-N3** `student_notes` append-only (migração + endpoint + lista no `StudentDetailSheet`). — M
 - [ ] **P-Q10** Campo "conteúdo ministrado" na chamada. — P
-- [ ] **B-S5** Reset de senha de usuário pelo admin. — P
+- [x] **B-S5** Reset de senha de usuário pelo admin. — P · ✅ campo "Nova senha" no diálogo de edição (em branco mantém); a própria senha segue em `/me/change-password` (alteração 62)
 - [x] **B-S6 / P-09** Boletim lista os atestados reais. — P · ✅ + escape do texto digitado nos dois PDFs (uma tag aberta derrubava o PDF com 500) (alteração 61)
 - [ ] **P-N9 / B-S7** Import CSV de notas. — M
 - [ ] 🧭 **P-N5** E-mail (lembrete de fechamento, aluno em risco) via Edge Function/cron. — M
