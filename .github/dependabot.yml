@@ -30,6 +30,10 @@ updates:
     groups:
       minor-patch:
         update-types: [minor, patch]
+      # react/react-dom (e @types) têm peer exato entre si: em PRs separados o
+      # npm ci quebra com ERESOLVE (#101/#103).
+      react:
+        patterns: [react, react-dom, "@types/react", "@types/react-dom"]
     ignore:
       # TS 7 (nativo) sem suporte no typescript-eslint 8 (peer <6.1) (PR #58).
       - dependency-name: typescript
