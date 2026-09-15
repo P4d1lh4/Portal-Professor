@@ -31,12 +31,12 @@ def test_csv_do_export_volta_no_import():
 
     [data] = _valid(exported)
 
+    # "Atestados médicos" do export fica de fora (alteração 64), como "Ativo".
     assert data == {
         "student_number": "2026001",
         "full_name": "Ana Souza",
         "enrollment_date": "2026-02-01",
         "email": "ana@x.com",
-        "medical_certificates": 2,
         "referral_info": "Psicopedagogia",
         "observations": "Chega às 8h",
     }

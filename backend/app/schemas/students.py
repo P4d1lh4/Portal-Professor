@@ -32,6 +32,8 @@ class Student(BaseModel):
     email: str | None = None
     academic_period_id: str
     enrollment_date: date
+    # Total da lista de atestados, mantido pelo trigger da 0003. Só leitura:
+    # não entra em StudentCreate/StudentUpdate (alteração 64).
     medical_certificates: int
     referral_info: str | None = None
     observations: str | None = None
@@ -50,7 +52,6 @@ class StudentCreate(BaseModel):
     full_name: str = Field(max_length=200)
     email: EmailStr | None = None
     enrollment_date: date
-    medical_certificates: int = 0
     referral_info: str | None = Field(None, max_length=2000)
     observations: str | None = Field(None, max_length=2000)
     is_active: bool = True
@@ -64,7 +65,6 @@ class StudentUpdate(BaseModel):
     full_name: str | None = Field(None, max_length=200)
     email: EmailStr | None = None
     enrollment_date: date | None = None
-    medical_certificates: int | None = None
     referral_info: str | None = Field(None, max_length=2000)
     observations: str | None = Field(None, max_length=2000)
     is_active: bool | None = None
@@ -72,7 +72,3 @@ class StudentUpdate(BaseModel):
     _validate_enrollment_date = field_validator("enrollment_date")(
         _check_enrollment_date
     )
-
-
-class AbsenceUpdate(BaseModel):
-    medical_certificates: int | None = None

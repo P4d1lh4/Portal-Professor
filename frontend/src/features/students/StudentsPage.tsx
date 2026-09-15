@@ -161,7 +161,6 @@ export default function StudentsPage() {
     full_name: string;
     email?: string;
     enrollment_date: string;
-    medical_certificates?: number;
     referral_info?: string;
     observations?: string;
   }) => {
