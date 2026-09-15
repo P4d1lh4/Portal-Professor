@@ -1,5 +1,8 @@
 """Testes do serviço de geração de PDFs."""
+from datetime import date
+
 from app.services.reports import (
+    CertificateLine,
     PeriodReportData,
     PeriodReportRow,
     StudentModuleLine,
@@ -78,7 +81,6 @@ class TestStudentReportData:
             full_name="João Silva",
             email="joao@x.com",
             period_name="2026.1",
-            medical_certificates=1,
             modules=_sample_modules(),
         )
         # (8.5 + 6.5 + 3.5) / 3 = 6.166...
@@ -90,7 +92,6 @@ class TestStudentReportData:
             full_name="João Silva",
             email=None,
             period_name="2026.1",
-            medical_certificates=0,
             modules=_sample_modules(),
         )
         assert d.total_absences == 18
@@ -101,7 +102,6 @@ class TestStudentReportData:
             full_name="Aluno Sem Módulos",
             email=None,
             period_name="2026.1",
-            medical_certificates=0,
             modules=[],
         )
         assert d.avg_final_grade == 0.0
@@ -115,7 +115,6 @@ class TestBuildStudentReportPdf:
             full_name="João Silva",
             email="joao@x.com",
             period_name="2026.1",
-            medical_certificates=1,
             modules=_sample_modules(),
         )
         pdf = build_student_report_pdf(d)
@@ -129,11 +128,39 @@ class TestBuildStudentReportPdf:
             full_name="Aluno Vazio",
             email=None,
             period_name="2026.1",
-            medical_certificates=0,
             modules=[],
         )
         pdf = build_student_report_pdf(d)
         assert pdf.startswith(b"%PDF-")
+
+    def test_gera_pdf_com_atestados(self):
+        d = StudentReportData(
+            student_number="2024001",
+            full_name="João Silva",
+            email=None,
+            period_name="2026.1",
+            modules=_sample_modules(),
+            certificates=[CertificateLine(date(2026, 3, 2), date(2026, 3, 4), "Gripe")],
+        )
+        assert build_student_report_pdf(d).startswith(b"%PDF-")
+
+    def test_tag_aberta_em_texto_livre_nao_derruba_o_pdf(self):
+        # Sem escape, o Paragraph lê "<b>" como markup e levanta ValueError.
+        d = StudentReportData(
+            student_number="2024001",
+            full_name="Ana <b>Souza",
+            email="a<b>@x.com",
+            period_name="2026.1 <b>",
+            modules=[],
+            certificates=[CertificateLine(date(2026, 3, 2), date(2026, 3, 4), "Dor <b>forte")],
+        )
+        assert build_student_report_pdf(d).startswith(b"%PDF-")
+
+
+class TestCertificateLine:
+    def test_dias_contam_inicio_e_fim(self):
+        assert CertificateLine(date(2026, 3, 2), date(2026, 3, 4), "x").days == 3
+        assert CertificateLine(date(2026, 3, 2), date(2026, 3, 2), "x").days == 1
 
 
 class TestPeriodReport:
@@ -203,3 +230,7 @@ class TestPeriodReport:
         )
         pdf = build_period_report_pdf(d)
         assert pdf.startswith(b"%PDF-")
+
+    def test_tag_aberta_no_subtitulo_nao_derruba_o_pdf(self):
+        d = PeriodReportData(period_name="2026.1", coordinator_name="<b>Maria", rows=self._rows())
+        assert build_period_report_pdf(d).startswith(b"%PDF-")
