@@ -63,8 +63,9 @@ _VERSION_RE = re.compile(r"^(\d+)")
 
 
 def _version_of(path: Path) -> str:
-    """Usa o stem inteiro do arquivo — assim 0002_rls_granular e
-    0002_seed_instructions ficam distintos no tracking table."""
+    """Usa o stem inteiro do arquivo (ex.: 0002_rls_granular) como versão, e
+    não só o prefixo numérico: produção ainda registra 0002_seed_instructions,
+    um arquivo só de comentários apagado depois (I-07)."""
     match = _VERSION_RE.match(path.stem)
     if not match:
         sys.exit(f"Nome de migration sem prefixo numérico: {path.name}")

@@ -98,7 +98,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [x] **F-10 / F-11** Remover 5 tipos mortos, `UnderConstruction`, `RoleBadge`, `tooltip.tsx` + `@radix-ui/react-tooltip`. — P · ✅ + `EnrollmentStatus` e a entrada no `optimizeDeps` (alteração 54)
 - [ ] **F-12** `<AsyncSelectField>`, `usePagination()`, `date-fns` na Chamada, `aria-describedby` nos dialogs. — M
 - [x] **F-13** Página 404. — P · ✅ `NotFoundPage` com o `EmptyState`, dentro do AppShell (alteração 55)
-- [ ] **I-07 / I-08 / I-09 / I-10** Apagar `0002_seed_instructions.sql`; trigger `updated_at` em `grades`; versionar `schema_migrations`; comentário na `0002` apontando para `0011`. — P
+- [x] **I-07 / I-08 / I-09 / I-10** Apagar `0002_seed_instructions.sql`; trigger `updated_at` em `grades`; versionar `schema_migrations`; comentário na `0002` apontando para `0011`. — P · ✅ 0013 (trigger `last_updated` + `schema_migrations` com RLS); a nota da 0011 foi para o DEPLOY.md para não mudar o checksum da 0002. ⏳ aplicar 0012+0013 após o restore (alteração 56)
 - [ ] **I-22** Remover `version:` do compose; pinar base images por digest; `docker` no Dependabot. — P
 - [ ] **O-04 / O-05** Auto-delete de branches no GitHub + limpeza única; tag por deploy. — P
 - [ ] **I-31** `CONTRIBUTING.md` (formalizar o fluxo de `docs/alteracoes/`), ADR "authz é app-layer; service_role bypassa RLS", citar `diagnose.py`/`apply_migration.py` no README. — M

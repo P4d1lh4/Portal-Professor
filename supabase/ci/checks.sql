@@ -110,3 +110,32 @@ DO $$ BEGIN
   RAISE NOTICE 'I-02/I-05 ok (admin vê todos e troca papel)';
 END $$;
 ROLLBACK;
+
+-- ---------------------------------------------------------------
+-- 0013: I-08 (last_updated por trigger) e I-09 (schema_migrations)
+-- ---------------------------------------------------------------
+DO $$
+DECLARE
+  v_enr    uuid;
+  v_before timestamptz;
+  v_after  timestamptz;
+BEGIN
+  INSERT INTO public.modules (id, name, code, professor_id, academic_period_id)
+    VALUES ('00000000-0000-0000-0000-0000000000d1', 'Mod', 'M1',
+            '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000000f1');
+  INSERT INTO public.enrollments (student_id, module_id)
+    SELECT id, '00000000-0000-0000-0000-0000000000d1' FROM public.students WHERE student_number = '1'
+    RETURNING id INTO v_enr;
+  -- Nota com last_updated de ontem: o UPDATE precisa trazê-lo para agora.
+  INSERT INTO public.grades (enrollment_id, last_updated) VALUES (v_enr, now() - interval '1 day');
+  SELECT last_updated INTO v_before FROM public.grades WHERE enrollment_id = v_enr;
+  UPDATE public.grades SET tutor_grade = 5 WHERE enrollment_id = v_enr;
+  SELECT last_updated INTO v_after FROM public.grades WHERE enrollment_id = v_enr;
+  IF v_after <= v_before THEN RAISE EXCEPTION 'I-08 FALHOU: last_updated não mudou no UPDATE'; END IF;
+  RAISE NOTICE 'I-08 ok';
+
+  IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.schema_migrations'::regclass) THEN
+    RAISE EXCEPTION 'I-09 FALHOU: schema_migrations sem RLS';
+  END IF;
+  RAISE NOTICE 'I-09 ok';
+END $$;
