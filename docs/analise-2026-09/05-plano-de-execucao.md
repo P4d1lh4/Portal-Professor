@@ -86,9 +86,9 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [x] **P-Q5 / B-S3** `POST /api/periods/{id}/clone` (módulos sem alunos) + botão em `PeriodsPage`. — M · ✅ + import acusa matrícula de outro período (`student_number` é único global). Levar os alunos depende do 🧭 B-08; a matrícula em lote do P-Q1 não foi necessária (o import já matricula em todos os módulos) (alteração 47)
 - [x] **P-Q4 / B-S4 / F-S4** Export CSV de frequência + botão na Chamada. — P · ✅ matriz aluno × dia (P/F/J + totais), mesmo padrão e permissão do export de notas (alteração 48)
 - [x] **P-Q8** Paginar `/api/professor/students`. — P · ✅ + busca no servidor, detalhe só da página, matrículas com `fetch_all` (antes cortava em 1000) (alteração 50)
-- [ ] **F-S1** Filtro por situação na GradesPage. — P
+- [x] **F-S1** Filtro por situação na GradesPage. — P · ✅ + "Em risco" (alteração 51)
 - [ ] **F-08** Cards mobile em Notas e Chamada (padrão de `StudentsPage`). — M
-- [ ] **P-N4** "faltas / chamadas registradas" ao lado de "faltas / máximo". — P
+- [x] **P-N4** "faltas / chamadas registradas" ao lado de "faltas / máximo". — P · ✅ na tela de Notas: "N chamadas registradas" + "% das aulas" por aluno (alteração 52)
 - [x] **P-06** `reports.py` usar `classify_status`; teste que compara as 4 implementações. — P · ✅ + selo da ficha do aluno; tabela `classification.cases.json` lida por pytest e vitest (alteração 49)
 
 ## Fase 4 — Consistência e dívida técnica (contínuo · ~4 dias)

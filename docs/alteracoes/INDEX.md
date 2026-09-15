@@ -33,6 +33,8 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 48 | [Fase 3] P-Q4/B-S4/F-S4: export CSV da frequência do módulo (matriz aluno × dia com P/F/J e totais) + botão na Chamada; permissão compartilhada com o export de notas | 🟡 Média | ✅ Concluída | ✅ pytest + vitest · 5 mutações pegas | [48-export-frequencia.md](48-export-frequencia.md) |
 | 49 | [Fase 3] P-06: regra de situação única — boletim em PDF e ficha do aluno sem cópias manuais; tabela de casos compartilhada entre pytest e vitest | 🟡 Média | ✅ Concluída | ✅ 8 casos × 4 implementações · 3 mutações pegas | [49-classificacao-unica.md](49-classificacao-unica.md) |
 | 50 | [Fase 3] P-Q8: `/api/professor/students` paginado e com busca no servidor (mesmo `Paginated` do coordenador), detalhe só da página, matrículas com `fetch_all`; tela de Alunos com um caminho só | 🟡 Média | ✅ Concluída | ✅ 4 pytest · 2 mutações pegas | [50-paginar-alunos-professor.md](50-paginar-alunos-professor.md) |
+| 51 | [Fase 3] F-S1: filtro por situação na tela de Notas (Em risco, Aprovado, Recuperação, Reprovado por nota/faltas), pela regra única e pelo `risk` do backend | 🟠 Alta | ✅ Concluída | ✅ vitest · 2 mutações pegas | [51-notas-filtro-situacao.md](51-notas-filtro-situacao.md) |
+| 52 | [Fase 3] P-N4: frequência real na tela de Notas — "N chamadas registradas" e "% das aulas" por aluno | 🟡 Média | ✅ Concluída | ✅ vitest · mutação pega | [52-notas-frequencia-real.md](52-notas-frequencia-real.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 
