@@ -47,4 +47,7 @@ export const usersApi = {
 
   reactivate: (id: string) =>
     api.post<Profile>(`/api/users/${id}/reactivate`).then((r) => r.data),
+
+  resetPassword: (id: string, new_password: string) =>
+    api.post(`/api/users/${id}/reset-password`, { new_password }),
 };

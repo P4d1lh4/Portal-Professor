@@ -122,6 +122,21 @@ def test_desativar_e_reativar_registram_is_active(as_user, monkeypatch):
     assert (on["before_data"], on["after_data"]) == ({"is_active": False}, {"is_active": True})
 
 
+def test_redefinir_senha_registra_sem_a_senha(as_user, monkeypatch):
+    as_user("admin", "admin-1")
+    db = _use(monkeypatch, users_router, FakeDb({"profiles": Resp(USER)}))
+    auth = SimpleNamespace(admin=SimpleNamespace(update_user_by_id=lambda *_a: None))
+    monkeypatch.setattr(users_router, "create_client", lambda *a, **k: SimpleNamespace(auth=auth))
+
+    resp = client.post("/api/users/u1/reset-password", json={"new_password": "senha-nova-123"})
+
+    assert resp.status_code == 204
+    [entry] = _audit(db)
+    assert (entry["action"], entry["entity"], entry["entity_id"]) == ("update", "users", "u1")
+    assert entry["summary"] == "Senha redefinida: Prof"
+    assert "senha-nova-123" not in str(entry)
+
+
 # ─── Atestados (dado de saúde) ───────────────────────────────────────────────
 
 

@@ -41,6 +41,7 @@ import {
   useCreateUser,
   useDeactivateUser,
   useReactivateUser,
+  useResetUserPassword,
   useUpdateUser,
   useUsers,
 } from "./useUsers";
@@ -101,6 +102,7 @@ export default function UsersPage() {
   const update = useUpdateUser();
   const deactivate = useDeactivateUser();
   const reactivate = useReactivateUser();
+  const resetPassword = useResetUserPassword();
 
   const users = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -427,12 +429,16 @@ export default function UsersPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         user={editing}
+        canResetPassword={!!editing && editing.id !== profile?.id}
         onCreate={async (data) => {
           await create.mutateAsync(data);
         }}
-        onEdit={async (data) => {
+        onEdit={async ({ new_password, ...body }) => {
           if (!editing) return;
-          await update.mutateAsync({ id: editing.id, body: data });
+          await update.mutateAsync({ id: editing.id, body });
+          if (new_password) {
+            await resetPassword.mutateAsync({ id: editing.id, new_password });
+          }
         }}
       />
       {confirmDialog}
