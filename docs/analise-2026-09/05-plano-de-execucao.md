@@ -93,7 +93,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 
 ## Fase 4 — Consistência e dívida técnica (contínuo · ~4 dias)
 
-- [ ] **B-07** Mover `_assert_can_access_student` e `_assert_professor_has_student` para `services/permissions.py`; migrar `sheets`, `import_csv`, `reports`, `medical_certificates`. Um router por PR, teste antes. — M cada
+- [x] **B-07** Mover `_assert_can_access_student` e `_assert_professor_has_student` para `services/permissions.py`; migrar `sheets`, `import_csv`, `reports`, `medical_certificates`. Um router por PR, teste antes. — M cada · ✅ students, reports e atestados num PR só; `sheets`/`import_csv`/`exports` mantêm a comparação com a linha já carregada (alteração 59)
 - [ ] **B-S8** Sentry (`sentry-sdk[fastapi]`, DSN por env) + `ENV`/`LOG_LEVEL` em `config.py` (I-14). — P
 - [x] **F-10 / F-11** Remover 5 tipos mortos, `UnderConstruction`, `RoleBadge`, `tooltip.tsx` + `@radix-ui/react-tooltip`. — P · ✅ + `EnrollmentStatus` e a entrada no `optimizeDeps` (alteração 54)
 - [ ] **F-12** `<AsyncSelectField>`, `usePagination()`, `date-fns` na Chamada, `aria-describedby` nos dialogs. — M

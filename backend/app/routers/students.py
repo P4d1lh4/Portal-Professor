@@ -14,7 +14,7 @@ from ..schemas.students import (
 )
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
-from ..services.permissions import assert_coordinator_owns_period
+from ..services.permissions import assert_can_access_student, assert_coordinator_owns_period
 from ..services.search import build_ilike_or
 
 
@@ -381,7 +381,7 @@ def get_professor_student(
 ) -> StudentDetail:
     db = get_admin_db()
 
-    _assert_can_access_student(db, current_user, student_id)
+    assert_can_access_student(db, current_user, student_id)
 
     resp = (
         db.table("students").select("*").eq("id", student_id).maybe_single().execute()
@@ -400,7 +400,7 @@ def update_professor_student(
 ) -> Student:
     db = get_admin_db()
 
-    _assert_can_access_student(db, current_user, student_id)
+    assert_can_access_student(db, current_user, student_id)
 
     # exclude_unset: permite limpar campos anuláveis (email, observations…) com null.
     update_data = body.model_dump(exclude_unset=True)
@@ -459,7 +459,7 @@ def deactivate_student(
     """Soft delete — marca o aluno como inativo."""
     db = get_admin_db()
 
-    _assert_can_access_student(db, current_user, student_id)
+    assert_can_access_student(db, current_user, student_id)
     if current_user.role == "professor":
         # Verifica se o aluno pertence EXCLUSIVAMENTE a módulos deste professor
         all_enrollments = (
@@ -517,7 +517,7 @@ def get_student_absences(
 ) -> dict:
     db = get_admin_db()
 
-    _assert_can_access_student(db, current_user, student_id)
+    assert_can_access_student(db, current_user, student_id)
 
     student = (
         db.table("students")
@@ -572,7 +572,7 @@ def update_student_absences(
 ) -> dict:
     db = get_admin_db()
 
-    _assert_can_access_student(db, current_user, student_id)
+    assert_can_access_student(db, current_user, student_id)
 
     update_data: dict = {}
     if body.medical_certificates is not None:
@@ -583,57 +583,3 @@ def update_student_absences(
 
     return {"message": "Atualizado com sucesso."}
 
-
-# ---------------------------------------------------------------
-# Helper de permissão
-# ---------------------------------------------------------------
-
-def _assert_can_access_student(db, current_user: Profile, student_id: str) -> None:
-    """Autoriza acesso a um aluno específico conforme o papel.
-
-    - professor: precisa lecionar para o aluno (_assert_prof_has_student);
-    - coordenador: o aluno precisa estar num período que ele coordena;
-    - admin: acesso total.
-
-    A API usa service role (bypassa RLS), então este escopo é a ÚNICA barreira
-    em runtime — sem ele, um coordenador acessa/edita alunos de qualquer período.
-    """
-    if current_user.role == "professor":
-        _assert_prof_has_student(db, current_user.id, student_id)
-    elif current_user.role == "coordinator":
-        resp = (
-            db.table("students")
-            .select("academic_period_id")
-            .eq("id", student_id)
-            .maybe_single()
-            .execute()
-        )
-        if not resp.data:
-            raise HTTPException(404, "Aluno não encontrado.")
-        assert_coordinator_owns_period(
-            db, resp.data["academic_period_id"], current_user,
-            detail="Você não tem permissão para acessar este aluno.",
-        )
-
-
-def _assert_prof_has_student(db, professor_id: str, student_id: str) -> None:
-    """Verifica que o aluno está matriculado em pelo menos um módulo do professor."""
-    modules = (
-        db.table("modules")
-        .select("id")
-        .eq("professor_id", professor_id)
-        .execute()
-    )
-    module_ids = [m["id"] for m in modules.data]
-    if not module_ids:
-        raise HTTPException(403, "Acesso negado.")
-
-    enrollment = (
-        db.table("enrollments")
-        .select("id", count="exact")
-        .in_("module_id", module_ids)
-        .eq("student_id", student_id)
-        .execute()
-    )
-    if (enrollment.count or 0) == 0:
-        raise HTTPException(403, "Acesso negado.")

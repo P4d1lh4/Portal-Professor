@@ -11,6 +11,7 @@ from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
 from ..services.classification import Status, classify_status, grade_risk, risk_sort_key
+from ..services.permissions import assert_can_access_student, assert_coordinator_owns_period
 from ..services.reports import (
     AttentionLine,
     PeriodReportData,
@@ -79,11 +80,7 @@ def student_report(
     if not student.data:
         raise HTTPException(404, "Aluno não encontrado.")
 
-    if current_user.role == "professor":
-        _assert_professor_has_student(db, current_user.id, student_id)
-    elif current_user.role == "coordinator":
-        period = student.data.get("academic_period") or {}
-        _assert_coord_owns_period(db, current_user.id, period.get("id"))
+    assert_can_access_student(db, current_user, student_id)
 
     enrollments = (
         db.table("enrollments")
@@ -154,8 +151,9 @@ def period_report(
     if not period.data:
         raise HTTPException(404, "Período não encontrado.")
 
-    if current_user.role == "coordinator":
-        _assert_coord_owns_period(db, current_user.id, period_id)
+    assert_coordinator_owns_period(
+        db, period_id, current_user, detail="Você não coordena este período.",
+    )
 
     # fetch_all pagina para não truncar em 1000 linhas (períodos grandes).
     students_data = fetch_all(
@@ -250,39 +248,3 @@ def period_report(
     return _pdf_response(pdf, filename)
 
 
-# ---------------------------------------------------------------
-# Helpers de permissão
-# ---------------------------------------------------------------
-
-def _assert_professor_has_student(db, professor_id: str, student_id: str) -> None:
-    modules = (
-        db.table("modules").select("id").eq("professor_id", professor_id).execute()
-    )
-    module_ids = [m["id"] for m in modules.data]
-    if not module_ids:
-        raise HTTPException(403, "Acesso negado.")
-
-    enrollment = (
-        db.table("enrollments")
-        .select("id", count="exact")
-        .in_("module_id", module_ids)
-        .eq("student_id", student_id)
-        .execute()
-    )
-    if (enrollment.count or 0) == 0:
-        raise HTTPException(403, "Acesso negado.")
-
-
-def _assert_coord_owns_period(db, coordinator_id: str, period_id: str | None) -> None:
-    if not period_id:
-        raise HTTPException(403, "Acesso negado.")
-    chk = (
-        db.table("academic_periods")
-        .select("id")
-        .eq("id", period_id)
-        .eq("coordinator_id", coordinator_id)
-        .maybe_single()
-        .execute()
-    )
-    if not chk.data:
-        raise HTTPException(403, "Você não coordena este período.")

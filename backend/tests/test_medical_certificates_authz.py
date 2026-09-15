@@ -2,7 +2,8 @@
 
 Acesso: admin; coordenador do período do aluno; professor com o aluno
 matriculado em algum módulo seu. As 8 rotas passam por
-_assert_can_access_student antes de qualquer escrita ou acesso ao storage.
+permissions.assert_can_access_student (o mesmo de students.py, B-07) antes de
+qualquer escrita ou acesso ao storage.
 """
 import pytest
 from fastapi.testclient import TestClient
@@ -68,7 +69,19 @@ def test_checagem_filtra_pelo_usuario_logado(as_user, monkeypatch):
     assert client.get("/api/students/s1/medical-certificates").status_code == 403
     assert ("eq", ("id", "p1")) in db.calls("academic_periods")
     assert ("eq", ("coordinator_id", "coord-9")) in db.calls("academic_periods")
-    assert ("eq", ("professor_id", "coord-9")) in db.calls("modules")
+
+
+def test_coordenador_nao_herda_acesso_de_quando_era_professor(as_user, monkeypatch):
+    # Papel trocado de professor para coordenador: os módulos antigos seguem com
+    # o professor_id dele, mas o escopo agora é só o dos períodos que coordena.
+    # A cópia antiga deste guard caía na checagem de professor e deixava passar.
+    as_user("coordinator", "ex-prof")
+    _use(monkeypatch, {
+        "students": Resp(STUDENT), "academic_periods": Resp(None),
+        "modules": Resp([{"id": "m1"}]), "enrollments": Resp([], count=1),
+        "medical_certificates": Resp([]),
+    })
+    assert client.get("/api/students/s1/medical-certificates").status_code == 403
 
 
 @pytest.mark.parametrize("role,extra", [

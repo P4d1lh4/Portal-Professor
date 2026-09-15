@@ -10,7 +10,8 @@ client = TestClient(app)
 
 STUDENT = {
     "id": "s1", "student_number": "2026001", "full_name": "Ana", "email": None,
-    "medical_certificates": 0, "academic_period": {"id": "p1", "name": "2026.1"},
+    "medical_certificates": 0, "academic_period_id": "p1",
+    "academic_period": {"id": "p1", "name": "2026.1"},
 }
 PERIOD = {"id": "p1", "name": "2026.1", "coordinator": {"id": "coord-1", "full_name": "Coord"}}
 
