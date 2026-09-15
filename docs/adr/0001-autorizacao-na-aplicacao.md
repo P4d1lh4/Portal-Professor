@@ -18,6 +18,16 @@ Ao mesmo tempo, as migrações definem policies de RLS por papel (a `0002` e as 
 2. **O RLS fica como defesa em profundidade** para o acesso direto com a `anon key`, caso ela vaze ou o frontend passe a ler tabelas. Desde a `0011`, `anon` e `authenticated` não têm GRANT de escrita. As policies de leitura continuam valendo, e as de escrita não recebem nenhuma escrita pela API.
 3. **Todo endpoint novo** tem a checagem de papel e escopo e um teste HTTP por papel, incluindo o "não é dono" (`tests/fakes.py` + fixture `as_user`).
 
+## Exceção: cadastro por convite (registro 69)
+
+`POST /api/signup/check` e `POST /api/signup` não têm `require_role`, porque quem chega ali ainda não tem conta. A credencial é o código de convite:
+- aleatório (~59 bits), de uso único e válido por 7 dias; o banco guarda só o hash;
+- o papel vem do convite, nunca do corpo da requisição;
+- a resposta é a mesma para código inexistente, usado, vencido ou de autor sem permissão;
+- há limite de tentativas.
+
+Para o convite valer, o cadastro público do Supabase Auth fica **desligado** (Authentication → Sign In / Providers → "Allow new users to sign up"). Ligado, qualquer pessoa cria conta direto no Auth com a anon key e pula o convite. Desde a 0014, o `handle_new_user` cria todo profile como professor: o papel mandado pelo cliente não vale mais, mas a conta continuaria existindo fora do convite.
+
 ## Alternativas consideradas
 
 - **JWT do usuário no PostgREST, com RLS como autorização principal.** Tiraria parte da checagem do backend, mas:

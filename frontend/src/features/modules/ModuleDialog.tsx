@@ -26,6 +26,7 @@ import {
 import { SelectOptionsStatus } from "@/components/shared/SelectOptionsStatus";
 import api from "@/lib/axios";
 import { useAuth } from "@/hooks/useAuth";
+import { InviteDialog } from "@/features/users/InviteDialog";
 import type { ModuleItem } from "./api";
 
 const schema = z.object({
@@ -269,18 +270,22 @@ export function ModuleDialog({
                 count={professors.length}
                 onRetry={refetchProfessors}
                 errorText="Não foi possível carregar os professores"
-                emptyText={
-                  <>
-                    Nenhum professor cadastrado. Cadastre um usuário com o papel
-                    &ldquo;Professor&rdquo; na página de Usuários.
-                  </>
-                }
+                emptyText="Nenhum professor cadastrado ainda."
               />
               {errors.professor_id && (
                 <p id="mod-professor-error" className="text-xs text-destructive">
                   {errors.professor_id.message}
                 </p>
               )}
+              {/* Registro 69: o coordenador não tem a página de Usuários. */}
+              <InviteDialog>
+                <button
+                  type="button"
+                  className="text-xs text-primary underline-offset-4 hover:underline"
+                >
+                  Professor ainda sem conta? Gerar convite
+                </button>
+              </InviteDialog>
             </div>
           ) : null}
 

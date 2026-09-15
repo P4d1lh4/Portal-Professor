@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import {
   usersApi,
+  type InviteRole,
   type ListUsersParams,
   type UserCreatePayload,
   type UserUpdatePayload,
@@ -77,6 +78,13 @@ export function useResetUserPassword() {
     mutationFn: ({ id, new_password }: { id: string; new_password: string }) =>
       usersApi.resetPassword(id, new_password),
     onSuccess: () => toast.success("Senha redefinida."),
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useCreateInvite() {
+  return useMutation({
+    mutationFn: (role: InviteRole) => usersApi.createInvite(role),
     onError: (err: Error) => toast.error(err.message),
   });
 }

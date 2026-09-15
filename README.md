@@ -162,6 +162,7 @@ cd frontend && npm run dev
 |----------------|:-----:|:-----------:|:---------:|
 | Ver dashboard com métricas | ✓ | ✓ | ✓ |
 | Gerenciar usuários | ✓ | — | — |
+| Gerar convite de cadastro (uso único, 7 dias) | ✓ (coordenador ou professor) | ✓ (professor) | — |
 | CRUD de períodos acadêmicos | ✓ | — | — |
 | Ver/editar módulos do período | ✓ | ✓ | — |
 | Ver módulos próprios | — | — | ✓ |
@@ -192,6 +193,10 @@ Documentação interativa disponível em:
 ```
 GET    /api/healthz
 GET    /api/me
+
+POST   /api/invites           (admin, coordenador)
+POST   /api/signup/check      (público: confere o código do convite)
+POST   /api/signup            (público: cria a conta com o convite)
 GET    /api/dashboard?period_id=
 
 GET    /api/periods
@@ -259,6 +264,7 @@ Cobrem, entre outros:
 - `SUPABASE_SERVICE_ROLE_KEY` usado **apenas** no backend (nunca exposto ao frontend)
 - **A autorização é da API:** o backend usa a service_role, que ignora RLS. Papel e escopo (professor só nos seus módulos, coordenador só nos seus períodos) são checados no FastAPI e testados por papel. Ver [ADR 0001](docs/adr/0001-autorizacao-na-aplicacao.md).
 - RLS nas tabelas como defesa em profundidade para acesso direto com a anon key; desde a `0011`, `anon`/`authenticated` não têm GRANT de escrita
+- Conta nova só pelo backend: o admin cria, ou a pessoa se cadastra com um convite de uso único (`/api/signup`, a exceção descrita na ADR 0001). O cadastro público do Supabase Auth fica desligado (DEPLOY.md, Passo 5), e desde a `0014` o trigger `handle_new_user` ignora o papel mandado pelo cliente
 - Mutações relevantes registradas em `audit_log` (tela de Auditoria, admin)
 
 ---

@@ -12,14 +12,14 @@ client = TestClient(app)
 def test_user_create_rejeita_senha_curta():
     with pytest.raises(ValidationError):
         UserCreate(
-            email="a@b.com", password="curta", username="u",
+            email="a@b.com", password="curta", username="fulano",
             full_name="Fulano", role="professor",
         )
 
 
 def test_user_create_aceita_senha_forte():
     u = UserCreate(
-        email="a@b.com", password="senha-forte-123", username="u",
+        email="a@b.com", password="senha-forte-123", username="fulano",
         full_name="Fulano", role="professor",
     )
     assert u.password == "senha-forte-123"

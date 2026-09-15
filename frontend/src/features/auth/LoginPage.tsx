@@ -150,6 +150,15 @@ export default function LoginPage() {
                 </Link>
               </div>
             </form>
+
+            <div className="mt-4 space-y-2 border-t pt-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                Recebeu um código de convite?
+              </p>
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/signup">Criar conta</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -30,7 +30,7 @@ Um arquivo por item, numerado em sequência, com estas seções, nesta ordem:
 
 ## Backend
 
-- **Autorização:** ver a [ADR 0001](docs/adr/0001-autorizacao-na-aplicacao.md). Todo endpoint tem `require_role` e a checagem de escopo, com os helpers de `app/services/permissions.py` e `app/services/guards.py`. Todo endpoint também ganha teste HTTP por papel, incluindo o caso "não é dono".
+- **Autorização:** ver a [ADR 0001](docs/adr/0001-autorizacao-na-aplicacao.md). Todo endpoint tem `require_role` (a exceção, o cadastro por convite, está na ADR) e a checagem de escopo, com os helpers de `app/services/permissions.py` e `app/services/guards.py`. Todo endpoint também ganha teste HTTP por papel, incluindo o caso "não é dono".
 - **Testes:** use o fake único de `tests/fakes.py` (`FakeDb`) e o fixture `as_user`; não crie outro fake. Quando o filtro importa (escopo, período), confira `db.calls("tabela")`.
 - **`def` ou `async def` (B-11):**
   - `def` quando o endpoint só chama o supabase-py, que é bloqueante. O FastAPI roda o endpoint no threadpool.

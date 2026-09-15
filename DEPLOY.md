@@ -120,6 +120,18 @@ já usa `window.location.origin`, então não precisa mudar código.)
 
 ---
 
+## Passo 5 — Fechar o cadastro público no Supabase
+
+Supabase → **Authentication → Sign In / Providers** → desligue **Allow new users to sign up**.
+
+As contas nascem pelo backend, com a Admin API: o admin cria na tela de Usuários, ou a
+pessoa se cadastra com um código de convite (tela de login → **Criar conta**). A Admin
+API continua funcionando com o cadastro público desligado. Ligado, qualquer pessoa com a
+anon key, que é pública, cria conta direto no Auth, sem convite (ver a
+[ADR 0001](docs/adr/0001-autorizacao-na-aplicacao.md)).
+
+---
+
 ## Segurança: RLS e service role
 
 A autorização da aplicação acontece em **duas camadas**:
