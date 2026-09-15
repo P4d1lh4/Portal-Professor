@@ -26,7 +26,8 @@ from supabase import create_client, Client
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SERVICE_KEY  = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 ANON_KEY     = os.environ["SUPABASE_ANON_KEY"]
-DEFAULT_PASS = os.environ.get("SEED_DEFAULT_PASSWORD", "Escola@2024!")
+# Sem default (como no seed.py, I-11): a senha documentada virava a de verdade.
+DEFAULT_PASS = os.environ["SEED_DEFAULT_PASSWORD"]
 BACKEND_URL  = "http://localhost:8000"
 TEST_EMAIL   = "prof1@escola.com"
 

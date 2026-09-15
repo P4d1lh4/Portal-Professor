@@ -221,19 +221,35 @@ PUT    /api/grades/{enrollment_id}
 
 ---
 
+## Scripts de manutenção
+
+Em `backend/scripts/`. Usam o `backend/.env` (**produção**) salvo se `DATABASE_URL`/`SUPABASE_*` vierem definidas na linha de comando.
+
+| Script | Para quê |
+|---|---|
+| `apply_migration.py` | Aplica as migrações pendentes em ordem (`--all`), mostra o estado de cada uma (`--status`) e registra uma aplicada à mão pelo SQL Editor (`--mark-applied <versão>`). |
+| `seed.py` | Dados de exemplo (seção Seed acima). |
+| `diagnose.py` | Diagnóstico ponta a ponta: estado do banco, login de um professor de exemplo e `GET /api/modules` no backend local. Exige `SEED_DEFAULT_PASSWORD`. |
+| `backup_storage.py` | Baixa e reenvia os anexos de atestado (backup e restore; ver `DEPLOY.md`). |
+
+---
+
 ## Testes
 
 ```bash
-cd backend
-pytest tests/ -v
+cd backend && pytest          # backend (o CI exige 70% de cobertura)
+cd frontend && npm run test   # frontend (vitest + Testing Library)
 ```
 
+O CI também builda a imagem do backend e aplica todas as migrações num Postgres, com os checks de `supabase/ci/checks.sql`. Como escrever testes e registrar alterações: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 Cobrem, entre outros:
-- Autorização por papel (isolamento de dados; escopo de coordenador/professor)
-- Cálculo de nota final e classificação (aprovado/recuperação/rep. faltas)
+- Autorização por papel em todos os routers (isolamento de dados; escopo de coordenador/professor)
+- Nota final, situação e alunos em risco (regra única, travada entre backend e frontend)
 - Validators Pydantic (clamp, arredondamento)
-- Parser CSV (BOM, semicolons, Latin-1, colunas obrigatórias) e neutralização de fórmula no export
-- Autenticação (sem token → 403, token inválido/expirado → 401), SSRF e injeção de filtro PostgREST
+- Parser CSV (BOM, cabeçalho do export, Latin-1, colunas obrigatórias) e neutralização de fórmula no export
+- Autenticação (sem token ou token inválido/expirado → 401), SSRF e injeção de filtro PostgREST
+- Telas de Notas e Chamada (salvar, rollback, rascunho não salvo) e interceptors de sessão
 
 ---
 
@@ -241,8 +257,9 @@ Cobrem, entre outros:
 
 - JWT validado server-side em cada request via JWKS do Supabase (RS256/ES256; HS256 legado)
 - `SUPABASE_SERVICE_ROLE_KEY` usado **apenas** no backend (nunca exposto ao frontend)
-- Row Level Security ativa em todas as tabelas (`0002_rls_granular.sql`)
-- Professor só acessa alunos e notas dos seus próprios módulos (2 camadas: dep FastAPI + RLS)
+- **A autorização é da API:** o backend usa a service_role, que ignora RLS. Papel e escopo (professor só nos seus módulos, coordenador só nos seus períodos) são checados no FastAPI e testados por papel. Ver [ADR 0001](docs/adr/0001-autorizacao-na-aplicacao.md).
+- RLS nas tabelas como defesa em profundidade para acesso direto com a anon key; desde a `0011`, `anon`/`authenticated` não têm GRANT de escrita
+- Mutações relevantes registradas em `audit_log` (tela de Auditoria, admin)
 
 ---
 
