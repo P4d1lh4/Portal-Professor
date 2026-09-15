@@ -43,3 +43,21 @@ updates:
     labels:
       - dependencies
       - ci
+
+  # Imagens base dos Dockerfiles, pinadas por tag + digest: sem isto o digest
+  # envelheceria sem ninguém ver (I-22).
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - backend
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - frontend

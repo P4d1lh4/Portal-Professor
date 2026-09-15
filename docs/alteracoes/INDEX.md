@@ -39,6 +39,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 54 | [Fase 4] F-10/F-11: 5 tipos mortos, `UnderConstruction`, `RoleBadge`, `tooltip.tsx` e `@radix-ui/react-tooltip` removidos | 🔵 Baixa | ✅ Concluída | ✅ tsc/eslint/vitest/build | [54-codigo-morto-frontend.md](54-codigo-morto-frontend.md) |
 | 55 | [Fase 4] F-13: página 404 no lugar do redirecionamento silencioso para o painel | 🔵 Baixa | ✅ Concluída | ✅ vitest | [55-pagina-404.md](55-pagina-404.md) |
 | 56 | [Fase 4] I-07/I-08/I-09/I-10: `0002_seed_instructions` apagado; 0013 com `schema_migrations` versionada (RLS) e trigger de `grades.last_updated`; nota da 0011 no DEPLOY.md (sem editar migração aplicada) | 🔵 Baixa | ✅ Concluída (⏳ aplicar em produção) | ✅ postgres:17 + checks · mutação pega | [56-migracoes-housekeeping.md](56-migracoes-housekeeping.md) |
+| 57 | [Fase 4] I-22: imagens base por tag + digest nos Dockerfiles, `docker` no Dependabot, compose sem `version:` | 🔵 Baixa | ✅ Concluída | ✅ digests resolvem (amd64) · compose valida · CI docker | [57-docker-digest.md](57-docker-digest.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 
