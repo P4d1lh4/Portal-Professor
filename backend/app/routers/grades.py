@@ -107,6 +107,8 @@ def update_grade(
     current_regular = patch.get("regular_exam_grade", grade["regular_exam_grade"])
     current_makeup = patch.get("makeup_exam_grade", grade["makeup_exam_grade"])
     patch["final_grade"] = recalc_final(current_regular, current_makeup)
+    # ponytail: redundante com o trigger da 0013 (I-08); sai quando ela estiver
+    # aplicada em produção, antes disso o campo pararia de atualizar.
     patch["last_updated"] = datetime.now(timezone.utc).isoformat()
 
     # NB: o update já retorna a linha alterada (returning=representation).
