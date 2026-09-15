@@ -41,6 +41,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 56 | [Fase 4] I-07/I-08/I-09/I-10: `0002_seed_instructions` apagado; 0013 com `schema_migrations` versionada (RLS) e trigger de `grades.last_updated`; nota da 0011 no DEPLOY.md (sem editar migração aplicada) | 🔵 Baixa | ✅ Concluída (⏳ aplicar em produção) | ✅ postgres:17 + checks · mutação pega | [56-migracoes-housekeeping.md](56-migracoes-housekeeping.md) |
 | 57 | [Fase 4] I-22: imagens base por tag + digest nos Dockerfiles, `docker` no Dependabot, compose sem `version:` | 🔵 Baixa | ✅ Concluída | ✅ digests resolvem (amd64) · compose valida · CI docker | [57-docker-digest.md](57-docker-digest.md) |
 | 58 | [Fase 4] I-31/B-11: `CONTRIBUTING.md` (fluxo, registro, sync/async), ADR 0001 (autorização na aplicação), template de PR, scripts no README; README de Segurança corrigido | 🟡 Média | ✅ Concluída | ✅ conferido contra o código | [58-contributing-adr.md](58-contributing-adr.md) |
+| 59 | [Fase 4] B-07: `assert_can_access_student`/`assert_professor_has_student` em `services/permissions.py`; students, reports e atestados sem cópias (atestados: coordenador ex-professor não herda acesso); upload de anexo em `def` (B-11) | 🟡 Média | ✅ Concluída | ✅ pytest + mutações | [59-permissoes-canonicas.md](59-permissoes-canonicas.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 

@@ -25,6 +25,7 @@ from ..schemas.medical_certificates import (
 )
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
+from ..services.permissions import assert_can_access_student
 
 logger = logging.getLogger(__name__)
 
@@ -40,57 +41,8 @@ _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 # ---------------------------------------------------------------
-# Helpers de permissão / acesso
+# Helpers de acesso (a permissão é services.permissions.assert_can_access_student)
 # ---------------------------------------------------------------
-
-def _assert_can_access_student(db, profile: Profile, student_id: str) -> None:
-    """Espelha as regras de students.py: admin/coord do período/professor do módulo."""
-    if profile.role == "admin":
-        return
-
-    student = (
-        db.table("students")
-        .select("id, academic_period_id")
-        .eq("id", student_id)
-        .maybe_single()
-        .execute()
-    )
-    if not student.data:
-        raise HTTPException(404, "Aluno não encontrado.")
-
-    if profile.role == "coordinator":
-        period = (
-            db.table("academic_periods")
-            .select("id")
-            .eq("id", student.data["academic_period_id"])
-            .eq("coordinator_id", profile.id)
-            .maybe_single()
-            .execute()
-        )
-        if period.data:
-            return
-
-    # Professor: aluno precisa estar matriculado em algum módulo dele
-    modules = (
-        db.table("modules")
-        .select("id")
-        .eq("professor_id", profile.id)
-        .execute()
-    )
-    module_ids = [m["id"] for m in modules.data]
-    if module_ids:
-        enrollment = (
-            db.table("enrollments")
-            .select("id", count="exact")
-            .in_("module_id", module_ids)
-            .eq("student_id", student_id)
-            .execute()
-        )
-        if (enrollment.count or 0) > 0:
-            return
-
-    raise HTTPException(403, "Acesso negado ao aluno.")
-
 
 def _load_certificate(db, certificate_id: str) -> dict:
     resp = (
@@ -198,7 +150,7 @@ def list_certificates(
     current_user: Profile = Depends(_ALLOWED_ROLES),
 ) -> list[MedicalCertificate]:
     db = get_admin_db()
-    _assert_can_access_student(db, current_user, student_id)
+    assert_can_access_student(db, current_user,student_id)
 
     resp = (
         db.table("medical_certificates")
@@ -221,7 +173,7 @@ def create_certificate(
     current_user: Profile = Depends(_ALLOWED_ROLES),
 ) -> MedicalCertificate:
     db = get_admin_db()
-    _assert_can_access_student(db, current_user, student_id)
+    assert_can_access_student(db, current_user,student_id)
 
     payload = {
         "student_id": student_id,
@@ -255,7 +207,7 @@ def get_certificate(
 ) -> MedicalCertificate:
     db = get_admin_db()
     cert = _load_certificate(db, certificate_id)
-    _assert_can_access_student(db, current_user, cert["student_id"])
+    assert_can_access_student(db, current_user,cert["student_id"])
     return _hydrate_certificate(db, cert)
 
 
@@ -270,7 +222,7 @@ def update_certificate(
 ) -> MedicalCertificate:
     db = get_admin_db()
     cert = _load_certificate(db, certificate_id)
-    _assert_can_access_student(db, current_user, cert["student_id"])
+    assert_can_access_student(db, current_user,cert["student_id"])
 
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
@@ -317,7 +269,7 @@ def delete_certificate(
 ) -> None:
     db = get_admin_db()
     cert = _load_certificate(db, certificate_id)
-    _assert_can_access_student(db, current_user, cert["student_id"])
+    assert_can_access_student(db, current_user,cert["student_id"])
 
     # Remove anexos do storage antes de deletar a linha (ON DELETE CASCADE
     # remove os registros, mas não os blobs).
@@ -361,7 +313,7 @@ def list_attachments(
 ) -> list[MedicalCertificateAttachment]:
     db = get_admin_db()
     cert = _load_certificate(db, certificate_id)
-    _assert_can_access_student(db, current_user, cert["student_id"])
+    assert_can_access_student(db, current_user,cert["student_id"])
 
     resp = (
         db.table("medical_certificate_attachments")
@@ -378,19 +330,20 @@ def list_attachments(
     response_model=MedicalCertificateAttachment,
     status_code=status.HTTP_201_CREATED,
 )
-async def upload_attachment(
+def upload_attachment(
     certificate_id: str,
     file: UploadFile = File(...),
     current_user: Profile = Depends(_ALLOWED_ROLES),
 ) -> MedicalCertificateAttachment:
     db = get_admin_db()
     cert = _load_certificate(db, certificate_id)
-    _assert_can_access_student(db, current_user, cert["student_id"])
+    assert_can_access_student(db, current_user,cert["student_id"])
 
     if file.content_type != ALLOWED_MIME_TYPE:
         raise HTTPException(415, "Apenas arquivos PDF são permitidos.")
 
-    content = await file.read()
+    # def (não async): o supabase-py é bloqueante e roda no threadpool (B-11).
+    content = file.file.read()
     size = len(content)
     if size == 0:
         raise HTTPException(422, "O arquivo está vazio.")
@@ -462,7 +415,7 @@ def delete_attachment(
 ) -> None:
     db = get_admin_db()
     cert = _load_certificate(db, certificate_id)
-    _assert_can_access_student(db, current_user, cert["student_id"])
+    assert_can_access_student(db, current_user,cert["student_id"])
 
     attachment = (
         db.table("medical_certificate_attachments")

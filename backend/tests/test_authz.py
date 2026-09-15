@@ -126,7 +126,7 @@ class TestUpdateProfessorStudentWhitelist:
     def test_professor_nao_altera_is_active(self, as_user, monkeypatch):
         as_user("professor", "prof-1")
         db = FakeDb({
-            "modules": Resp([{"id": "m1"}]),       # _assert_prof_has_student
+            "modules": Resp([{"id": "m1"}]),       # assert_professor_has_student
             "enrollments": Resp([], count=1),      # aluno matriculado
             "students": Resp(_student_row("s1", full_name="Novo Nome")),
         })

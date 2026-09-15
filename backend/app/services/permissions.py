@@ -35,3 +35,47 @@ def assert_coordinator_owns_period(
     )
     if not chk.data:
         raise HTTPException(status_code=403, detail=detail)
+
+
+def assert_can_access_student(db, current_user: Profile, student_id: str) -> None:
+    """Acesso a um aluno: professor precisa lecionar para ele; coordenador, que
+    ele esteja num período seu; admin, livre. Única barreira em runtime."""
+    if current_user.role == "professor":
+        assert_professor_has_student(db, current_user.id, student_id)
+    elif current_user.role == "coordinator":
+        resp = (
+            db.table("students")
+            .select("academic_period_id")
+            .eq("id", student_id)
+            .maybe_single()
+            .execute()
+        )
+        if not resp.data:
+            raise HTTPException(404, "Aluno não encontrado.")
+        assert_coordinator_owns_period(
+            db, resp.data["academic_period_id"], current_user,
+            detail="Você não tem permissão para acessar este aluno.",
+        )
+
+
+def assert_professor_has_student(db, professor_id: str, student_id: str) -> None:
+    """O aluno precisa estar matriculado em pelo menos um módulo do professor."""
+    modules = (
+        db.table("modules")
+        .select("id")
+        .eq("professor_id", professor_id)
+        .execute()
+    )
+    module_ids = [m["id"] for m in modules.data]
+    if not module_ids:
+        raise HTTPException(403, "Acesso negado.")
+
+    enrollment = (
+        db.table("enrollments")
+        .select("id", count="exact")
+        .in_("module_id", module_ids)
+        .eq("student_id", student_id)
+        .execute()
+    )
+    if (enrollment.count or 0) == 0:
+        raise HTTPException(403, "Acesso negado.")
