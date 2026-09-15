@@ -117,7 +117,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [ ] **P-Q10** Campo "conteúdo ministrado" na chamada. — P
 - [x] **B-S5** Reset de senha de usuário pelo admin. — P · ✅ campo "Nova senha" no diálogo de edição (em branco mantém); a própria senha segue em `/me/change-password` (alteração 62)
 - [x] **B-S6 / P-09** Boletim lista os atestados reais. — P · ✅ + escape do texto digitado nos dois PDFs (uma tag aberta derrubava o PDF com 500) (alteração 61)
-- [ ] **P-N9 / B-S7** Import CSV de notas. — M
+- [x] **P-N9 / B-S7** Import CSV de notas. — M · ✅ por módulo, com o export de notas voltando sem edição; não reaproveita o sync da planilha (P-07, B-03) (alteração 63)
 - [ ] 🧭 **P-N5** E-mail (lembrete de fechamento, aluno em risco) via Edge Function/cron. — M
 - [ ] 🧭 **P-N6** Portal do aluno/responsável (4º papel, só leitura). — G
 - [ ] 🧭 **O-02** Render Starter e/ou Supabase Pro quando houver uso real. — custo

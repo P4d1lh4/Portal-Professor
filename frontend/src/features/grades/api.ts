@@ -36,6 +36,12 @@ export interface StudentGradeRow {
   risk?: string[];
 }
 
+export interface GradesImportResult {
+  updated: number;
+  not_found: string[];
+  invalid: { line: number; error: string }[];
+}
+
 export const gradesApi = {
   getByModule: (moduleId: string) =>
     api
@@ -46,4 +52,12 @@ export const gradesApi = {
     api
       .put<GradeRow>(`/api/grades/${enrollmentId}`, body)
       .then((r) => r.data),
+
+  importCsv: (moduleId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api
+      .post<GradesImportResult>(`/api/modules/${moduleId}/grades/import`, form)
+      .then((r) => r.data);
+  },
 };

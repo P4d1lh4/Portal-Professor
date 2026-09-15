@@ -76,3 +76,24 @@ export function useUpdateGrade(moduleId: string) {
     },
   });
 }
+
+export function useImportGrades(moduleId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => gradesApi.importCsv(moduleId, file),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: gradeKey(moduleId) });
+      const s = r.updated !== 1 ? "s" : "";
+      toast.success(`${r.updated} aluno${s} atualizado${s}.`);
+      const problemas = [
+        ...r.invalid.map((i) => i.error),
+        ...r.not_found.map((n) => `Matrícula ${n} não está neste módulo.`),
+      ];
+      if (problemas.length > 0) {
+        const resto = problemas.length > 3 ? ` (+${problemas.length - 3})` : "";
+        toast.warning(problemas.slice(0, 3).join(" ") + resto);
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}

@@ -1,20 +1,21 @@
 """
-Importação de alunos via CSV.
+Importação via CSV: alunos do período e notas do módulo (P-N9).
 
-Endpoint único com query-param dry_run:
+Alunos: endpoint único com query-param dry_run:
   dry_run=true  → valida e retorna preview sem persistir
   dry_run=false → valida e persiste as linhas válidas
 
 Aceita o cabeçalho técnico (student_number, full_name...) e o do export de
 alunos (Matrícula, Nome, Data de matrícula...), com ou sem acento (P-Q2): o CSV
-exportado pelo sistema volta sem edição.
+exportado pelo sistema volta sem edição. O import de notas faz o mesmo com o
+export de notas do módulo.
 """
 import asyncio
 import csv
 import io
 import logging
 import unicodedata
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
@@ -24,6 +25,9 @@ from ..deps import require_role
 from ..schemas.students import _check_enrollment_date
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
+from ..services.grades import recalc_final
+from ..services.guards import assert_module_period_active
+from ..services.permissions import assert_module_access
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +61,11 @@ _DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y")
 MAX_ROWS = 500
 
 
-def _canon(header: str) -> str:
+def _canon(header: str, aliases: dict[str, str] = _HEADER_ALIASES) -> str:
     """Nome canônico da coluna: minúsculo, sem acento e com o alias do export."""
     key = unicodedata.normalize("NFKD", " ".join(header.lower().split()))
     key = "".join(c for c in key if not unicodedata.combining(c))
-    return _HEADER_ALIASES.get(key, key)
+    return aliases.get(key, key)
 
 
 def _parse_date(raw: str) -> date | None:
@@ -73,8 +77,14 @@ def _parse_date(raw: str) -> date | None:
     return None
 
 
-def _parse_csv(content: bytes) -> tuple[list[dict], str | None]:
-    """Retorna (linhas, erro_fatal)."""
+def _parse_csv(
+    content: bytes,
+    required: set[str] = REQUIRED_COLS,
+    aliases: dict[str, str] = _HEADER_ALIASES,
+    labels: dict[str, str] = _REQUIRED_LABELS,
+) -> tuple[list[dict], str | None]:
+    """Retorna (linhas, erro_fatal). Os padrões são os do import de alunos;
+    o de notas (P-N9) passa as colunas e os aliases dele."""
     try:
         text = content.decode("utf-8-sig")  # aceita BOM
     except UnicodeDecodeError:
@@ -96,17 +106,17 @@ def _parse_csv(content: bytes) -> tuple[list[dict], str | None]:
     if not reader.fieldnames:
         return [], "O arquivo não contém cabeçalho."
 
-    cols = {_canon(c) for c in reader.fieldnames if c}
-    missing = REQUIRED_COLS - cols
+    cols = {_canon(c, aliases) for c in reader.fieldnames if c}
+    missing = required - cols
     if missing:
-        names = ", ".join(f"{_REQUIRED_LABELS[c]} ({c})" for c in sorted(missing))
+        names = ", ".join(f"{labels[c]} ({c})" for c in sorted(missing))
         return [], f"Colunas obrigatórias ausentes: {names}."
 
     rows = []
     for row in reader:
         # Chave None = valores além do cabeçalho (linha com colunas a mais).
         normalised = {
-            _canon(k): (v.strip() if v else "") for k, v in row.items() if k is not None
+            _canon(k, aliases): (v.strip() if v else "") for k, v in row.items() if k is not None
         }
         rows.append(normalised)
         if len(rows) >= MAX_ROWS:
@@ -290,3 +300,141 @@ def _run_import(period_id: str, content: bytes, dry_run: bool, current_user: Pro
         "invalid": invalid_rows,
         "errors_on_save": errors_on_save,
     }
+
+
+# ---------------------------------------------------------------
+# Notas do módulo (P-N9)
+# ---------------------------------------------------------------
+
+# Cabeçalhos do export de notas (services/exports.py, build_grades_csv), sem
+# acento; o formato da planilha (student_number, tutor_grade...) passa direto.
+# Nome, Final, Máx. faltas e Status são ignorados: a final é recalculada.
+_GRADE_ALIASES = {
+    "matricula": "student_number",
+    "tutoria": "tutor_grade",
+    "prova regular": "regular_exam_grade",
+    "recuperacao": "makeup_exam_grade",
+    "faltas": "absences",
+}
+_GRADE_LABELS = {
+    "tutor_grade": "tutoria",
+    "regular_exam_grade": "prova regular",
+    "makeup_exam_grade": "recuperação",
+}
+
+
+def _grade_patch(raw: dict, idx: int) -> tuple[dict, str | None]:
+    """Campos preenchidos da linha, validados. Célula vazia mantém o valor.
+
+    O PUT /grades ajusta a nota para 0–10; aqui a linha é recusada, porque num
+    import em lote o ajuste passaria despercebido ("85" no lugar de "8,5" virava 10).
+    """
+    patch: dict = {}
+    for col, label in _GRADE_LABELS.items():
+        val = raw.get(col, "")
+        if not val:
+            continue
+        try:
+            num = float(val.replace(",", "."))
+        except ValueError:
+            num = None
+        if num is None or not 0 <= num <= 10:  # nan também cai aqui
+            return {}, f"Linha {idx}: {label} deve ser um número de 0 a 10 ({val})."
+        patch[col] = round(num, 2)
+    val = raw.get("absences", "")
+    if val:
+        if not val.isdecimal():
+            return {}, f"Linha {idx}: faltas deve ser um número inteiro ({val})."
+        patch["absences"] = int(val)
+    return patch, None
+
+
+@router.post("/api/modules/{module_id}/grades/import")
+def import_module_grades(
+    module_id: str,
+    file: Annotated[UploadFile, File(description="CSV de notas do módulo")],
+    current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
+) -> dict:
+    """Aplica as notas de um CSV às matrículas do módulo (P-N9).
+
+    Casa por matrícula só entre as matrículas deste módulo. O sync da planilha
+    (sheets.py) casa no período inteiro e repete a linha em todos os módulos do
+    aluno (P-07, B-03); por isso este caminho não o reaproveita.
+    """
+    db = get_admin_db()
+    mod = assert_module_access(db, current_user, module_id)
+    assert_module_period_active(db, module_id, current_user)
+
+    content = file.file.read()
+    if len(content) > 5 * 1024 * 1024:  # 5 MB
+        raise HTTPException(413, "Arquivo muito grande. Limite: 5 MB.")
+    raw_rows, fatal = _parse_csv(
+        content,
+        required={"student_number"},
+        aliases=_GRADE_ALIASES,
+        labels={"student_number": "Matrícula"},
+    )
+    if fatal:
+        raise HTTPException(422, fatal)
+
+    enrollments = fetch_all(
+        lambda lo, hi: db.table("enrollments")
+        .select(
+            "id, student:students!student_id(student_number), "
+            "grade:grades!enrollment_id(regular_exam_grade, makeup_exam_grade)"
+        )
+        .eq("module_id", module_id)
+        .range(lo, hi)
+    )
+    by_number = {(e.get("student") or {}).get("student_number"): e for e in enrollments}
+
+    updated = 0
+    not_found: list[str] = []
+    invalid: list[dict] = []
+    seen: set[str] = set()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    for idx, raw in enumerate(raw_rows, start=2):  # linha 1 = cabeçalho
+        number = raw.get("student_number", "")
+        if not number:
+            continue
+        if number in seen:
+            invalid.append({"line": idx, "error": f"Linha {idx}: matrícula {number} repetida neste arquivo."})
+            continue
+        seen.add(number)
+        enr = by_number.get(number)
+        if not enr:
+            not_found.append(number)
+            continue
+        patch, err = _grade_patch(raw, idx)
+        if err:
+            invalid.append({"line": idx, "error": err})
+            continue
+        if not patch:
+            continue
+
+        grade = enr.get("grade") or {}
+        patch["final_grade"] = recalc_final(
+            float(patch.get("regular_exam_grade", grade.get("regular_exam_grade") or 0)),
+            float(patch.get("makeup_exam_grade", grade.get("makeup_exam_grade") or 0)),
+        )
+        # ponytail: redundante com o trigger da 0013 (I-08), como em grades.py.
+        patch["last_updated"] = now_iso
+        db.table("grades").update(patch).eq("enrollment_id", enr["id"]).execute()
+        updated += 1
+
+    # Um registro agregado, como no sync da planilha.
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="update",
+        entity="grades",
+        entity_id=module_id,
+        summary=f"Import CSV de notas ({mod['code']}): {updated} aluno(s) atualizado(s)",
+        after={
+            "updated": updated,
+            "not_found_count": len(not_found),
+            "invalid_count": len(invalid),
+        },
+    )
+    return {"updated": updated, "not_found": not_found, "invalid": invalid}
