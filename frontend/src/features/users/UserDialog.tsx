@@ -136,9 +136,13 @@ export function UserDialog({
                 id="edit-fullname"
                 placeholder="Ex.: Maria Souza"
                 {...editForm.register("full_name")}
+                aria-invalid={!!editForm.formState.errors.full_name}
+                aria-describedby={
+                  editForm.formState.errors.full_name ? "edit-fullname-error" : undefined
+                }
               />
               {editForm.formState.errors.full_name && (
-                <p className="text-xs text-destructive">
+                <p id="edit-fullname-error" className="text-xs text-destructive">
                   {editForm.formState.errors.full_name.message}
                 </p>
               )}
@@ -150,9 +154,13 @@ export function UserDialog({
                 id="edit-username"
                 className="font-mono"
                 {...editForm.register("username")}
+                aria-invalid={!!editForm.formState.errors.username}
+                aria-describedby={
+                  editForm.formState.errors.username ? "edit-username-error" : undefined
+                }
               />
               {editForm.formState.errors.username && (
-                <p className="text-xs text-destructive">
+                <p id="edit-username-error" className="text-xs text-destructive">
                   {editForm.formState.errors.username.message}
                 </p>
               )}
@@ -218,9 +226,13 @@ export function UserDialog({
                 placeholder="Ex.: Maria Souza"
                 autoFocus
                 {...createForm.register("full_name")}
+                aria-invalid={!!createForm.formState.errors.full_name}
+                aria-describedby={
+                  createForm.formState.errors.full_name ? "new-fullname-error" : undefined
+                }
               />
               {createForm.formState.errors.full_name && (
-                <p className="text-xs text-destructive">
+                <p id="new-fullname-error" className="text-xs text-destructive">
                   {createForm.formState.errors.full_name.message}
                 </p>
               )}
@@ -234,9 +246,13 @@ export function UserDialog({
                   placeholder="ex: maria.souza"
                   className="font-mono"
                   {...createForm.register("username")}
+                  aria-invalid={!!createForm.formState.errors.username}
+                  aria-describedby={
+                    createForm.formState.errors.username ? "new-username-error" : undefined
+                  }
                 />
                 {createForm.formState.errors.username && (
-                  <p className="text-xs text-destructive">
+                  <p id="new-username-error" className="text-xs text-destructive">
                     {createForm.formState.errors.username.message}
                   </p>
                 )}
@@ -273,9 +289,13 @@ export function UserDialog({
                 type="email"
                 placeholder="maria@escola.com"
                 {...createForm.register("email")}
+                aria-invalid={!!createForm.formState.errors.email}
+                aria-describedby={
+                  createForm.formState.errors.email ? "new-email-error" : undefined
+                }
               />
               {createForm.formState.errors.email && (
-                <p className="text-xs text-destructive">
+                <p id="new-email-error" className="text-xs text-destructive">
                   {createForm.formState.errors.email.message}
                 </p>
               )}
@@ -290,6 +310,10 @@ export function UserDialog({
                   placeholder="Mínimo 8 caracteres"
                   className="pr-10"
                   {...createForm.register("password")}
+                  aria-invalid={!!createForm.formState.errors.password}
+                  aria-describedby={
+                    createForm.formState.errors.password ? "new-password-error" : undefined
+                  }
                 />
                 <button
                   type="button"
@@ -307,7 +331,7 @@ export function UserDialog({
                 </button>
               </div>
               {createForm.formState.errors.password && (
-                <p className="text-xs text-destructive">
+                <p id="new-password-error" className="text-xs text-destructive">
                   {createForm.formState.errors.password.message}
                 </p>
               )}

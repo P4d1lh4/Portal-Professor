@@ -96,7 +96,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [x] **B-07** Mover `_assert_can_access_student` e `_assert_professor_has_student` para `services/permissions.py`; migrar `sheets`, `import_csv`, `reports`, `medical_certificates`. Um router por PR, teste antes. — M cada · ✅ students, reports e atestados num PR só; `sheets`/`import_csv`/`exports` mantêm a comparação com a linha já carregada (alteração 59)
 - [ ] **B-S8** Sentry (`sentry-sdk[fastapi]`, DSN por env) + `ENV`/`LOG_LEVEL` em `config.py` (I-14). — P
 - [x] **F-10 / F-11** Remover 5 tipos mortos, `UnderConstruction`, `RoleBadge`, `tooltip.tsx` + `@radix-ui/react-tooltip`. — P · ✅ + `EnrollmentStatus` e a entrada no `optimizeDeps` (alteração 54)
-- [ ] **F-12** `<AsyncSelectField>`, `usePagination()`, `date-fns` na Chamada, `aria-describedby` nos dialogs. — M
+- [x] **F-12** `<AsyncSelectField>`, `usePagination()`, `date-fns` na Chamada, `aria-describedby` nos dialogs. — M · ✅ `<SelectOptionsStatus>`, `<Pagination>` e aria nos 6 dialogs; `usePagination()` e `date-fns` na Chamada ficaram de fora, com o motivo (alteração 60)
 - [x] **F-13** Página 404. — P · ✅ `NotFoundPage` com o `EmptyState`, dentro do AppShell (alteração 55)
 - [x] **I-07 / I-08 / I-09 / I-10** Apagar `0002_seed_instructions.sql`; trigger `updated_at` em `grades`; versionar `schema_migrations`; comentário na `0002` apontando para `0011`. — P · ✅ 0013 (trigger `last_updated` + `schema_migrations` com RLS); a nota da 0011 foi para o DEPLOY.md para não mudar o checksum da 0002. ⏳ aplicar 0012+0013 após o restore (alteração 56)
 - [x] **I-22** Remover `version:` do compose; pinar base images por digest; `docker` no Dependabot. — P · ✅ tag + digest, Dependabot semanal para /backend e /frontend (alteração 57)
@@ -104,7 +104,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [x] **I-31** `CONTRIBUTING.md` (formalizar o fluxo de `docs/alteracoes/`), ADR "authz é app-layer; service_role bypassa RLS", citar `diagnose.py`/`apply_migration.py` no README. — M · ✅ + template de PR; README de Segurança corrigido (alteração 58)
 - [x] **B-11** Convenção sync/async em uma linha no CONTRIBUTING. — P · ✅ (alteração 58)
 - [ ] **F-09** `React.memo` em linhas de Notas/Chamada (só se turmas > 150). — M
-- [ ] **F-14** Reavaliar `refetchOnReconnect` para `grades`/`attendance`. — P
+- [x] **F-14** Reavaliar `refetchOnReconnect` para `grades`/`attendance`. — P · ✅ decidido manter `false`: na Chamada o refetch apagaria o rascunho não salvo (alteração 60)
 
 ## Fase 5 — Novas funcionalidades (após decisões 🧭)
 

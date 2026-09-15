@@ -105,9 +105,11 @@ export function StudentDialog({
                 className="font-mono"
                 disabled={isEdit}
                 {...register("student_number")}
+                aria-invalid={!!errors.student_number}
+                aria-describedby={errors.student_number ? "student-number-error" : undefined}
               />
               {errors.student_number && (
-                <p className="text-xs text-destructive">
+                <p id="student-number-error" className="text-xs text-destructive">
                   {errors.student_number.message}
                 </p>
               )}
@@ -129,9 +131,11 @@ export function StudentDialog({
               id="full-name"
               placeholder="Ex.: Maria Silva Souza"
               {...register("full_name")}
+              aria-invalid={!!errors.full_name}
+              aria-describedby={errors.full_name ? "full-name-error" : undefined}
             />
             {errors.full_name && (
-              <p className="text-xs text-destructive">
+              <p id="full-name-error" className="text-xs text-destructive">
                 {errors.full_name.message}
               </p>
             )}
@@ -145,9 +149,11 @@ export function StudentDialog({
                 type="email"
                 placeholder="aluno@email.com"
                 {...register("email")}
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "email-error" : undefined}
               />
               {errors.email && (
-                <p className="text-xs text-destructive">
+                <p id="email-error" className="text-xs text-destructive">
                   {errors.email.message}
                 </p>
               )}

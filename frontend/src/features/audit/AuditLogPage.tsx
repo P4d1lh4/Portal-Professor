@@ -4,8 +4,6 @@ import { ptBR } from "date-fns/locale";
 import {
   AlertCircle,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   History,
 } from "lucide-react";
@@ -13,7 +11,7 @@ import {
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/shared/Pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -129,9 +127,6 @@ export default function AuditLogPage() {
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const canPrev = page > 0;
-  const canNext = page < totalPages - 1;
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -253,35 +248,7 @@ export default function AuditLogPage() {
             </Table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Página {page + 1} de {totalPages}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canPrev}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canNext}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Próxima
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </>
       )}
     </div>
