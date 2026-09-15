@@ -71,11 +71,13 @@ def test_criar_aluno_ignora_o_contador(as_user, monkeypatch):
     assert "medical_certificates" not in payload
 
 
-def test_put_absences_saiu(as_user, monkeypatch):
+@pytest.mark.parametrize("method", ["get", "put"])
+def test_rota_absences_saiu(as_user, monkeypatch, method):
+    # O PUT só gravava o contador (alteração 64); o GET não tinha chamador (65).
     as_user("admin")
     db = _use(monkeypatch, {"students": Resp(ALUNO)})
 
-    resp = client.put("/api/professor/students/s1/absences", json={"medical_certificates": 5})
+    resp = client.request(method, "/api/professor/students/s1/absences", json={"medical_certificates": 5})
 
-    assert resp.status_code == 405
+    assert resp.status_code == 404
     assert not db.writes
