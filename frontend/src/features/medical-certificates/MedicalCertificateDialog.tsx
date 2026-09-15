@@ -173,9 +173,11 @@ export function MedicalCertificateDialog({
               placeholder="Ex.: Consulta médica"
               autoFocus
               {...register("reason")}
+              aria-invalid={!!errors.reason}
+              aria-describedby={errors.reason ? "reason-error" : undefined}
             />
             {errors.reason && (
-              <p className="text-xs text-destructive">{errors.reason.message}</p>
+              <p id="reason-error" className="text-xs text-destructive">{errors.reason.message}</p>
             )}
           </div>
 
@@ -186,9 +188,11 @@ export function MedicalCertificateDialog({
                 id="start-date"
                 type="date"
                 {...register("start_date")}
+                aria-invalid={!!errors.start_date}
+                aria-describedby={errors.start_date ? "start-date-error" : undefined}
               />
               {errors.start_date && (
-                <p className="text-xs text-destructive">
+                <p id="start-date-error" className="text-xs text-destructive">
                   {errors.start_date.message}
                 </p>
               )}
@@ -199,9 +203,11 @@ export function MedicalCertificateDialog({
                 id="end-date"
                 type="date"
                 {...register("end_date")}
+                aria-invalid={!!errors.end_date}
+                aria-describedby={errors.end_date ? "end-date-error" : undefined}
               />
               {errors.end_date && (
-                <p className="text-xs text-destructive">
+                <p id="end-date-error" className="text-xs text-destructive">
                   {errors.end_date.message}
                 </p>
               )}

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
   Pencil,
   Plus,
   RotateCcw,
@@ -15,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/shared/Pagination";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -105,9 +104,6 @@ export default function UsersPage() {
 
   const users = data?.items ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const canPrev = page > 0;
-  const canNext = page < totalPages - 1;
 
   const openCreate = () => {
     setEditing(undefined);
@@ -414,34 +410,15 @@ export default function UsersPage() {
               {search || roleFilter !== "all" || statusFilter !== "active"
                 ? `encontrado${total !== 1 ? "s" : ""}`
                 : "no total"}
-              {totalPages > 1 &&
-                ` · página ${page + 1} de ${totalPages}`}
             </p>
 
-            {totalPages > 1 && (
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canPrev || isPlaceholderData}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canNext || isPlaceholderData}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Próxima
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+            <Pagination
+              page={page}
+              total={total}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+              disabled={isPlaceholderData}
+            />
           </div>
         </>
       )}
