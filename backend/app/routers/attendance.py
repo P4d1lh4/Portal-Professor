@@ -17,39 +17,11 @@ from ..schemas.attendance import (
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
 from ..services.guards import assert_module_period_active
-from ..services.permissions import assert_coordinator_owns_period
+from ..services.permissions import assert_module_access
 
 router = APIRouter(prefix="/api", tags=["frequência"])
 
 _ANY_ROLE = require_role("professor", "coordinator", "admin")
-
-
-# ---------------------------------------------------------------
-# Helpers de permissão
-# ---------------------------------------------------------------
-
-def _assert_module_access(db, current_user: Profile, module_id: str) -> dict:
-    """Garante que o usuário pode operar sobre o módulo e devolve a linha do módulo."""
-    mod = (
-        db.table("modules")
-        .select("id, professor_id, academic_period_id")
-        .eq("id", module_id)
-        .maybe_single()
-        .execute()
-    )
-    if not mod.data:
-        raise HTTPException(404, "Módulo não encontrado.")
-
-    if current_user.role == "professor":
-        if mod.data["professor_id"] != current_user.id:
-            raise HTTPException(403, "Você não leciona este módulo.")
-    elif current_user.role == "coordinator":
-        assert_coordinator_owns_period(
-            db, mod.data["academic_period_id"], current_user,
-            detail="Você não coordena este período.",
-        )
-
-    return mod.data
 
 
 def _list_module_students(db, module_id: str) -> list[dict]:
@@ -94,7 +66,7 @@ def list_module_attendance(
 ) -> list[AttendanceSummary]:
     """Lista todas as chamadas registradas para o módulo, mais recente primeiro."""
     db = get_admin_db()
-    _assert_module_access(db, current_user, module_id)
+    assert_module_access(db, current_user, module_id)
 
     records = (
         db.table("attendance_records")
@@ -157,7 +129,7 @@ def get_attendance_day(
     matriculados ativos com status default 'present'. Não cria registro no banco.
     """
     db = get_admin_db()
-    _assert_module_access(db, current_user, module_id)
+    assert_module_access(db, current_user, module_id)
 
     record = (
         db.table("attendance_records")
@@ -222,7 +194,7 @@ def save_attendance_day(
     Aceita apenas enrollments que pertencem ao módulo informado.
     """
     db = get_admin_db()
-    _assert_module_access(db, current_user, module_id)
+    assert_module_access(db, current_user, module_id)
     assert_module_period_active(db, module_id, current_user)
 
     # Valida que todas as enrollments fazem parte do módulo ANTES de
@@ -284,7 +256,7 @@ def delete_attendance_day(
     current_user: Profile = Depends(_ANY_ROLE),
 ) -> None:
     db = get_admin_db()
-    _assert_module_access(db, current_user, module_id)
+    assert_module_access(db, current_user, module_id)
     assert_module_period_active(db, module_id, current_user)
 
     record = (
