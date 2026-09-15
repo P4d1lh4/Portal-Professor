@@ -153,9 +153,15 @@ Com a anon key, que é pública, um `signUp({ options: { data: { role: "admin" }
 
 ## Observações
 
-- **Para valer em produção, nesta ordem:**
-  1. Desligar o signup público no painel do Supabase (Passo 5 do DEPLOY). É o que fecha o caminho direto, e só o dono tem acesso.
-  2. Aplicar a 0014, com dump do `public` antes. Não há staging (I-23).
+- **O dono testou localmente** e aprovou o fluxo, com um Supabase local no Docker e sem tocar a produção.
+- **Para valer em produção:**
+  1. Desligar o signup público no painel do Supabase (Passo 5 do DEPLOY). É o que fecha o caminho direto, e só o dono tem acesso. Logo depois da 0014, ele seguia ligado (`disable_signup: false`).
+  2. ✅ **A 0014 foi aplicada em 2026-09-15, às 18:16 UTC**, com o aval do dono e sem staging (I-23). Antes, o backup do `public` (`pg_dump -Fc`: 12 tabelas com dados, 77 KB, fora do repositório). A conferência:
+     - a `invite_codes` tem RLS, nenhuma policy e o CHECK de papel;
+     - o `handle_new_user` não lê o papel do metadata, e mantém `search_path` e `SECURITY DEFINER`;
+     - nenhuma tabela de `public` ficou sem RLS;
+     - a anon key recebe `[]` de `invite_codes`;
+     - o `--status` mostra a 0014 OK, e o `readyz` do Render dá 200.
   3. Fazer o deploy manual do backend no Render (I-17). Sem ele, o `/signup` do front novo dá 404.
 - **Ficou de fora (YAGNI):**
   - listar e revogar convites pendentes: a validade de 7 dias e o audit log cobrem; entra se um código vazar;
