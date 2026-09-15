@@ -35,8 +35,10 @@ import {
 } from "@/components/ui/table";
 import { formatGrade } from "@/lib/utils";
 import { useModules } from "@/features/modules/useModules";
+import { useModuleAttendance } from "@/features/attendance/useAttendance";
 import { useDownloadModuleGrades } from "@/features/exports/useExports";
 import { useModuleGrades, useUpdateGrade } from "./useGrades";
+import { matchesSituation, SITUATION_OPTIONS, type Situation } from "./situation";
 import type { StudentGradeRow } from "./api";
 
 // ─── Grade input cell ─────────────────────────────────────────────────────────
@@ -197,6 +199,7 @@ export default function GradesPage() {
   const urlModuleId = searchParams.get("module") ?? "";
   const [selectedModuleId, setSelectedModuleId] = useState(urlModuleId);
   const [search, setSearch] = useState("");
+  const [situation, setSituation] = useState<Situation>("");
 
   const {
     data: modules = [],
@@ -214,11 +217,17 @@ export default function GradesPage() {
 
   const activeModuleId = selectedModuleId || modules[0]?.id;
   const activeModule = modules.find((m) => m.id === activeModuleId);
+  const maxAbsences = activeModule?.max_absences ?? 0;
 
   const { data: rows = [], isLoading: gradesLoading } =
     useModuleGrades(activeModuleId);
   const { statuses, save } = useRowStatuses(activeModuleId ?? "");
   const exportGrades = useDownloadModuleGrades();
+
+  // P-N4: frequência real = faltas sobre as chamadas já registradas no módulo
+  // (a mesma lista que a Chamada usa no histórico, com cache compartilhado).
+  const { data: attendanceHistory = [] } = useModuleAttendance(activeModuleId);
+  const recordedClasses = attendanceHistory.length;
 
   // O input atualiza `search` na hora (digitação responsiva), mas o filtro
   // usa o valor debounced — evita recomputar/re-renderizar a tabela a cada
@@ -228,10 +237,12 @@ export default function GradesPage() {
     const term = debouncedSearch.toLowerCase();
     return rows.filter(
       (r) =>
-        r.full_name.toLowerCase().includes(term) ||
-        r.student_number.includes(debouncedSearch)
+        (r.full_name.toLowerCase().includes(term) ||
+          r.student_number.includes(debouncedSearch)) &&
+        matchesSituation(r, maxAbsences, situation)
     );
-  }, [rows, debouncedSearch]);
+  }, [rows, debouncedSearch, maxAbsences, situation]);
+  const isFiltering = !!search || !!situation;
 
   const handleModuleChange = (id: string) => {
     setSelectedModuleId(id);
@@ -268,7 +279,6 @@ export default function GradesPage() {
     };
 
   const isLoading = modulesLoading || gradesLoading;
-  const maxAbsences = activeModule?.max_absences ?? 0;
   const periodClosed =
     activeModule?.academic_period?.is_active === false;
 
@@ -346,6 +356,20 @@ export default function GradesPage() {
             aria-label="Buscar aluno"
           />
         </div>
+
+        {/* F-S1: filtro por situação (select nativo, como na ficha do aluno) */}
+        <select
+          aria-label="Filtrar por situação"
+          value={situation}
+          onChange={(e) => setSituation(e.target.value as Situation)}
+          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-52"
+        >
+          {SITUATION_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Content */}
@@ -373,10 +397,10 @@ export default function GradesPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title={search ? "Nenhum aluno encontrado" : "Nenhum aluno matriculado"}
+          title={isFiltering ? "Nenhum aluno encontrado" : "Nenhum aluno matriculado"}
           description={
-            search
-              ? "Tente um nome ou matrícula diferente."
+            isFiltering
+              ? "Tente outro nome, matrícula ou situação."
               : "Este módulo não possui alunos matriculados."
           }
         />
@@ -389,6 +413,13 @@ export default function GradesPage() {
               </span>
               {" · "}máximo de {maxAbsences} falta
               {maxAbsences !== 1 ? "s" : ""}
+              {recordedClasses > 0 && (
+                <>
+                  {" · "}
+                  {recordedClasses} chamada{recordedClasses !== 1 ? "s" : ""} registrada
+                  {recordedClasses !== 1 ? "s" : ""}
+                </>
+              )}
             </p>
           )}
 
@@ -494,6 +525,14 @@ export default function GradesPage() {
                             save(row.enrollment_id, { absences: Math.round(v) })
                           }
                         />
+                        {recordedClasses > 0 && (
+                          <span
+                            className="mt-0.5 block text-[10px] text-muted-foreground tabular-nums"
+                            title="Faltas sobre as chamadas já registradas no módulo"
+                          >
+                            {Math.round((row.absences / recordedClasses) * 100)}% das aulas
+                          </span>
+                        )}
                       </TableCell>
 
                       {/* Status badge */}
@@ -518,7 +557,7 @@ export default function GradesPage() {
 
           <p className="text-xs text-muted-foreground">
             {filtered.length} aluno{filtered.length !== 1 ? "s" : ""}
-            {search ? ` encontrado${filtered.length !== 1 ? "s" : ""}` : " no total"}
+            {isFiltering ? ` encontrado${filtered.length !== 1 ? "s" : ""}` : " no total"}
           </p>
         </>
       )}

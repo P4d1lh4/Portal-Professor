@@ -11,12 +11,14 @@ const m = vi.hoisted(() => ({
   listModules: vi.fn(),
   getByModule: vi.fn(),
   update: vi.fn(),
+  listAttendance: vi.fn(),
   toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
 }));
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ profile: { role: "professor" } }) }));
 vi.mock("@/features/modules/api", () => ({ modulesApi: { list: m.listModules } }));
 vi.mock("@/features/exports/api", () => ({ exportsApi: {} }));
+vi.mock("@/features/attendance/api", () => ({ attendanceApi: { list: m.listAttendance } }));
 vi.mock("./api", () => ({
   gradesApi: { getByModule: m.getByModule, update: m.update },
 }));
@@ -50,6 +52,18 @@ const ANA: StudentGradeRow = {
   absences: 2,
 };
 
+const BRUNO: StudentGradeRow = {
+  ...ANA,
+  enrollment_id: "e2",
+  student_id: "s2",
+  student_number: "2026002",
+  full_name: "Bruno Lima",
+  regular_exam_grade: 8,
+  final_grade: 8,
+  absences: 9,
+  risk: ["faltas"],
+};
+
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -75,6 +89,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   m.listModules.mockResolvedValue([modulo()]);
   m.getByModule.mockResolvedValue([ANA]);
+  m.listAttendance.mockResolvedValue([]);
 });
 
 describe("GradesPage", () => {
@@ -146,5 +161,49 @@ describe("GradesPage", () => {
     expect(await screen.findByLabelText("Prova regular de Ana Souza")).toBeDisabled();
     expect(screen.getByLabelText("Faltas de Ana Souza")).toBeDisabled();
     expect(screen.getByText(/período acadêmico está encerrado/)).toBeInTheDocument();
+  });
+});
+
+describe("GradesPage: filtro por situação (F-S1)", () => {
+  it("mostra só quem está na situação escolhida", async () => {
+    m.getByModule.mockResolvedValue([ANA, BRUNO]);
+    const user = renderPage();
+    await screen.findByText("Bruno Lima");
+
+    await user.selectOptions(screen.getByLabelText("Filtrar por situação"), "recuperacao");
+
+    expect(screen.getByText("Ana Souza")).toBeInTheDocument();
+    expect(screen.queryByText("Bruno Lima")).toBeNull();
+    expect(screen.getByText("1 aluno encontrado")).toBeInTheDocument();
+  });
+
+  it("Em risco usa o risco do backend", async () => {
+    m.getByModule.mockResolvedValue([ANA, BRUNO]);
+    const user = renderPage();
+    await screen.findByText("Ana Souza");
+
+    await user.selectOptions(screen.getByLabelText("Filtrar por situação"), "risco");
+
+    expect(screen.getByText("Bruno Lima")).toBeInTheDocument();
+    expect(screen.queryByText("Ana Souza")).toBeNull();
+  });
+});
+
+describe("GradesPage: frequência real (P-N4)", () => {
+  it("mostra as chamadas registradas e as faltas sobre elas", async () => {
+    m.listAttendance.mockResolvedValue([{ id: "r1" }, { id: "r2" }, { id: "r3" }, { id: "r4" }]);
+    renderPage();
+
+    expect(await screen.findByText(/4 chamadas registradas/)).toBeInTheDocument();
+    expect(within(linhaDaAna()).getByText("50% das aulas")).toBeInTheDocument();
+    expect(m.listAttendance).toHaveBeenCalledWith("m1");
+  });
+
+  it("sem chamada registrada, não mostra percentual", async () => {
+    renderPage();
+
+    await screen.findByText("Ana Souza");
+    expect(screen.queryByText(/% das aulas/)).toBeNull();
+    expect(screen.queryByText(/chamadas? registradas?/)).toBeNull();
   });
 });
