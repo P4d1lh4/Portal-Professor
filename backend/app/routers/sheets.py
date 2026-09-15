@@ -134,9 +134,12 @@ def _apply_sheet_grades(db, period_id: str, rows: list[dict]) -> dict:
     asyncio.to_thread para não travar o event loop durante os N updates —
     crítico no worker único do Render.
     """
-    # Todas as matrículas do período com student e grade. fetch_all pagina para
-    # não truncar em 1000 linhas (períodos grandes ficavam com alunos "não
-    # encontrados" silenciosamente).
+    # Matrículas com student e grade. Sem `!inner`, o filtro de período não tira
+    # as de outros períodos da resposta, só zera o `student` delas, e o índice
+    # abaixo as descarta (B-03, conferido no banco real em 2026-09-15).
+    # fetch_all pagina para não truncar em 1000 linhas (períodos grandes ficavam
+    # com alunos "não encontrados" silenciosamente).
+    # ponytail: pagina as matrículas de todos os períodos; `!inner` se pesar.
     enrollments_data = fetch_all(
         lambda lo, hi: db.table("enrollments")
         .select(
