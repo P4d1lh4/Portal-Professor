@@ -162,7 +162,7 @@ Com a anon key, que é pública, um `signUp({ options: { data: { role: "admin" }
      - nenhuma tabela de `public` ficou sem RLS;
      - a anon key recebe `[]` de `invite_codes`;
      - o `--status` mostra a 0014 OK, e o `readyz` do Render dá 200.
-  3. Fazer o deploy manual do backend no Render (I-17). Sem ele, o `/signup` do front novo dá 404.
+  3. ✅ **Deploy do backend no Render:** feito à mão pelo dono em 2026-09-15; o `/api/signup` responde em produção. Daqui em diante o deploy é automático (alteração 70).
 - **Ficou de fora (YAGNI):**
   - listar e revogar convites pendentes: a validade de 7 dias e o audit log cobrem; entra se um código vazar;
   - amarrar o convite a um e-mail: entra se código repassado virar problema;

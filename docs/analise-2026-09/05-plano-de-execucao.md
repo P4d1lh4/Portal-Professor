@@ -17,7 +17,7 @@ Critério de pronto: `readyz` 200, login funcionando, cron rodando, CVEs de uplo
 
 - [x] **O-01a** Restaurar o projeto Supabase no painel (Project → Restore). *Manual.* · ✅ 2026-09-15, dados intactos (alteração 66)
 - [x] **O-01b** Workflow `.github/workflows/keepalive.yml`: `schedule` a cada 10 min → `curl -f https://portal-professor.onrender.com/api/readyz`. Falha = e-mail do GitHub. Mantém Supabase ativo **e** Render acordado (O-02). — P · ✅ #67 (2026-09-14). Na prática o GitHub roda o cron de 1 a 5 h: cobre o Supabase, não o Render (alteração 66)
-- [ ] **I-17** Confirmar no Render se Auto-Deploy está ligado; se não, ligar. *Manual.* — P
+- [x] **I-17** Confirmar no Render se Auto-Deploy está ligado; se não, ligar. *Manual.* — P · ✅ 2026-09-15: estava desligado; o dono ligou *After CI Checks Pass* com Build Filter `backend/**` (alteração 70)
 - [x] **B-01** Bumps de segurança: `python-multipart>=0.0.31` (mesclar #51), `PyJWT>=2.13`, `fastapi` que puxe `starlette>=0.49.1`; `npm audit fix` (`nanoid`, `postcss`). Rodar suíte, redeploy. — P/M · ✅ backend #51 #62 #67 (pip-audit limpo); frontend #60 #69 (sobram 2 moderados do `react-router` 6 → migrar para o 7)
 - [x] **I-11** `seed.py`: `os.environ["SEED_ADMIN_PASSWORD"]` sem default (falhar se ausente). — P · ✅ #67
 - [x] **I-27 / I-28 / I-30** Corrigir "0001–0007" no README (árvore) e no DEPLOY.md (checklist); marcar 0008–0010 como aplicadas no `docs/alteracoes/INDEX.md`. — P · ✅ #67

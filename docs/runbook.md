@@ -65,9 +65,11 @@ Veja <https://status.supabase.com>. Não há o que fazer além de esperar. O kee
 
 ## 3. Backend (Render) fora
 
-- **Deploy quebrado:** em Render → serviço → *Events*, o último deploy falhou ou o serviço não sobe. Volte ao deploy anterior (*Rollback* no evento, ou *Manual Deploy* do commit bom) e corrija em branch. Todo push em `main` redeploia; veja *Atualizações futuras* no DEPLOY.md.
+- **Deploy quebrado:** em Render → serviço → *Events*, o último deploy falhou ou o serviço não sobe. Volte ao deploy anterior (*Rollback* no evento, ou *Manual Deploy* do commit bom) e corrija em branch.
+- **Merge não chegou ao backend:** o deploy só é automático para merge na `main` que mexe em `backend/`, e só depois de todos os checks do commit verdes (*Atualizações futuras* no DEPLOY.md). Check vermelho ou merge sem `backend/` não sobem; *Manual Deploy → Deploy latest commit* força.
 - **Não sobe por falta de variável:** o `backend/app/config.py` exige `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` e `SUPABASE_JWT_SECRET`. O erro de validação aparece nos logs de boot.
 - **Horas grátis do mês esgotadas:** são 750 h por conta. O serviço fica suspenso até o mês virar. A saída é o plano Starter (O-02).
+- **Minutos de build do mês esgotados:** são 500 no plano free. Sem cartão cadastrado, o Render para de fazer build até o mês virar, e a versão no ar continua; com cartão, compra minutos extras sozinho, até o limite de gasto. O uso e o limite ficam em *Billing*.
 
 ---
 

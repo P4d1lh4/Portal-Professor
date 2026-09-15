@@ -56,6 +56,8 @@ No painel do Supabase (projeto `vmelydczrdyszbrvlypv`) → **Project Settings �
 5. **Create Web Service**. Aguarde o build (~3-5 min).
 6. Anote a URL gerada, algo como `https://portal-backend-xxxx.onrender.com`
 7. Teste: abra `https://portal-backend-xxxx.onrender.com/api/healthz` — deve retornar `{"status":"ok"}`
+8. Em **Settings**: **Auto-Deploy** → `After CI Checks Pass` e **Build Filters** →
+   *Included Path* `backend/**` (ver *Atualizações futuras*, abaixo)
 
 > 💡 **Alternativa (Blueprint)**: em vez dos passos 2-4, use **New → Blueprint** e
 > aponte para o repositório — o [render.yaml](render.yaml) já descreve o serviço.
@@ -206,19 +208,25 @@ Acesse `https://portal-xxxx.vercel.app` e confirme:
 
 ## Atualizações futuras
 
-Com `autoDeploy` ligado (`render.yaml`), **todo push para `main` redeploia
-automaticamente** — inclusive um push com testes quebrados. ⚠️ **O GitHub Actions
-NÃO bloqueia o deploy por padrão**: o Render não espera os checks. Para de fato
-"barrar o deploy se algo quebrar", configure uma das opções:
+O serviço do Render está com **Auto-Deploy: After CI Checks Pass** e **Build
+Filters** com o *Included Path* `backend/**` (alteração 70). Na prática:
 
-- **Branch protection em `main`** (GitHub → Settings → Branches) exigindo os checks
-  `Backend (pytest)` e `Frontend (tsc + build)` — impede merge com CI vermelho; e/ou
-- No Render, ative **"Auto-Deploy: After CI Checks Pass"** (Settings do serviço),
-  ou desligue `autoDeploy` e dispare o deploy por um *deploy hook* chamado num job
-  do CI após os testes.
+- **merge na `main` que mexe em `backend/`:** o Render espera os checks do GitHub
+  Actions nesse commit e, com todos verdes, faz o deploy sozinho;
+- **algum check vermelho:** não há deploy, e a versão no ar continua;
+- **merge só de front ou de docs:** o backend não é reconstruído (a Vercel publica o front).
+
+Isso vale pelo painel: o serviço foi criado à mão, não pelo Blueprint. O
+`render.yaml` repete os mesmos valores para quem recriar o serviço por ele.
+
+O plano free tem **500 minutos de build por mês**. Se acabarem, sem cartão
+cadastrado o Render para de fazer build até o mês virar; com cartão, compra minutos
+extras sozinho, até o limite de gasto. O uso e o limite ficam em **Billing**. O
+filtro existe para não gastar build com merge que não toca o backend.
 
 Fluxo recomendado: trabalhe em branch → abra PR → CI valida → **merge só com CI verde**
-(branch protection) → deploy automático.
+→ deploy automático. Uma *branch protection* em `main` (GitHub → Settings → Branches)
+exigindo os checks impede o merge com CI vermelho.
 
 ---
 
