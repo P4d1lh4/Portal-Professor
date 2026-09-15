@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 
 import { ProtectedRoute } from "./ProtectedRoute";
 import { RouteErrorFallback } from "@/components/shared/ErrorBoundary";
+import { NotFoundPage } from "@/components/shared/NotFoundPage";
 
 // AppShell é pesado (Sidebar, Topbar, ícones, CommandPalette) — carrega só em rota protegida
 const AppShell = lazy(() => import("@/components/layout/AppShell"));
@@ -141,10 +142,11 @@ export const router = createBrowserRouter([
               },
             ],
           },
-          // Rota 404
+          // Rota 404 (F-13): dentro do AppShell, com o menu à mão; antes
+          // mandava para o painel sem dizer por quê.
           {
             path: "*",
-            element: <Navigate to="/dashboard" replace />,
+            element: <NotFoundPage />,
           },
         ],
       },

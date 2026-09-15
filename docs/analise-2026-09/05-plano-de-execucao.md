@@ -95,9 +95,9 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 
 - [ ] **B-07** Mover `_assert_can_access_student` e `_assert_professor_has_student` para `services/permissions.py`; migrar `sheets`, `import_csv`, `reports`, `medical_certificates`. Um router por PR, teste antes. — M cada
 - [ ] **B-S8** Sentry (`sentry-sdk[fastapi]`, DSN por env) + `ENV`/`LOG_LEVEL` em `config.py` (I-14). — P
-- [ ] **F-10 / F-11** Remover 5 tipos mortos, `UnderConstruction`, `RoleBadge`, `tooltip.tsx` + `@radix-ui/react-tooltip`. — P
+- [x] **F-10 / F-11** Remover 5 tipos mortos, `UnderConstruction`, `RoleBadge`, `tooltip.tsx` + `@radix-ui/react-tooltip`. — P · ✅ + `EnrollmentStatus` e a entrada no `optimizeDeps` (alteração 54)
 - [ ] **F-12** `<AsyncSelectField>`, `usePagination()`, `date-fns` na Chamada, `aria-describedby` nos dialogs. — M
-- [ ] **F-13** Página 404. — P
+- [x] **F-13** Página 404. — P · ✅ `NotFoundPage` com o `EmptyState`, dentro do AppShell (alteração 55)
 - [ ] **I-07 / I-08 / I-09 / I-10** Apagar `0002_seed_instructions.sql`; trigger `updated_at` em `grades`; versionar `schema_migrations`; comentário na `0002` apontando para `0011`. — P
 - [ ] **I-22** Remover `version:` do compose; pinar base images por digest; `docker` no Dependabot. — P
 - [ ] **O-04 / O-05** Auto-delete de branches no GitHub + limpeza única; tag por deploy. — P
