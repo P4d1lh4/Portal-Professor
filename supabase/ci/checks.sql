@@ -139,3 +139,47 @@ BEGIN
   END IF;
   RAISE NOTICE 'I-09 ok';
 END $$;
+
+-- ---------------------------------------------------------------
+-- Exclusão de período (registro 68): a ordem do app
+-- (periods._delete_period_contents: alunos, módulos, período) passa pelos
+-- triggers da 0003, 0005 e 0013 sem deixar vínculo; outro período fica.
+-- ---------------------------------------------------------------
+DO $$
+DECLARE
+  v_enr  uuid;
+  v_rec  uuid;
+  v_cert uuid;
+BEGIN
+  -- f1 já tem o aluno '1', o módulo d1, a matrícula e a nota (blocos acima)
+  SELECT id INTO v_enr FROM public.enrollments WHERE module_id = '00000000-0000-0000-0000-0000000000d1';
+  INSERT INTO public.attendance_records (module_id, attendance_date)
+    VALUES ('00000000-0000-0000-0000-0000000000d1', '2026-03-02') RETURNING id INTO v_rec;
+  INSERT INTO public.attendance_entries (attendance_record_id, enrollment_id, status)
+    VALUES (v_rec, v_enr, 'absent');
+  INSERT INTO public.medical_certificates (student_id, reason, start_date, end_date)
+    SELECT id, 'gripe', '2026-03-02', '2026-03-03' FROM public.students WHERE student_number = '1'
+    RETURNING id INTO v_cert;
+  INSERT INTO public.medical_certificate_attachments (certificate_id, file_name, file_size, storage_path)
+    VALUES (v_cert, 'a.pdf', 10, 'x/a.pdf');
+
+  INSERT INTO public.academic_periods (id, name, coordinator_id)
+    VALUES ('00000000-0000-0000-0000-0000000000f3', '2026.2', '00000000-0000-0000-0000-00000000000c');
+  INSERT INTO public.students (student_number, full_name, academic_period_id)
+    VALUES ('2', 'Outro', '00000000-0000-0000-0000-0000000000f3');
+
+  DELETE FROM public.students WHERE academic_period_id = '00000000-0000-0000-0000-0000000000f1';
+  DELETE FROM public.modules  WHERE academic_period_id = '00000000-0000-0000-0000-0000000000f1';
+  DELETE FROM public.academic_periods WHERE id = '00000000-0000-0000-0000-0000000000f1';
+
+  IF EXISTS (SELECT 1 FROM public.enrollments) OR EXISTS (SELECT 1 FROM public.grades)
+     OR EXISTS (SELECT 1 FROM public.attendance_records) OR EXISTS (SELECT 1 FROM public.attendance_entries)
+     OR EXISTS (SELECT 1 FROM public.medical_certificates)
+     OR EXISTS (SELECT 1 FROM public.medical_certificate_attachments) THEN
+    RAISE EXCEPTION 'Exclusão de período FALHOU: sobrou vínculo do período apagado';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.students WHERE student_number = '2') THEN
+    RAISE EXCEPTION 'Exclusão de período FALHOU: apagou aluno de outro período';
+  END IF;
+  RAISE NOTICE 'Exclusão de período ok';
+END $$;

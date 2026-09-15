@@ -62,7 +62,8 @@ export function useDeletePeriod() {
   return useMutation({
     mutationFn: periodsApi.delete,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PERIODS_KEY });
+      // O período leva alunos, módulos, notas e chamadas: todo o cache pode ter mudado.
+      qc.invalidateQueries();
       toast.success("Período excluído.");
     },
     onError: (err: Error) => toast.error(err.message),

@@ -1,10 +1,15 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..db import get_admin_db
+from ..db import fetch_all, get_admin_db
 from ..deps import get_current_user, require_role
-from ..schemas.periods import Period, PeriodCreate, PeriodUpdate
+from ..schemas.periods import Period, PeriodCreate, PeriodDeletionSummary, PeriodUpdate
 from ..schemas.users import Profile
 from ..services.audit import write_audit_log
+from .medical_certificates import BUCKET as CERTIFICATES_BUCKET
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["períodos"])
 
@@ -325,54 +330,131 @@ def update_period(
     return _to_period(resp.data)
 
 
+# ---------------------------------------------------------------
+# Exclusão (admin): resumo do que vai junto + exclusão em cascata
+# ---------------------------------------------------------------
+
+def _count(db, table: str, select: str, column: str, period_id: str) -> int:
+    resp = db.table(table).select(select, count="exact").eq(column, period_id).limit(1).execute()
+    return resp.count or 0
+
+
+def _attachment_paths(db, period_id: str) -> list[str]:
+    rows = fetch_all(
+        lambda lo, hi: db.table("medical_certificate_attachments")
+        .select("storage_path, medical_certificates!inner(students!inner(academic_period_id))")
+        .eq("medical_certificates.students.academic_period_id", period_id)
+        .range(lo, hi)
+    )
+    return [r["storage_path"] for r in rows]
+
+
+def _period_links(db, period_id: str) -> dict:
+    """Conta o que a exclusão do período leva junto.
+
+    Matrícula, chamada e atestado não guardam o período: o filtro vai no
+    recurso embutido, com `!inner` (sem ele o filtro não tira linhas; ver
+    sheets.py). A matrícula exige aluno e módulo do mesmo período (P-Q1), então
+    contar pelo módulo basta. Cada matrícula tem sua linha de notas e faltas.
+    """
+    modules = (
+        db.table("modules")
+        .select("professor:profiles!professor_id(full_name)")
+        .eq("academic_period_id", period_id)
+        .execute()
+    ).data or []
+    by_module = ("id, modules!inner(academic_period_id)", "modules.academic_period_id")
+    by_student = ("id, students!inner(academic_period_id)", "students.academic_period_id")
+    return {
+        "students": _count(db, "students", "id", "academic_period_id", period_id),
+        "modules": len(modules),
+        "professors": sorted({m["professor"]["full_name"] for m in modules if m.get("professor")}),
+        "enrollments": _count(db, "enrollments", *by_module, period_id),
+        "attendance_records": _count(db, "attendance_records", *by_module, period_id),
+        "medical_certificates": _count(db, "medical_certificates", *by_student, period_id),
+        "attachments": len(_attachment_paths(db, period_id)),
+    }
+
+
+def _delete_period_contents(db, period_id: str) -> None:
+    """Apaga alunos e módulos do período; o banco leva o resto em cascata
+    (matrículas com notas e presenças, chamadas, atestados com anexos).
+
+    ponytail: passos soltos, sem transação. Se um falhar no meio, o período
+    fica com parte do conteúdo e excluir de novo termina o serviço. Vira
+    função plpgsql (como a 0007) se precisar ser atômico.
+    """
+    paths = _attachment_paths(db, period_id)
+    if paths:
+        # Os PDFs antes das linhas: o cascade apaga os registros, não os arquivos.
+        try:
+            db.storage.from_(CERTIFICATES_BUCKET).remove(paths)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("Falha ao remover anexos do período %s: %s", period_id, exc)
+    db.table("students").delete().eq("academic_period_id", period_id).execute()
+    db.table("modules").delete().eq("academic_period_id", period_id).execute()
+
+
+@router.get("/periods/{period_id}/deletion-summary", response_model=PeriodDeletionSummary)
+def period_deletion_summary(
+    period_id: str,
+    current_user: Profile = Depends(require_role("admin")),
+) -> PeriodDeletionSummary:
+    """O que a exclusão apaga junto, para a tela mostrar antes de confirmar."""
+    db = get_admin_db()
+    period = db.table("academic_periods").select(_SELECT).eq("id", period_id).maybe_single().execute()
+    if not period.data:
+        raise HTTPException(status_code=404, detail="Período não encontrado.")
+    return PeriodDeletionSummary(
+        name=period.data["name"],
+        coordinator=(period.data.get("coordinator") or {}).get("full_name"),
+        **_period_links(db, period_id),
+    )
+
+
 @router.delete("/periods/{period_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_period(
     period_id: str,
+    cascade: bool = False,
     current_user: Profile = Depends(require_role("admin")),
 ) -> None:
+    """Exclui o período. Com alunos ou módulos, só com `cascade=true`, que apaga
+    tudo o que é dele: a tela mostra antes o `deletion-summary` e pede
+    confirmação. Sem o parâmetro a recusa continua, e um front antigo em cache
+    não apaga tudo com o diálogo simples.
+    """
     db = get_admin_db()
-
-    # Impede exclusão se houver alunos ou módulos no período
-    students = (
-        db.table("students")
-        .select("id", count="exact")
-        .eq("academic_period_id", period_id)
-        .execute()
-    )
-    modules = (
-        db.table("modules")
-        .select("id", count="exact")
-        .eq("academic_period_id", period_id)
-        .execute()
-    )
-
-    if (students.count or 0) > 0 or (modules.count or 0) > 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Não é possível excluir este período pois ele possui "
-                "alunos ou módulos vinculados. Desative-o em vez disso."
-            ),
-        )
-
     before = (
         db.table("academic_periods")
-        .select("*")
+        .select("name, is_active")
         .eq("id", period_id)
         .maybe_single()
         .execute()
     )
+    if not before.data:
+        raise HTTPException(status_code=404, detail="Período não encontrado.")
+
+    links = _period_links(db, period_id)
+    if links["students"] or links["modules"]:
+        if not cascade:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Este período tem alunos ou módulos vinculados. Atualize a "
+                    "página para ver o que será excluído junto e confirmar."
+                ),
+            )
+        _delete_period_contents(db, period_id)
 
     db.table("academic_periods").delete().eq("id", period_id).execute()
 
-    period_name = (before.data or {}).get("name", period_id)
     write_audit_log(
         db,
         actor=current_user,
         action="delete",
         entity="periods",
         entity_id=period_id,
-        summary=f"Período excluído: {period_name}",
-        before={"name": period_name, "is_active": (before.data or {}).get("is_active")},
+        summary=f"Período excluído: {before.data['name']}",
+        before={**before.data, **links},
         after=None,
     )

@@ -28,6 +28,20 @@ class PeriodCreate(BaseModel):
     is_active: bool = True
 
 
+class PeriodDeletionSummary(BaseModel):
+    """O que a exclusão do período apaga junto. Coordenador e professores só
+    perdem o vínculo: as contas continuam."""
+    name: str
+    coordinator: str | None = None
+    professors: list[str]
+    students: int
+    modules: int
+    enrollments: int
+    attendance_records: int
+    medical_certificates: int
+    attachments: int
+
+
 class PeriodUpdate(BaseModel):
     name: str | None = None
     coordinator_id: str | None = None
