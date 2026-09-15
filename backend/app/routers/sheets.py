@@ -197,8 +197,6 @@ def _apply_sheet_grades(db, period_id: str, rows: list[dict]) -> dict:
             patch_with_final = {
                 **patch,
                 "final_grade": recalc_final(float(current_regular), float(current_makeup)),
-                # redundante com o trigger da 0013 (I-08); ver grades.py
-                "last_updated": now_iso,
             }
             enr_id = enr.get("id") or (grade_data.get("enrollment_id"))
             if enr_id:

@@ -45,14 +45,14 @@ Critério: nenhum achado Alto de código aberto; migração 0012 aplicada; dashb
 
 ### Banco — migração `0012_hardening.sql`
 
-> 📝 I-01..I-06 escritos e validados em Postgres 18 local (alteração 33). ⏳ Falta **aplicar** no Supabase, depois do restore (O-01a); por isso seguem desmarcados.
+> 📝 I-01..I-06 escritos e validados em Postgres 18 local (alteração 33). ✅ Aplicada em produção em 2026-09-15, sem staging (I-23), depois do backup do `public` e das pré-condições (alteração 67).
 
-- [ ] **I-02** `profiles_select`: `USING (id = auth.uid() OR is_admin())`. — P
-- [ ] **I-01** `CHECK (end_date >= start_date)` em `academic_periods`. — P
-- [ ] **I-03** `students.academic_period_id` e `modules.academic_period_id` → `ON DELETE RESTRICT`. — P
-- [ ] **I-04** `UNIQUE (email)` em `profiles` (checar duplicatas antes). — P
-- [ ] **I-05** Trigger `BEFORE UPDATE ON profiles` rejeitando troca de `role`/`is_active` por não-admin (projetado na `0011`). — M
-- [ ] **I-06** `SET search_path = public, pg_temp` nas 4 funções de `0001:202-244`. — P
+- [x] **I-02** `profiles_select`: `USING (id = auth.uid() OR is_admin())`. — P · ✅ 0012 (alteração 67)
+- [x] **I-01** `CHECK (end_date >= start_date)` em `academic_periods`. — P · ✅ 0012 (alteração 67)
+- [x] **I-03** `students.academic_period_id` e `modules.academic_period_id` → `ON DELETE RESTRICT`. — P · ✅ 0012 (alteração 67)
+- [x] **I-04** `UNIQUE (email)` em `profiles` (checar duplicatas antes). — P · ✅ 0012, sem duplicatas (alteração 67)
+- [x] **I-05** Trigger `BEFORE UPDATE ON profiles` rejeitando troca de `role`/`is_active` por não-admin (projetado na `0011`). — M · ✅ 0012 (alteração 67)
+- [x] **I-06** `SET search_path = public, pg_temp` nas 4 funções de `0001:202-244`. — P · ✅ 0012 (alteração 67)
 - [x] **I-13** `DATABASE_URL=` em `backend/.env.example`. — P · ✅ alteração 33
 
 ### Dependências
@@ -98,7 +98,7 @@ Critério: jornada do coordenador completa ponta a ponta; professor vê risco an
 - [x] **F-10 / F-11** Remover 5 tipos mortos, `UnderConstruction`, `RoleBadge`, `tooltip.tsx` + `@radix-ui/react-tooltip`. — P · ✅ + `EnrollmentStatus` e a entrada no `optimizeDeps` (alteração 54)
 - [x] **F-12** `<AsyncSelectField>`, `usePagination()`, `date-fns` na Chamada, `aria-describedby` nos dialogs. — M · ✅ `<SelectOptionsStatus>`, `<Pagination>` e aria nos 6 dialogs; `usePagination()` e `date-fns` na Chamada ficaram de fora, com o motivo (alteração 60)
 - [x] **F-13** Página 404. — P · ✅ `NotFoundPage` com o `EmptyState`, dentro do AppShell (alteração 55)
-- [x] **I-07 / I-08 / I-09 / I-10** Apagar `0002_seed_instructions.sql`; trigger `updated_at` em `grades`; versionar `schema_migrations`; comentário na `0002` apontando para `0011`. — P · ✅ 0013 (trigger `last_updated` + `schema_migrations` com RLS); a nota da 0011 foi para o DEPLOY.md para não mudar o checksum da 0002. ⏳ aplicar 0012+0013 após o restore (alteração 56)
+- [x] **I-07 / I-08 / I-09 / I-10** Apagar `0002_seed_instructions.sql`; trigger `updated_at` em `grades`; versionar `schema_migrations`; comentário na `0002` apontando para `0011`. — P · ✅ 0013 (trigger `last_updated` + `schema_migrations` com RLS); a nota da 0011 foi para o DEPLOY.md para não mudar o checksum da 0002. 0012+0013 aplicadas em 2026-09-15 e `last_updated` manual removido (alterações 56 e 67)
 - [x] **I-22** Remover `version:` do compose; pinar base images por digest; `docker` no Dependabot. — P · ✅ tag + digest, Dependabot semanal para /backend e /frontend (alteração 57)
 - [ ] **O-04 / O-05** Auto-delete de branches no GitHub + limpeza única; tag por deploy. — P
 - [x] **I-31** `CONTRIBUTING.md` (formalizar o fluxo de `docs/alteracoes/`), ADR "authz é app-layer; service_role bypassa RLS", citar `diagnose.py`/`apply_migration.py` no README. — M · ✅ + template de PR; README de Segurança corrigido (alteração 58)
