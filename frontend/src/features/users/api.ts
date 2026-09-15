@@ -31,6 +31,17 @@ export interface PaginatedUsers {
   offset: number;
 }
 
+// Convite de cadastro (registro 69): nunca para admin.
+export type InviteRole = Exclude<UserRole, "admin">;
+
+export interface InviteCreated {
+  code: string;
+  role: InviteRole;
+  expires_at: string;
+}
+
+export type SignupPayload = Omit<UserCreatePayload, "role"> & { code: string };
+
 export const usersApi = {
   list: (params: ListUsersParams = {}) =>
     api
@@ -50,4 +61,16 @@ export const usersApi = {
 
   resetPassword: (id: string, new_password: string) =>
     api.post(`/api/users/${id}/reset-password`, { new_password }),
+
+  createInvite: (role: InviteRole) =>
+    api.post<InviteCreated>("/api/invites", { role }).then((r) => r.data),
+
+  // Públicas: quem se cadastra ainda não tem sessão.
+  checkInvite: (code: string) =>
+    api
+      .post<{ role: InviteRole }>("/api/signup/check", { code })
+      .then((r) => r.data),
+
+  signup: (body: SignupPayload) =>
+    api.post<Profile>("/api/signup", body).then((r) => r.data),
 };

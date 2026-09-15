@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/select";
 import type { Profile, UserRole } from "@/types";
 
+import { accountFields } from "./schemas";
+
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Administrador",
   coordinator: "Coordenador(a)",
@@ -32,27 +34,13 @@ const ROLE_LABELS: Record<UserRole, string> = {
 const ROLES: UserRole[] = ["admin", "coordinator", "professor"];
 
 const createSchema = z.object({
-  email: z.string().email("E-mail inválido"),
-  password: z
-    .string()
-    .min(8, "Senha deve ter ao menos 8 caracteres")
-    .max(72, "Senha muito longa"),
-  username: z
-    .string()
-    .min(2, "Mínimo 2 caracteres")
-    .max(50)
-    .regex(/^[a-zA-Z0-9._-]+$/, "Use apenas letras, números, ponto, underscore ou hífen"),
-  full_name: z.string().min(2, "Nome completo é obrigatório").max(120),
+  ...accountFields,
   role: z.enum(["admin", "coordinator", "professor"]),
 });
 
 const editSchema = z.object({
-  username: z
-    .string()
-    .min(2, "Mínimo 2 caracteres")
-    .max(50)
-    .regex(/^[a-zA-Z0-9._-]+$/, "Use apenas letras, números, ponto, underscore ou hífen"),
-  full_name: z.string().min(2, "Nome completo é obrigatório").max(120),
+  username: accountFields.username,
+  full_name: accountFields.full_name,
   role: z.enum(["admin", "coordinator", "professor"]),
   // B-S5: vazio mantém a senha atual.
   new_password: z

@@ -17,6 +17,7 @@ const ForgotPasswordPage = lazy(
 const ResetPasswordPage = lazy(
   () => import("@/features/auth/ResetPasswordPage"),
 );
+const SignupPage = lazy(() => import("@/features/auth/SignupPage"));
 const DashboardPage = lazy(() => import("@/features/dashboard/DashboardPage"));
 const PeriodsPage = lazy(() => import("@/features/periods/PeriodsPage"));
 const ModulesPage = lazy(() => import("@/features/modules/ModulesPage"));
@@ -70,6 +71,10 @@ export const router = createBrowserRouter([
   {
     path: "/reset-password",
     element: wrap(<ResetPasswordPage />),
+  },
+  {
+    path: "/signup",
+    element: wrap(<SignupPage />),
   },
   {
     // Área protegida — qualquer usuário autenticado

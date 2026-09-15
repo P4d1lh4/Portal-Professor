@@ -8,11 +8,14 @@
 -- =============================================================
 \set ON_ERROR_STOP 1
 
--- Fixtures (superusuário; o trigger handle_new_user cria os profiles)
+-- Fixtures (superusuário). O trigger handle_new_user cria os profiles como
+-- professor desde a 0014; o papel vem depois, como na API.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
- ('00000000-0000-0000-0000-00000000000a', 'admin@x.com', '{"role":"admin","username":"admin","full_name":"Admin"}'),
- ('00000000-0000-0000-0000-00000000000c', 'coord@x.com', '{"role":"coordinator","username":"coord","full_name":"Coord"}'),
- ('00000000-0000-0000-0000-00000000000b', 'prof@x.com',  '{"role":"professor","username":"prof","full_name":"Prof"}');
+ ('00000000-0000-0000-0000-00000000000a', 'admin@x.com', '{"username":"admin","full_name":"Admin"}'),
+ ('00000000-0000-0000-0000-00000000000c', 'coord@x.com', '{"username":"coord","full_name":"Coord"}'),
+ ('00000000-0000-0000-0000-00000000000b', 'prof@x.com',  '{"username":"prof","full_name":"Prof"}');
+UPDATE public.profiles SET role = 'admin'       WHERE id = '00000000-0000-0000-0000-00000000000a';
+UPDATE public.profiles SET role = 'coordinator' WHERE id = '00000000-0000-0000-0000-00000000000c';
 INSERT INTO public.academic_periods (id, name, coordinator_id, start_date, end_date) VALUES
  ('00000000-0000-0000-0000-0000000000f1', '2026.1', '00000000-0000-0000-0000-00000000000c', '2026-02-01', '2026-07-01'),
  ('00000000-0000-0000-0000-0000000000f2', 'vazio',  '00000000-0000-0000-0000-00000000000c', NULL, NULL);
@@ -183,3 +186,36 @@ BEGIN
   END IF;
   RAISE NOTICE 'Exclusão de período ok';
 END $$;
+
+-- ---------------------------------------------------------------
+-- 0014: convites e papel fora do metadata (registro 69)
+-- ---------------------------------------------------------------
+BEGIN;
+DO $$ BEGIN
+  -- O signUp público grava em raw_user_meta_data o que o cliente manda.
+  INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+   ('00000000-0000-0000-0000-0000000000e1', 'intruso@x.com', '{"role":"admin","username":"intruso","full_name":"X"}');
+  IF (SELECT role FROM public.profiles WHERE id = '00000000-0000-0000-0000-0000000000e1') <> 'professor' THEN
+    RAISE EXCEPTION '0014 FALHOU: o metadata de quem se cadastra definiu o papel';
+  END IF;
+  RAISE NOTICE '0014 ok (metadata não define o papel)';
+
+  BEGIN
+    INSERT INTO public.invite_codes (code_hash, role, created_by, expires_at)
+      VALUES ('h-admin', 'admin', '00000000-0000-0000-0000-00000000000a', now() + interval '7 days');
+    RAISE EXCEPTION '0014 FALHOU: aceitou convite para admin';
+  EXCEPTION WHEN check_violation THEN RAISE NOTICE '0014 ok (convite para admin recusado)';
+  END;
+
+  INSERT INTO public.invite_codes (code_hash, role, created_by, expires_at)
+    VALUES ('h-prof', 'professor', '00000000-0000-0000-0000-00000000000c', now() + interval '7 days');
+END $$;
+-- A anon key tem o GRANT SELECT padrão do Supabase; a RLS sem policy não mostra nada.
+SET LOCAL ROLE anon;
+DO $$ BEGIN
+  IF (SELECT count(*) FROM public.invite_codes) <> 0 THEN
+    RAISE EXCEPTION '0014 FALHOU: a anon key lê invite_codes';
+  END IF;
+  RAISE NOTICE '0014 ok (anon não lê convites)';
+END $$;
+ROLLBACK;

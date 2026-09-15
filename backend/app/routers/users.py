@@ -1,4 +1,7 @@
+import hashlib
 import logging
+import secrets
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status  # noqa: I001
@@ -7,10 +10,16 @@ from ..db import get_admin_db
 from ..deps import get_current_user, invalidate_profile_cache, require_role
 from ..schemas.common import Paginated
 from ..schemas.users import (
+    AccountData,
     ChangePasswordRequest,
+    InviteCode,
+    InviteCreate,
+    InviteCreated,
+    InviteInfo,
     PasswordReset,
     Profile,
     ProfilePublic,
+    SignupRequest,
     UserCreate,
     UserUpdate,
     UserRole,
@@ -26,6 +35,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["usuários"])
 
 _USER_AUDIT_FIELDS = ("username", "full_name", "email", "role", "is_active")
+
+# Convite de cadastro (registro 69). Quem convida quem vale ao gerar e ao usar
+# o código: o convite de quem foi desativado ou mudou de papel deixa de valer.
+_CAN_INVITE = {"admin": {"coordinator", "professor"}, "coordinator": {"professor"}}
+_INVITE_TTL = timedelta(days=7)
+# Sem 0/O e 1/I/L, que se confundem na leitura. 12 caracteres dão ~59 bits.
+_INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+_INVITE_LENGTH = 12
+_INVALID_INVITE = "Código inválido ou expirado."
 
 
 # ---------------------------------------------------------------
@@ -167,23 +185,16 @@ def list_professors(
 
 
 # ---------------------------------------------------------------
-# CRUD de usuários (admin)
+# Criação de conta (admin e convite)
 # ---------------------------------------------------------------
 
-@router.post("/users", response_model=Profile, status_code=status.HTTP_201_CREATED)
-def create_user(
-    body: UserCreate,
-    current_user: Profile = Depends(require_role("admin")),
-) -> Profile:
-    """Cria um novo usuário via Supabase Admin API. Apenas admin."""
-    db = get_admin_db()
-
+def _assert_username_free(db, username: str) -> None:
     # Checa o username antes de criar a conta: Auth e profiles não têm rollback
     # entre si, e a colisão depois deixava a conta no Auth sem profile coerente.
     taken = (
         db.table("profiles")
         .select("id")
-        .eq("username", body.username)
+        .eq("username", username)
         .maybe_single()
         .execute()
     )
@@ -193,6 +204,14 @@ def create_user(
             detail="Já existe um usuário com este nome de usuário.",
         )
 
+
+def _create_account(db, body: AccountData, role: UserRole) -> Profile:
+    """Cria a conta no Auth (Admin API) e grava o papel no profile.
+
+    Só levanta HTTPException quando o Auth não criou a conta (409 para e-mail
+    já cadastrado, 400 para falha): é o que o cadastro por convite usa para
+    devolver o código.
+    """
     # Usamos a service role key diretamente para a Admin API
     admin_client = create_client(settings.supabase_url, settings.supabase_service_role_key)
 
@@ -202,7 +221,6 @@ def create_user(
             "password": body.password,
             "email_confirm": True,
             "user_metadata": {
-                "role": body.role,
                 "username": body.username,
                 "full_name": body.full_name,
             },
@@ -222,21 +240,37 @@ def create_user(
 
     user_id = auth_resp.user.id
 
-    # O trigger handle_new_user já criou o profile; garante campos corretos
+    # O trigger handle_new_user cria todo profile como professor (0014): o
+    # papel vem daqui, nunca do metadata de quem se cadastra.
     db.table("profiles").update({
         "username": body.username,
         "full_name": body.full_name,
-        "role": body.role,
+        "role": role,
     }).eq("id", user_id).execute()
 
     resp = db.table("profiles").select("*").eq("id", user_id).single().execute()
-    created = Profile(**resp.data)
+    return Profile(**resp.data)
+
+
+# ---------------------------------------------------------------
+# CRUD de usuários (admin)
+# ---------------------------------------------------------------
+
+@router.post("/users", response_model=Profile, status_code=status.HTTP_201_CREATED)
+def create_user(
+    body: UserCreate,
+    current_user: Profile = Depends(require_role("admin")),
+) -> Profile:
+    """Cria um novo usuário via Supabase Admin API. Apenas admin."""
+    db = get_admin_db()
+    _assert_username_free(db, body.username)
+    created = _create_account(db, body, body.role)
     write_audit_log(
         db,
         actor=current_user,
         action="insert",
         entity="users",
-        entity_id=user_id,
+        entity_id=created.id,
         summary=f"Usuário criado: {created.full_name} ({created.role})",
         after={k: getattr(created, k) for k in _USER_AUDIT_FIELDS},
     )
@@ -429,3 +463,154 @@ def reset_user_password(
         entity_id=user_id,
         summary=f"Senha redefinida: {target.data.get('full_name', user_id)}",
     )
+
+
+# ---------------------------------------------------------------
+# Convite de cadastro (registro 69)
+# ---------------------------------------------------------------
+
+def _hash_code(code: str) -> str:
+    """sha256 do código normalizado (sem espaços nem hífens, em maiúsculas)."""
+    normalized = "".join(code.split()).replace("-", "").upper()
+    return hashlib.sha256(normalized.encode()).hexdigest()
+
+
+def _signup_rate_limit() -> None:
+    # ponytail: limite global, não por IP. Atrás do proxy do Render o
+    # client.host é o do proxy, e o X-Forwarded-For pode ser forjado. Com ~59
+    # bits por código, adivinhar já é inviável e o limite só freia. Por IP
+    # quando o uvicorn confiar no proxy (--forwarded-allow-ips).
+    if not check_rate_limit("signup", max_calls=20, window_seconds=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas. Aguarde um minuto e tente novamente.",
+        )
+
+
+def _valid_invite(db, code: str) -> dict:
+    """O convite do código, se ainda vale; senão 400.
+
+    A mensagem é a mesma para código inexistente, usado, vencido ou de autor
+    que não pode mais convidar: a resposta não revela quais códigos existem.
+    """
+    invalid = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_INVALID_INVITE)
+    invite = (
+        db.table("invite_codes")
+        .select("id, role, created_by, expires_at, used_at")
+        .eq("code_hash", _hash_code(code))
+        .maybe_single()
+        .execute()
+    ).data
+    if (
+        not invite
+        or invite["used_at"] is not None
+        or datetime.fromisoformat(invite["expires_at"]) <= datetime.now(timezone.utc)
+    ):
+        raise invalid
+    author = (
+        db.table("profiles")
+        .select("full_name, role, is_active")
+        .eq("id", invite["created_by"])
+        .maybe_single()
+        .execute()
+    ).data
+    if (
+        not author
+        or not author["is_active"]
+        or invite["role"] not in _CAN_INVITE.get(author["role"], ())
+    ):
+        raise invalid
+    return {**invite, "author_name": author["full_name"]}
+
+
+@router.post("/invites", response_model=InviteCreated, status_code=status.HTTP_201_CREATED)
+def create_invite(
+    body: InviteCreate,
+    current_user: Profile = Depends(require_role("admin", "coordinator")),
+) -> InviteCreated:
+    """Gera um código de convite de uso único, válido por 7 dias.
+
+    O admin convida coordenador ou professor; o coordenador, só professor.
+    O código aparece só nesta resposta: o banco guarda o hash.
+    """
+    if body.role not in _CAN_INVITE[current_user.role]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não pode convidar para este papel.",
+        )
+    code = "".join(secrets.choice(_INVITE_ALPHABET) for _ in range(_INVITE_LENGTH))
+    expires_at = datetime.now(timezone.utc) + _INVITE_TTL
+    db = get_admin_db()
+    row = db.table("invite_codes").insert({
+        "code_hash": _hash_code(code),
+        "role": body.role,
+        "created_by": current_user.id,
+        "expires_at": expires_at.isoformat(),
+    }).execute().data[0]
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="insert",
+        entity="invites",
+        entity_id=row["id"],
+        summary=f"Convite gerado ({body.role}), vale até {expires_at:%d/%m/%Y}",
+    )
+    return InviteCreated(
+        code="-".join(code[i:i + 4] for i in range(0, _INVITE_LENGTH, 4)),
+        role=body.role,
+        expires_at=expires_at,
+    )
+
+
+@router.post("/signup/check", response_model=InviteInfo)
+def check_invite(body: InviteCode) -> InviteInfo:
+    """Confere o código antes do formulário de cadastro, sem consumi-lo.
+
+    Público: quem chega aqui ainda não tem conta, e o código é a credencial
+    (exceção registrada na ADR 0001).
+    """
+    _signup_rate_limit()
+    return InviteInfo(role=_valid_invite(get_admin_db(), body.code)["role"])
+
+
+@router.post("/signup", response_model=Profile, status_code=status.HTTP_201_CREATED)
+def signup(body: SignupRequest) -> Profile:
+    """Cria a conta com um código de convite e o papel dele. Público, como o check."""
+    _signup_rate_limit()
+    db = get_admin_db()
+    _assert_username_free(db, body.username)  # antes de tocar no código
+    invite = _valid_invite(db, body.code)
+
+    # Consumo atômico: se duas pessoas usarem o mesmo código juntas, o UPDATE
+    # da segunda não acha mais a linha pendente.
+    claimed = (
+        db.table("invite_codes")
+        .update({"used_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", invite["id"])
+        .is_("used_at", "null")
+        .execute()
+    ).data
+    if not claimed:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_INVALID_INVITE)
+
+    try:
+        created = _create_account(db, body, invite["role"])
+    except HTTPException:
+        # O Auth não criou a conta: o código volta a valer.
+        db.table("invite_codes").update({"used_at": None}).eq("id", invite["id"]).execute()
+        raise
+
+    db.table("invite_codes").update({"used_by": created.id}).eq("id", invite["id"]).execute()
+    write_audit_log(
+        db,
+        actor=created,
+        action="insert",
+        entity="users",
+        entity_id=created.id,
+        summary=(
+            f"Conta criada por convite de {invite['author_name']}: "
+            f"{created.full_name} ({created.role})"
+        ),
+        after={k: getattr(created, k) for k in _USER_AUDIT_FIELDS},
+    )
+    return created

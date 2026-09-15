@@ -5,6 +5,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Ticket,
   UserX,
   Users as UsersIcon,
 } from "lucide-react";
@@ -36,6 +37,7 @@ import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import type { Profile, UserRole } from "@/types";
 
+import { InviteDialog } from "./InviteDialog";
 import { UserDialog } from "./UserDialog";
 import {
   useCreateUser,
@@ -148,10 +150,18 @@ export default function UsersPage() {
         title="Usuários"
         description="Gerencie administradores, coordenadores e professores."
         actions={
-          <Button onClick={openCreate}>
-            <Plus />
-            Novo usuário
-          </Button>
+          <>
+            <InviteDialog>
+              <Button variant="outline">
+                <Ticket />
+                Gerar convite
+              </Button>
+            </InviteDialog>
+            <Button onClick={openCreate}>
+              <Plus />
+              Novo usuário
+            </Button>
+          </>
         }
       />
 
