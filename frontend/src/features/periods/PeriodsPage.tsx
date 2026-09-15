@@ -14,7 +14,6 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,8 +30,8 @@ import {
   useClonePeriod,
   useCreatePeriod,
   useUpdatePeriod,
-  useDeletePeriod,
 } from "./usePeriods";
+import { DeletePeriodDialog } from "./DeletePeriodDialog";
 import { PeriodDialog } from "./PeriodDialog";
 import { SyncSheetsDialog } from "./SyncSheetsDialog";
 import { useDownloadPeriodReport } from "@/features/reports/useReports";
@@ -53,7 +52,6 @@ export default function PeriodsPage() {
   const createMutation = useCreatePeriod();
   const cloneMutation = useClonePeriod();
   const updateMutation = useUpdatePeriod();
-  const deleteMutation = useDeletePeriod();
   const downloadReport = useDownloadPeriodReport();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -61,6 +59,7 @@ export default function PeriodsPage() {
   const [cloning, setCloning] = useState<PeriodWithCoordinator | undefined>();
 
   const [syncPeriod, setSyncPeriod] = useState<PeriodWithCoordinator | null>(null);
+  const [deleting, setDeleting] = useState<PeriodWithCoordinator | null>(null);
 
   const openDialog = (edit?: PeriodWithCoordinator, clone?: PeriodWithCoordinator) => {
     setEditing(edit);
@@ -70,19 +69,6 @@ export default function PeriodsPage() {
   const openCreate = () => openDialog();
   const openEdit = (period: PeriodWithCoordinator) => openDialog(period);
   const openClone = (period: PeriodWithCoordinator) => openDialog(undefined, period);
-
-  const { confirm, confirmDialog } = useConfirm();
-
-  const handleDelete = async (period: PeriodWithCoordinator) => {
-    const ok = await confirm({
-      title: `Excluir o período "${period.name}"?`,
-      description: "Esta ação não pode ser desfeita.",
-      confirmLabel: "Excluir",
-      destructive: true,
-    });
-    if (!ok) return;
-    deleteMutation.mutate(period.id);
-  };
 
   const handleSubmit = async (data: {
     name: string;
@@ -221,8 +207,7 @@ export default function PeriodsPage() {
                               size="icon"
                               aria-label="Excluir período"
                               className="text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(period)}
-                              disabled={deleteMutation.isPending}
+                              onClick={() => setDeleting(period)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -257,7 +242,9 @@ export default function PeriodsPage() {
           currentUrl={syncPeriod.csv_sync_url}
         />
       )}
-      {confirmDialog}
+      {deleting && (
+        <DeletePeriodDialog period={deleting} onClose={() => setDeleting(null)} />
+      )}
     </div>
   );
 }
