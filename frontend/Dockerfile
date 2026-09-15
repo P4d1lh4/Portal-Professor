@@ -8,7 +8,7 @@
 # build multi-stage (node build -> nginx servindo dist/ com fallback SPA) e apontar
 # o docker-compose de dev para o estágio de build.
 # Tag + digest, atualizado pelo Dependabot (I-22).
-FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+FROM node:26-alpine@sha256:ef24c5053d50fdc3e4e56eb4e7ddb7861874ab0fdc797046ba897581deb8e868
 
 WORKDIR /app
 
