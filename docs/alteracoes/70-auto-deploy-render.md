@@ -62,4 +62,4 @@ Publicar sozinho o último commit da `main`, sem plano pago, e só quando o CI p
 
 - **Rollback:** Settings → Auto-Deploy → `Off` volta ao deploy manual, que continua em *Manual Deploy → Deploy latest commit*.
 - **Branch protection** em `main` segue opcional: o Render já não sobe commit vermelho, mas o merge com CI vermelho ainda é possível.
-- **Pendente da 69:** o cadastro público do Supabase Auth continua ligado (`disable_signup: false` em 2026-09-15).
+- **Pendente da 69, resolvido no mesmo dia:** o dono desligou o cadastro público do Supabase Auth (`disable_signup: true`).
