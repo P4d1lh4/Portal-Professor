@@ -35,6 +35,7 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 50 | [Fase 3] P-Q8: `/api/professor/students` paginado e com busca no servidor (mesmo `Paginated` do coordenador), detalhe só da página, matrículas com `fetch_all`; tela de Alunos com um caminho só | 🟡 Média | ✅ Concluída | ✅ 4 pytest · 2 mutações pegas | [50-paginar-alunos-professor.md](50-paginar-alunos-professor.md) |
 | 51 | [Fase 3] F-S1: filtro por situação na tela de Notas (Em risco, Aprovado, Recuperação, Reprovado por nota/faltas), pela regra única e pelo `risk` do backend | 🟠 Alta | ✅ Concluída | ✅ vitest · 2 mutações pegas | [51-notas-filtro-situacao.md](51-notas-filtro-situacao.md) |
 | 52 | [Fase 3] P-N4: frequência real na tela de Notas — "N chamadas registradas" e "% das aulas" por aluno | 🟡 Média | ✅ Concluída | ✅ vitest · mutação pega | [52-notas-frequencia-real.md](52-notas-frequencia-real.md) |
+| 53 | [Fase 3] F-08: Notas e Chamada em cards no celular, só com CSS (mesma marcação); P/F/J com 44 px | 🟠 Alta | ✅ Concluída | ✅ conferido em 375 e 800 px · tsc/eslint/vitest | [53-mobile-notas-chamada.md](53-mobile-notas-chamada.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 

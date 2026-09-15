@@ -47,6 +47,7 @@ import {
   useSaveAttendance,
 } from "./useAttendance";
 import type { AttendanceStatus } from "./api";
+import { cardTable } from "@/components/ui/card-table";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,8 @@ function StatusButton({
   disabled = false,
 }: StatusButtonProps) {
   const base =
-    "h-8 w-9 inline-flex items-center justify-center text-xs font-semibold transition-colors border";
+    // 44 px no celular (alvo de toque mínimo; F-08), compacto no desktop.
+    "h-11 w-12 md:h-8 md:w-9 inline-flex items-center justify-center text-xs font-semibold transition-colors border";
   const styles: Record<AttendanceStatus, { active: string; inactive: string }> = {
     present: {
       active: "bg-success text-white border-success",
@@ -455,8 +457,8 @@ export default function AttendancePage() {
           )}
 
           <div className="rounded-xl border bg-card overflow-x-auto">
-            <Table>
-              <TableHeader>
+            <Table className={cardTable.table}>
+              <TableHeader className={cardTable.header}>
                 <TableRow>
                   <TableHead className="w-28">Matrícula</TableHead>
                   <TableHead>Nome</TableHead>
@@ -464,19 +466,24 @@ export default function AttendancePage() {
                   <TableHead className="w-32 text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className={cardTable.body}>
                 {filteredEntries.map((row) => {
                   const status = draft[row.enrollment_id] ?? "present";
                   return (
-                    <TableRow key={row.enrollment_id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                    // Card no celular (F-08): nome e matrícula à esquerda,
+                    // P/F/J grandes à direita; o botão ativo já diz o status.
+                    <TableRow
+                      key={row.enrollment_id}
+                      className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5 px-4 py-3 md:table-row md:p-0"
+                    >
+                      <TableCell className={`${cardTable.cell} col-start-1 row-start-2 font-mono text-xs text-muted-foreground`}>
                         {row.student_number}
                       </TableCell>
-                      <TableCell className="font-medium text-sm">
+                      <TableCell className={`${cardTable.cell} col-start-1 row-start-1 font-medium text-sm`}>
                         {row.full_name}
                         <RiskBadge moduleId={activeModuleId} enrollmentId={row.enrollment_id} />
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className={`${cardTable.cell} col-start-2 row-span-2 row-start-1 text-center`}>
                         <div className="inline-flex">
                           <StatusButton
                             variant="present"
@@ -501,7 +508,7 @@ export default function AttendancePage() {
                           />
                         </div>
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
+                      <TableCell className="hidden text-right text-xs text-muted-foreground md:table-cell">
                         {STATUS_LABEL[status]}
                       </TableCell>
                     </TableRow>

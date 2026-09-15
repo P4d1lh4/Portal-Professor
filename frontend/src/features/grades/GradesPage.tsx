@@ -33,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cardTable } from "@/components/ui/card-table";
 import { formatGrade } from "@/lib/utils";
 import { useModules } from "@/features/modules/useModules";
 import { useModuleAttendance } from "@/features/attendance/useAttendance";
@@ -124,7 +125,7 @@ function GradeCell({
         }
       }}
       onKeyDown={onKeyDown}
-      className="h-8 w-20 text-center font-mono text-sm tabular-nums px-1 disabled:opacity-60 disabled:cursor-not-allowed"
+      className="h-8 w-full md:w-20 text-center font-mono text-sm tabular-nums px-1 disabled:opacity-60 disabled:cursor-not-allowed"
     />
   );
 }
@@ -434,8 +435,8 @@ export default function GradesPage() {
           )}
 
           <div className="rounded-xl border bg-card overflow-x-auto">
-            <Table>
-              <TableHeader>
+            <Table className={cardTable.table}>
+              <TableHeader className={cardTable.header}>
                 <TableRow>
                   <TableHead className="w-28">Matrícula</TableHead>
                   <TableHead>Nome</TableHead>
@@ -448,21 +449,29 @@ export default function GradesPage() {
                   <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className={cardTable.body}>
                 {filtered.map((row: StudentGradeRow, rowIdx) => {
                   const status = statuses[row.enrollment_id] ?? "idle";
 
                   return (
-                    <TableRow key={row.enrollment_id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                    // Card no celular (F-08): nome; matrícula e situação;
+                    // os quatro campos rotulados; final e "salvo".
+                    <TableRow
+                      key={row.enrollment_id}
+                      className="grid grid-cols-4 items-start gap-x-2 gap-y-2 px-4 py-3 md:table-row md:p-0"
+                    >
+                      <TableCell className={`${cardTable.cell} col-span-2 col-start-1 row-start-2 self-center font-mono text-xs text-muted-foreground`}>
                         {row.student_number}
                       </TableCell>
-                      <TableCell className="font-medium text-sm">
+                      <TableCell className={`${cardTable.cell} col-span-4 col-start-1 row-start-1 font-medium text-sm`}>
                         {row.full_name}
                       </TableCell>
 
                       {/* Tutoria */}
-                      <TableCell className="text-center">
+                      <TableCell
+                        data-label="Tutoria"
+                        className={`${cardTable.cell} ${cardTable.label} col-start-1 row-start-3 text-center`}
+                      >
                         <GradeCell
                           value={row.tutor_grade}
                           ariaLabel={`Tutoria de ${row.full_name}`}
@@ -476,7 +485,10 @@ export default function GradesPage() {
                       </TableCell>
 
                       {/* Prova regular */}
-                      <TableCell className="text-center">
+                      <TableCell
+                        data-label="Prova"
+                        className={`${cardTable.cell} ${cardTable.label} col-start-2 row-start-3 text-center`}
+                      >
                         <GradeCell
                           value={row.regular_exam_grade}
                           ariaLabel={`Prova regular de ${row.full_name}`}
@@ -490,7 +502,10 @@ export default function GradesPage() {
                       </TableCell>
 
                       {/* Recuperação */}
-                      <TableCell className="text-center">
+                      <TableCell
+                        data-label="Recup."
+                        className={`${cardTable.cell} ${cardTable.label} col-start-3 row-start-3 text-center`}
+                      >
                         <GradeCell
                           value={row.makeup_exam_grade}
                           ariaLabel={`Recuperação de ${row.full_name}`}
@@ -504,14 +519,20 @@ export default function GradesPage() {
                       </TableCell>
 
                       {/* Final — read-only, server-calculated */}
-                      <TableCell className="text-center">
+                      <TableCell
+                        data-label="Final"
+                        className={`${cardTable.cell} ${cardTable.label} col-span-2 col-start-1 row-start-4 md:text-center`}
+                      >
                         <span className="font-mono text-sm font-semibold tabular-nums">
                           {formatGrade(row.final_grade)}
                         </span>
                       </TableCell>
 
                       {/* Faltas */}
-                      <TableCell className="text-center">
+                      <TableCell
+                        data-label="Faltas"
+                        className={`${cardTable.cell} ${cardTable.label} col-start-4 row-start-3 text-center`}
+                      >
                         <GradeCell
                           value={row.absences}
                           ariaLabel={`Faltas de ${row.full_name}`}
@@ -536,7 +557,7 @@ export default function GradesPage() {
                       </TableCell>
 
                       {/* Status badge */}
-                      <TableCell className="text-center">
+                      <TableCell className={`${cardTable.cell} col-span-2 col-start-3 row-start-2 self-center text-right md:text-center`}>
                         <GradeBadge
                           finalGrade={row.final_grade}
                           absences={row.absences}
@@ -545,7 +566,7 @@ export default function GradesPage() {
                       </TableCell>
 
                       {/* Save indicator */}
-                      <TableCell>
+                      <TableCell className={`${cardTable.cell} col-span-2 col-start-3 row-start-4 self-center`}>
                         <SaveIndicator status={status} />
                       </TableCell>
                     </TableRow>
