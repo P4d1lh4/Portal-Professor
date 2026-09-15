@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
@@ -14,6 +15,7 @@ from ..services.classification import Status, classify_status, grade_risk, risk_
 from ..services.permissions import assert_can_access_student, assert_coordinator_owns_period
 from ..services.reports import (
     AttentionLine,
+    CertificateLine,
     PeriodReportData,
     PeriodReportRow,
     StudentModuleLine,
@@ -70,7 +72,7 @@ def student_report(
     student = (
         db.table("students")
         .select(
-            "id, student_number, full_name, email, medical_certificates, "
+            "id, student_number, full_name, email, "
             "academic_period:academic_periods!academic_period_id(id, name)"
         )
         .eq("id", student_id)
@@ -112,14 +114,31 @@ def student_report(
 
     modules.sort(key=lambda m: m.module_code)
 
+    # B-S6: a lista real de atestados. O contador students.medical_certificates
+    # é legado e também pode ser editado à mão no formulário do aluno.
+    certificates = (
+        db.table("medical_certificates")
+        .select("start_date, end_date, reason")
+        .eq("student_id", student_id)
+        .order("start_date")
+        .execute()
+    )
+
     period_obj = student.data.get("academic_period") or {}
     data = StudentReportData(
         student_number=student.data["student_number"],
         full_name=student.data["full_name"],
         email=student.data.get("email"),
         period_name=period_obj.get("name", "—"),
-        medical_certificates=int(student.data.get("medical_certificates", 0)),
         modules=modules,
+        certificates=[
+            CertificateLine(
+                start_date=date.fromisoformat(c["start_date"]),
+                end_date=date.fromisoformat(c["end_date"]),
+                reason=c["reason"],
+            )
+            for c in certificates.data
+        ],
     )
 
     pdf = build_student_report_pdf(data)

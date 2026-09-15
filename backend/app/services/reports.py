@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
 from typing import Iterable
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -43,13 +44,25 @@ class StudentModuleLine:
 
 
 @dataclass
+class CertificateLine:
+    """Atestado do aluno (B-S6), lido de `medical_certificates`."""
+    start_date: date
+    end_date: date
+    reason: str
+
+    @property
+    def days(self) -> int:
+        return (self.end_date - self.start_date).days + 1
+
+
+@dataclass
 class StudentReportData:
     student_number: str
     full_name: str
     email: str | None
     period_name: str
-    medical_certificates: int
     modules: list[StudentModuleLine]
+    certificates: list[CertificateLine] = field(default_factory=list)
 
     @property
     def avg_final_grade(self) -> float:
@@ -173,9 +186,20 @@ _SECTION_STYLE = ParagraphStyle(
     spaceAfter=6,
 )
 
+_CELL_STYLE = ParagraphStyle(
+    "Cell",
+    parent=_BASE_STYLES["Normal"],
+    fontSize=9,
+    leading=11,
+)
+
 
 def _fmt_grade(v: float) -> str:
     return f"{v:.1f}".replace(".", ",")
+
+
+def _fmt_date(d: date) -> str:
+    return d.strftime("%d/%m/%Y")
 
 
 def _emitted_at() -> str:
@@ -201,26 +225,22 @@ def build_student_report_pdf(data: StudentReportData) -> bytes:
 
     story: list = []
     story.append(Paragraph("Boletim Escolar", _TITLE_STYLE))
-    story.append(Paragraph(data.period_name, _SUBTITLE_STYLE))
+    # escape(): texto digitado por usuário vira markup no Paragraph; uma tag
+    # aberta ("<b>") derrubava o PDF inteiro com 500.
+    story.append(Paragraph(escape(data.period_name), _SUBTITLE_STYLE))
 
     # Cabeçalho do aluno
     header_data = [
-        [Paragraph("Aluno", _LABEL_STYLE), Paragraph(data.full_name, _VALUE_STYLE)],
+        [Paragraph("Aluno", _LABEL_STYLE), Paragraph(escape(data.full_name), _VALUE_STYLE)],
         [
             Paragraph("Matrícula", _LABEL_STYLE),
-            Paragraph(data.student_number, _VALUE_STYLE),
+            Paragraph(escape(data.student_number), _VALUE_STYLE),
         ],
     ]
     if data.email:
         header_data.append(
-            [Paragraph("Email", _LABEL_STYLE), Paragraph(data.email, _VALUE_STYLE)]
+            [Paragraph("Email", _LABEL_STYLE), Paragraph(escape(data.email), _VALUE_STYLE)]
         )
-    header_data.append(
-        [
-            Paragraph("Atestados médicos", _LABEL_STYLE),
-            Paragraph(str(data.medical_certificates), _VALUE_STYLE),
-        ]
-    )
 
     header_table = Table(header_data, colWidths=[40 * mm, 130 * mm])
     header_table.setStyle(
@@ -291,6 +311,43 @@ def build_student_report_pdf(data: StudentReportData) -> bytes:
     )
     story.append(summary_table)
 
+    # Atestados (B-S6): a lista real, não o contador legado students.medical_certificates
+    story.append(Spacer(1, 6 * mm))
+    story.append(Paragraph(f"Atestados médicos ({len(data.certificates)})", _SECTION_STYLE))
+    if data.certificates:
+        cert_rows = [["Início", "Fim", "Dias", "Motivo"]]
+        for c in data.certificates:
+            cert_rows.append(
+                [
+                    _fmt_date(c.start_date),
+                    _fmt_date(c.end_date),
+                    str(c.days),
+                    Paragraph(escape(c.reason), _CELL_STYLE),
+                ]
+            )
+        cert_table = Table(
+            cert_rows, colWidths=[24 * mm, 24 * mm, 14 * mm, 108 * mm], repeatRows=1
+        )
+        cert_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#262626")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("ALIGN", (0, 0), (2, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e5e5")),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#d4d4d4")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        story.append(cert_table)
+    else:
+        story.append(Paragraph("Nenhum atestado registrado.", _LABEL_STYLE))
+
     # Rodapé
     story.append(Spacer(1, 14 * mm))
     story.append(
@@ -357,7 +414,7 @@ def build_period_report_pdf(data: PeriodReportData) -> bytes:
     subtitle = data.period_name
     if data.coordinator_name:
         subtitle += f" · Coordenador: {data.coordinator_name}"
-    story.append(Paragraph(subtitle, _SUBTITLE_STYLE))
+    story.append(Paragraph(escape(subtitle), _SUBTITLE_STYLE))
 
     # Resumo estatístico
     summary_rows = [
