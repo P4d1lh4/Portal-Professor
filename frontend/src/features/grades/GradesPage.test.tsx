@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   listModules: vi.fn(),
   getByModule: vi.fn(),
   update: vi.fn(),
+  importCsv: vi.fn(),
   listAttendance: vi.fn(),
   toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
 }));
@@ -20,7 +21,7 @@ vi.mock("@/features/modules/api", () => ({ modulesApi: { list: m.listModules } }
 vi.mock("@/features/exports/api", () => ({ exportsApi: {} }));
 vi.mock("@/features/attendance/api", () => ({ attendanceApi: { list: m.listAttendance } }));
 vi.mock("./api", () => ({
-  gradesApi: { getByModule: m.getByModule, update: m.update },
+  gradesApi: { getByModule: m.getByModule, update: m.update, importCsv: m.importCsv },
 }));
 vi.mock("sonner", () => ({ toast: m.toast }));
 
@@ -205,5 +206,32 @@ describe("GradesPage: frequência real (P-N4)", () => {
     await screen.findByText("Ana Souza");
     expect(screen.queryByText(/% das aulas/)).toBeNull();
     expect(screen.queryByText(/chamadas? registradas?/)).toBeNull();
+  });
+});
+
+describe("GradesPage: importar CSV de notas (P-N9)", () => {
+  const arquivo = () =>
+    new File(["Matrícula;Prova regular\n2026001;8\n"], "notas.csv", { type: "text/csv" });
+
+  it("pede confirmação, envia o arquivo do módulo e resume o resultado", async () => {
+    m.importCsv.mockResolvedValue({ updated: 1, not_found: ["9999"], invalid: [] });
+    const user = renderPage();
+    const csv = arquivo();
+
+    await user.upload(await screen.findByLabelText("Arquivo CSV de notas"), csv);
+    await user.click(await screen.findByRole("button", { name: "Importar" }));
+
+    await waitFor(() => expect(m.importCsv).toHaveBeenCalledWith("m1", csv));
+    expect(m.toast.success).toHaveBeenCalledWith("1 aluno atualizado.");
+    expect(m.toast.warning).toHaveBeenCalledWith("Matrícula 9999 não está neste módulo.");
+  });
+
+  it("cancelar a confirmação não envia nada", async () => {
+    const user = renderPage();
+
+    await user.upload(await screen.findByLabelText("Arquivo CSV de notas"), arquivo());
+    await user.click(await screen.findByRole("button", { name: "Cancelar" }));
+
+    expect(m.importCsv).not.toHaveBeenCalled();
   });
 });

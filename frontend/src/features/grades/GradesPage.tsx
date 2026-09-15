@@ -8,12 +8,14 @@ import {
   FileSpreadsheet,
   Loader2,
   Search,
+  Upload,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { GradeBadge } from "@/components/shared/GradeBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +40,7 @@ import { formatGrade } from "@/lib/utils";
 import { useModules } from "@/features/modules/useModules";
 import { useModuleAttendance } from "@/features/attendance/useAttendance";
 import { useDownloadModuleGrades } from "@/features/exports/useExports";
-import { useModuleGrades, useUpdateGrade } from "./useGrades";
+import { useImportGrades, useModuleGrades, useUpdateGrade } from "./useGrades";
 import { matchesSituation, SITUATION_OPTIONS, type Situation } from "./situation";
 import type { StudentGradeRow } from "./api";
 
@@ -224,6 +226,23 @@ export default function GradesPage() {
     useModuleGrades(activeModuleId);
   const { statuses, save } = useRowStatuses(activeModuleId ?? "");
   const exportGrades = useDownloadModuleGrades();
+  const importGrades = useImportGrades(activeModuleId ?? "");
+  const importInput = useRef<HTMLInputElement>(null);
+  const { confirm, confirmDialog } = useConfirm();
+
+  // P-N9: o CSV do export de notas volta pela mesma tela.
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // deixa escolher o mesmo arquivo de novo
+    if (!file || !activeModule) return;
+    const ok = await confirm({
+      title: `Importar notas em ${activeModule.code}?`,
+      description:
+        "As notas e faltas preenchidas no arquivo substituem as atuais deste módulo. Célula vazia mantém o valor.",
+      confirmLabel: "Importar",
+    });
+    if (ok) importGrades.mutate(file);
+  };
 
   // P-N4: frequência real = faltas sobre as chamadas já registradas no módulo
   // (a mesma lista que a Chamada usa no histórico, com cache compartilhado).
@@ -294,19 +313,41 @@ export default function GradesPage() {
         }
         actions={
           activeModule ? (
-            <Button
-              variant="outline"
-              onClick={() =>
-                exportGrades.mutate({
-                  moduleId: activeModule.id,
-                  moduleCode: activeModule.code,
-                })
-              }
-              disabled={exportGrades.isPending}
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              Exportar CSV
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={importInput}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                aria-label="Arquivo CSV de notas"
+                onChange={handleImportFile}
+              />
+              <Button
+                variant="outline"
+                onClick={() => importInput.current?.click()}
+                disabled={periodClosed || importGrades.isPending}
+              >
+                {importGrades.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                Importar CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  exportGrades.mutate({
+                    moduleId: activeModule.id,
+                    moduleCode: activeModule.code,
+                  })
+                }
+                disabled={exportGrades.isPending}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -582,6 +623,7 @@ export default function GradesPage() {
           </p>
         </>
       )}
+      {confirmDialog}
     </div>
   );
 }
