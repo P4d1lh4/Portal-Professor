@@ -54,6 +54,13 @@ const editSchema = z.object({
     .regex(/^[a-zA-Z0-9._-]+$/, "Use apenas letras, números, ponto, underscore ou hífen"),
   full_name: z.string().min(2, "Nome completo é obrigatório").max(120),
   role: z.enum(["admin", "coordinator", "professor"]),
+  // B-S5: vazio mantém a senha atual.
+  new_password: z
+    .string()
+    .max(72, "Senha muito longa")
+    .refine((v) => v === "" || v.length >= 8, {
+      message: "Senha deve ter ao menos 8 caracteres",
+    }),
 });
 
 export type UserDialogCreateData = z.infer<typeof createSchema>;
@@ -63,6 +70,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user?: Profile;
+  /** B-S5: "Nova senha" na edição; falso quando o admin edita a si mesmo. */
+  canResetPassword?: boolean;
   onCreate: (data: UserDialogCreateData) => Promise<void>;
   onEdit: (data: UserDialogEditData) => Promise<void>;
 }
@@ -71,6 +80,7 @@ export function UserDialog({
   open,
   onOpenChange,
   user,
+  canResetPassword = false,
   onCreate,
   onEdit,
 }: Props) {
@@ -96,6 +106,7 @@ export function UserDialog({
         username: user.username,
         full_name: user.full_name,
         role: user.role,
+        new_password: "",
       });
     } else {
       createForm.reset({
@@ -136,9 +147,13 @@ export function UserDialog({
                 id="edit-fullname"
                 placeholder="Ex.: Maria Souza"
                 {...editForm.register("full_name")}
+                aria-invalid={!!editForm.formState.errors.full_name}
+                aria-describedby={
+                  editForm.formState.errors.full_name ? "edit-fullname-error" : undefined
+                }
               />
               {editForm.formState.errors.full_name && (
-                <p className="text-xs text-destructive">
+                <p id="edit-fullname-error" className="text-xs text-destructive">
                   {editForm.formState.errors.full_name.message}
                 </p>
               )}
@@ -150,9 +165,13 @@ export function UserDialog({
                 id="edit-username"
                 className="font-mono"
                 {...editForm.register("username")}
+                aria-invalid={!!editForm.formState.errors.username}
+                aria-describedby={
+                  editForm.formState.errors.username ? "edit-username-error" : undefined
+                }
               />
               {editForm.formState.errors.username && (
-                <p className="text-xs text-destructive">
+                <p id="edit-username-error" className="text-xs text-destructive">
                   {editForm.formState.errors.username.message}
                 </p>
               )}
@@ -181,9 +200,48 @@ export function UserDialog({
               </Select>
             </div>
 
+            {canResetPassword && (
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-password">Nova senha</Label>
+                <div className="relative">
+                  <Input
+                    id="edit-password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    placeholder="Em branco mantém a senha atual"
+                    className="pr-10"
+                    {...editForm.register("new_password")}
+                    aria-invalid={!!editForm.formState.errors.new_password}
+                    aria-describedby={
+                      editForm.formState.errors.new_password ? "edit-password-error" : undefined
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {editForm.formState.errors.new_password && (
+                  <p id="edit-password-error" className="text-xs text-destructive">
+                    {editForm.formState.errors.new_password.message}
+                  </p>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Compartilhe a nova senha com o usuário em um canal seguro.
+                </p>
+              </div>
+            )}
+
             <p className="text-xs text-muted-foreground">
-              O e-mail não pode ser alterado por aqui. Para resetar a senha,
-              use o painel do Supabase.
+              O e-mail não pode ser alterado por aqui.
             </p>
 
             <DialogFooter>
@@ -218,9 +276,13 @@ export function UserDialog({
                 placeholder="Ex.: Maria Souza"
                 autoFocus
                 {...createForm.register("full_name")}
+                aria-invalid={!!createForm.formState.errors.full_name}
+                aria-describedby={
+                  createForm.formState.errors.full_name ? "new-fullname-error" : undefined
+                }
               />
               {createForm.formState.errors.full_name && (
-                <p className="text-xs text-destructive">
+                <p id="new-fullname-error" className="text-xs text-destructive">
                   {createForm.formState.errors.full_name.message}
                 </p>
               )}
@@ -234,9 +296,13 @@ export function UserDialog({
                   placeholder="ex: maria.souza"
                   className="font-mono"
                   {...createForm.register("username")}
+                  aria-invalid={!!createForm.formState.errors.username}
+                  aria-describedby={
+                    createForm.formState.errors.username ? "new-username-error" : undefined
+                  }
                 />
                 {createForm.formState.errors.username && (
-                  <p className="text-xs text-destructive">
+                  <p id="new-username-error" className="text-xs text-destructive">
                     {createForm.formState.errors.username.message}
                   </p>
                 )}
@@ -273,9 +339,13 @@ export function UserDialog({
                 type="email"
                 placeholder="maria@escola.com"
                 {...createForm.register("email")}
+                aria-invalid={!!createForm.formState.errors.email}
+                aria-describedby={
+                  createForm.formState.errors.email ? "new-email-error" : undefined
+                }
               />
               {createForm.formState.errors.email && (
-                <p className="text-xs text-destructive">
+                <p id="new-email-error" className="text-xs text-destructive">
                   {createForm.formState.errors.email.message}
                 </p>
               )}
@@ -290,6 +360,10 @@ export function UserDialog({
                   placeholder="Mínimo 8 caracteres"
                   className="pr-10"
                   {...createForm.register("password")}
+                  aria-invalid={!!createForm.formState.errors.password}
+                  aria-describedby={
+                    createForm.formState.errors.password ? "new-password-error" : undefined
+                  }
                 />
                 <button
                   type="button"
@@ -307,7 +381,7 @@ export function UserDialog({
                 </button>
               </div>
               {createForm.formState.errors.password && (
-                <p className="text-xs text-destructive">
+                <p id="new-password-error" className="text-xs text-destructive">
                   {createForm.formState.errors.password.message}
                 </p>
               )}

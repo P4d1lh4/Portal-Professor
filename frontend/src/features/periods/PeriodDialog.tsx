@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SelectOptionsStatus } from "@/components/shared/SelectOptionsStatus";
 import api from "@/lib/axios";
 import type { PeriodWithCoordinator } from "./api";
 
@@ -134,9 +135,11 @@ export function PeriodDialog({
               id="name"
               placeholder="Ex.: 2024/2"
               {...register("name")}
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? "name-error" : undefined}
             />
             {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
+              <p id="name-error" className="text-xs text-destructive">{errors.name.message}</p>
             )}
           </div>
 
@@ -148,7 +151,11 @@ export function PeriodDialog({
               onValueChange={(v) => setValue("coordinator_id", v)}
               disabled={isLoadingCoordinators || isCoordinatorsError}
             >
-              <SelectTrigger id="coordinator">
+              <SelectTrigger
+                id="coordinator"
+                aria-invalid={!!errors.coordinator_id}
+                aria-describedby={errors.coordinator_id ? "coordinator-error" : undefined}
+              >
                 <SelectValue
                   placeholder={
                     isLoadingCoordinators
@@ -166,36 +173,23 @@ export function PeriodDialog({
               </SelectContent>
             </Select>
 
-            {/* Falha ao carregar: mostra o erro em vez de um dropdown vazio
-                silencioso, com opção de tentar novamente. */}
-            {isCoordinatorsError && (
-              <p className="text-xs text-destructive">
-                Não foi possível carregar os coordenadores
-                {coordinatorsError instanceof Error
-                  ? `: ${coordinatorsError.message}`
-                  : "."}{" "}
-                <button
-                  type="button"
-                  className="underline underline-offset-2 hover:text-foreground"
-                  onClick={() => refetchCoordinators()}
-                >
-                  Tentar novamente
-                </button>
-              </p>
-            )}
-
-            {/* Lista vazia (sem erro): orienta o usuário a cadastrar um. */}
-            {!isLoadingCoordinators &&
-              !isCoordinatorsError &&
-              coordinators.length === 0 && (
-                <p className="text-xs text-muted-foreground">
+            <SelectOptionsStatus
+              isLoading={isLoadingCoordinators}
+              isError={isCoordinatorsError}
+              error={coordinatorsError}
+              count={coordinators.length}
+              onRetry={refetchCoordinators}
+              errorText="Não foi possível carregar os coordenadores"
+              emptyText={
+                <>
                   Nenhum coordenador cadastrado. Cadastre um usuário com o papel
                   &ldquo;Coordenador&rdquo; na página de Usuários.
-                </p>
-              )}
+                </>
+              }
+            />
 
             {errors.coordinator_id && (
-              <p className="text-xs text-destructive">
+              <p id="coordinator-error" className="text-xs text-destructive">
                 {errors.coordinator_id.message}
               </p>
             )}

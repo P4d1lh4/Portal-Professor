@@ -10,7 +10,7 @@ from fastapi.responses import Response
 from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
-from ..services.permissions import assert_coordinator_owns_period
+from ..services.permissions import assert_module_access
 from ..services.exports import (
     AttendanceExportRow,
     GradeExportRow,
@@ -42,28 +42,6 @@ def _csv_response(content: bytes, filename: str) -> Response:
             "Cache-Control": "no-store",
         },
     )
-
-
-def _module_for_export(db, module_id: str, current_user: Profile) -> dict:
-    """Módulo a exportar, com a permissão já checada: professor só o próprio
-    módulo; coordenador só os dos seus períodos; admin qualquer um."""
-    mod = (
-        db.table("modules")
-        .select("id, name, code, professor_id, max_absences, academic_period_id")
-        .eq("id", module_id)
-        .maybe_single()
-        .execute()
-    )
-    if not mod.data:
-        raise HTTPException(404, "Módulo não encontrado.")
-
-    if current_user.role == "professor" and mod.data["professor_id"] != current_user.id:
-        raise HTTPException(403, "Você não leciona este módulo.")
-    assert_coordinator_owns_period(
-        db, mod.data["academic_period_id"], current_user,
-        detail="Você não coordena este período.",
-    )
-    return mod.data
 
 
 # ---------------------------------------------------------------
@@ -140,7 +118,7 @@ def export_module_grades(
     current_user: Profile = Depends(_ANY_ROLE),
 ):
     db = get_admin_db()
-    mod = _module_for_export(db, module_id, current_user)
+    mod = assert_module_access(db, current_user, module_id)
 
     max_abs = int(mod.get("max_absences", 10))
 
@@ -193,7 +171,7 @@ def export_module_attendance(
     current_user: Profile = Depends(_ANY_ROLE),
 ):
     db = get_admin_db()
-    mod = _module_for_export(db, module_id, current_user)
+    mod = assert_module_access(db, current_user, module_id)
 
     records = fetch_all(
         lambda lo, hi: db.table("attendance_records")

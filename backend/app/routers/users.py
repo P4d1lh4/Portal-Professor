@@ -8,6 +8,7 @@ from ..deps import get_current_user, invalidate_profile_cache, require_role
 from ..schemas.common import Paginated
 from ..schemas.users import (
     ChangePasswordRequest,
+    PasswordReset,
     Profile,
     ProfilePublic,
     UserCreate,
@@ -376,3 +377,55 @@ def reactivate_user(
 
     resp = db.table("profiles").select("*").eq("id", user_id).single().execute()
     return Profile(**resp.data)
+
+
+@router.post("/users/{user_id}/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_user_password(
+    user_id: str,
+    body: PasswordReset,
+    current_user: Profile = Depends(require_role("admin")),
+) -> None:
+    """Define uma senha nova para outro usuário (B-S5). Apenas admin.
+
+    A própria senha passa por /me/change-password, que confere a senha atual.
+    """
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Para trocar a sua senha, use Alterar senha no seu perfil.",
+        )
+
+    db = get_admin_db()
+    target = (
+        db.table("profiles")
+        .select("id, full_name")
+        .eq("id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    if not target.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado.",
+        )
+
+    admin_client = create_client(settings.supabase_url, settings.supabase_service_role_key)
+    try:
+        admin_client.auth.admin.update_user_by_id(user_id, {"password": body.new_password})
+    except Exception:
+        # Mesma regra da troca de senha: detalhe do Supabase Auth só no log.
+        logger.exception("Falha ao redefinir a senha do usuário %s", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não foi possível redefinir a senha. Tente novamente mais tarde.",
+        )
+
+    # Sem before/after: a senha não vai para o log.
+    write_audit_log(
+        db,
+        actor=current_user,
+        action="update",
+        entity="users",
+        entity_id=user_id,
+        summary=f"Senha redefinida: {target.data.get('full_name', user_id)}",
+    )

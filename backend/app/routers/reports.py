@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
@@ -11,8 +12,10 @@ from ..db import fetch_all, get_admin_db
 from ..deps import require_role
 from ..schemas.users import Profile
 from ..services.classification import Status, classify_status, grade_risk, risk_sort_key
+from ..services.permissions import assert_can_access_student, assert_coordinator_owns_period
 from ..services.reports import (
     AttentionLine,
+    CertificateLine,
     PeriodReportData,
     PeriodReportRow,
     StudentModuleLine,
@@ -69,7 +72,7 @@ def student_report(
     student = (
         db.table("students")
         .select(
-            "id, student_number, full_name, email, medical_certificates, "
+            "id, student_number, full_name, email, "
             "academic_period:academic_periods!academic_period_id(id, name)"
         )
         .eq("id", student_id)
@@ -79,11 +82,7 @@ def student_report(
     if not student.data:
         raise HTTPException(404, "Aluno não encontrado.")
 
-    if current_user.role == "professor":
-        _assert_professor_has_student(db, current_user.id, student_id)
-    elif current_user.role == "coordinator":
-        period = student.data.get("academic_period") or {}
-        _assert_coord_owns_period(db, current_user.id, period.get("id"))
+    assert_can_access_student(db, current_user, student_id)
 
     enrollments = (
         db.table("enrollments")
@@ -115,14 +114,31 @@ def student_report(
 
     modules.sort(key=lambda m: m.module_code)
 
+    # B-S6: a lista real de atestados. O contador students.medical_certificates
+    # é legado e também pode ser editado à mão no formulário do aluno.
+    certificates = (
+        db.table("medical_certificates")
+        .select("start_date, end_date, reason")
+        .eq("student_id", student_id)
+        .order("start_date")
+        .execute()
+    )
+
     period_obj = student.data.get("academic_period") or {}
     data = StudentReportData(
         student_number=student.data["student_number"],
         full_name=student.data["full_name"],
         email=student.data.get("email"),
         period_name=period_obj.get("name", "—"),
-        medical_certificates=int(student.data.get("medical_certificates", 0)),
         modules=modules,
+        certificates=[
+            CertificateLine(
+                start_date=date.fromisoformat(c["start_date"]),
+                end_date=date.fromisoformat(c["end_date"]),
+                reason=c["reason"],
+            )
+            for c in certificates.data
+        ],
     )
 
     pdf = build_student_report_pdf(data)
@@ -154,8 +170,9 @@ def period_report(
     if not period.data:
         raise HTTPException(404, "Período não encontrado.")
 
-    if current_user.role == "coordinator":
-        _assert_coord_owns_period(db, current_user.id, period_id)
+    assert_coordinator_owns_period(
+        db, period_id, current_user, detail="Você não coordena este período.",
+    )
 
     # fetch_all pagina para não truncar em 1000 linhas (períodos grandes).
     students_data = fetch_all(
@@ -250,39 +267,3 @@ def period_report(
     return _pdf_response(pdf, filename)
 
 
-# ---------------------------------------------------------------
-# Helpers de permissão
-# ---------------------------------------------------------------
-
-def _assert_professor_has_student(db, professor_id: str, student_id: str) -> None:
-    modules = (
-        db.table("modules").select("id").eq("professor_id", professor_id).execute()
-    )
-    module_ids = [m["id"] for m in modules.data]
-    if not module_ids:
-        raise HTTPException(403, "Acesso negado.")
-
-    enrollment = (
-        db.table("enrollments")
-        .select("id", count="exact")
-        .in_("module_id", module_ids)
-        .eq("student_id", student_id)
-        .execute()
-    )
-    if (enrollment.count or 0) == 0:
-        raise HTTPException(403, "Acesso negado.")
-
-
-def _assert_coord_owns_period(db, coordinator_id: str, period_id: str | None) -> None:
-    if not period_id:
-        raise HTTPException(403, "Acesso negado.")
-    chk = (
-        db.table("academic_periods")
-        .select("id")
-        .eq("id", period_id)
-        .eq("coordinator_id", coordinator_id)
-        .maybe_single()
-        .execute()
-    )
-    if not chk.data:
-        raise HTTPException(403, "Você não coordena este período.")

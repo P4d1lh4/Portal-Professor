@@ -94,6 +94,8 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
                 autoFocus
                 className="pr-10"
                 {...register("current_password")}
+                aria-invalid={!!errors.current_password}
+                aria-describedby={errors.current_password ? "current-password-error" : undefined}
               />
               <button
                 type="button"
@@ -109,7 +111,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
               </button>
             </div>
             {errors.current_password && (
-              <p className="text-xs text-destructive">
+              <p id="current-password-error" className="text-xs text-destructive">
                 {errors.current_password.message}
               </p>
             )}
@@ -125,6 +127,8 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
                 placeholder="Mínimo 8 caracteres"
                 className="pr-10"
                 {...register("new_password")}
+                aria-invalid={!!errors.new_password}
+                aria-describedby={errors.new_password ? "new-password-error" : undefined}
               />
               <button
                 type="button"
@@ -140,7 +144,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
               </button>
             </div>
             {errors.new_password && (
-              <p className="text-xs text-destructive">
+              <p id="new-password-error" className="text-xs text-destructive">
                 {errors.new_password.message}
               </p>
             )}
@@ -153,9 +157,11 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
               type={showNew ? "text" : "password"}
               autoComplete="new-password"
               {...register("confirm_password")}
+              aria-invalid={!!errors.confirm_password}
+              aria-describedby={errors.confirm_password ? "confirm-password-error" : undefined}
             />
             {errors.confirm_password && (
-              <p className="text-xs text-destructive">
+              <p id="confirm-password-error" className="text-xs text-destructive">
                 {errors.confirm_password.message}
               </p>
             )}

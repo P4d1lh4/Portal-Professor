@@ -18,6 +18,7 @@ export interface StudentItem {
   email?: string;
   academic_period_id: string;
   enrollment_date: string;
+  /** Total da lista de atestados, mantido pelo trigger da 0003. Só leitura. */
   medical_certificates: number;
   referral_info?: string;
   observations?: string;
@@ -33,7 +34,6 @@ export interface StudentCreate {
   full_name: string;
   email?: string;
   enrollment_date: string;
-  medical_certificates?: number;
   referral_info?: string;
   observations?: string;
 }

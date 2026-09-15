@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SelectOptionsStatus } from "@/components/shared/SelectOptionsStatus";
 import api from "@/lib/axios";
 import { useAuth } from "@/hooks/useAuth";
 import type { ModuleItem } from "./api";
@@ -151,9 +152,11 @@ export function ModuleDialog({
                 id="mod-name"
                 placeholder="Ex.: Matemática Aplicada"
                 {...register("name")}
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? "mod-name-error" : undefined}
               />
               {errors.name && (
-                <p className="text-xs text-destructive">{errors.name.message}</p>
+                <p id="mod-name-error" className="text-xs text-destructive">{errors.name.message}</p>
               )}
             </div>
 
@@ -164,9 +167,11 @@ export function ModuleDialog({
                 placeholder="Ex.: MAT101"
                 className="font-mono uppercase"
                 {...register("code")}
+                aria-invalid={!!errors.code}
+                aria-describedby={errors.code ? "mod-code-error" : undefined}
               />
               {errors.code && (
-                <p className="text-xs text-destructive">{errors.code.message}</p>
+                <p id="mod-code-error" className="text-xs text-destructive">{errors.code.message}</p>
               )}
             </div>
 
@@ -184,13 +189,17 @@ export function ModuleDialog({
 
           {/* Período */}
           <div className="space-y-1.5">
-            <Label>Período acadêmico *</Label>
+            <Label htmlFor="mod-period">Período acadêmico *</Label>
             <Select
               value={watch("academic_period_id")}
               onValueChange={(v) => setValue("academic_period_id", v)}
               disabled={isEdit || isLoadingPeriods || isPeriodsError}
             >
-              <SelectTrigger>
+              <SelectTrigger
+                id="mod-period"
+                aria-invalid={!!errors.academic_period_id}
+                aria-describedby={errors.academic_period_id ? "mod-period-error" : undefined}
+              >
                 <SelectValue
                   placeholder={
                     isLoadingPeriods
@@ -207,29 +216,17 @@ export function ModuleDialog({
                 ))}
               </SelectContent>
             </Select>
-            {isPeriodsError && (
-              <p className="text-xs text-destructive">
-                Não foi possível carregar os períodos
-                {periodsError instanceof Error
-                  ? `: ${periodsError.message}`
-                  : "."}{" "}
-                <button
-                  type="button"
-                  className="underline underline-offset-2 hover:text-foreground"
-                  onClick={() => refetchPeriods()}
-                >
-                  Tentar novamente
-                </button>
-              </p>
-            )}
-            {!isLoadingPeriods && !isPeriodsError && periods.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Nenhum período ativo. Crie um período acadêmico ativo antes de
-                cadastrar módulos.
-              </p>
-            )}
+            <SelectOptionsStatus
+              isLoading={isLoadingPeriods}
+              isError={isPeriodsError}
+              error={periodsError}
+              count={periods.length}
+              onRetry={refetchPeriods}
+              errorText="Não foi possível carregar os períodos"
+              emptyText="Nenhum período ativo. Crie um período acadêmico ativo antes de cadastrar módulos."
+            />
             {errors.academic_period_id && (
-              <p className="text-xs text-destructive">
+              <p id="mod-period-error" className="text-xs text-destructive">
                 {errors.academic_period_id.message}
               </p>
             )}
@@ -238,13 +235,17 @@ export function ModuleDialog({
           {/* Professor */}
           {canChangeProfessor ? (
             <div className="space-y-1.5">
-              <Label>Professor responsável *</Label>
+              <Label htmlFor="mod-professor">Professor responsável *</Label>
               <Select
                 value={watch("professor_id")}
                 onValueChange={(v) => setValue("professor_id", v)}
                 disabled={isLoadingProfessors || isProfessorsError}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  id="mod-professor"
+                  aria-invalid={!!errors.professor_id}
+                  aria-describedby={errors.professor_id ? "mod-professor-error" : undefined}
+                >
                   <SelectValue
                     placeholder={
                       isLoadingProfessors
@@ -261,31 +262,22 @@ export function ModuleDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {isProfessorsError && (
-                <p className="text-xs text-destructive">
-                  Não foi possível carregar os professores
-                  {professorsError instanceof Error
-                    ? `: ${professorsError.message}`
-                    : "."}{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-2 hover:text-foreground"
-                    onClick={() => refetchProfessors()}
-                  >
-                    Tentar novamente
-                  </button>
-                </p>
-              )}
-              {!isLoadingProfessors &&
-                !isProfessorsError &&
-                professors.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
+              <SelectOptionsStatus
+                isLoading={isLoadingProfessors}
+                isError={isProfessorsError}
+                error={professorsError}
+                count={professors.length}
+                onRetry={refetchProfessors}
+                errorText="Não foi possível carregar os professores"
+                emptyText={
+                  <>
                     Nenhum professor cadastrado. Cadastre um usuário com o papel
                     &ldquo;Professor&rdquo; na página de Usuários.
-                  </p>
-                )}
+                  </>
+                }
+              />
               {errors.professor_id && (
-                <p className="text-xs text-destructive">
+                <p id="mod-professor-error" className="text-xs text-destructive">
                   {errors.professor_id.message}
                 </p>
               )}

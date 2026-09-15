@@ -21,9 +21,8 @@ const schema = z.object({
   full_name: z.string().min(2, "Nome completo é obrigatório"),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   enrollment_date: z.string().min(1, "Data de matrícula é obrigatória"),
-  // Sem .default(): ver nota em ModuleDialog — defaultValues/reset já garantem
-  // o valor, e o .default() quebrava o tipo com @hookform/resolvers v5.
-  medical_certificates: z.coerce.number().int().min(0),
+  // Sem contador de atestados: a ficha mostra o total da lista, que o trigger
+  // da 0003 mantém (alteração 64).
   referral_info: z.string().optional(),
   observations: z.string().optional(),
 });
@@ -50,10 +49,7 @@ export function StudentDialog({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { medical_certificates: 0 },
-  });
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   useEffect(() => {
     if (open) {
@@ -63,13 +59,11 @@ export function StudentDialog({
           full_name: student.full_name,
           email: student.email ?? "",
           enrollment_date: student.enrollment_date,
-          medical_certificates: student.medical_certificates,
           referral_info: student.referral_info ?? "",
           observations: student.observations ?? "",
         });
       } else {
         reset({
-          medical_certificates: 0,
           student_number: "",
           full_name: "",
           email: "",
@@ -105,9 +99,11 @@ export function StudentDialog({
                 className="font-mono"
                 disabled={isEdit}
                 {...register("student_number")}
+                aria-invalid={!!errors.student_number}
+                aria-describedby={errors.student_number ? "student-number-error" : undefined}
               />
               {errors.student_number && (
-                <p className="text-xs text-destructive">
+                <p id="student-number-error" className="text-xs text-destructive">
                   {errors.student_number.message}
                 </p>
               )}
@@ -129,39 +125,31 @@ export function StudentDialog({
               id="full-name"
               placeholder="Ex.: Maria Silva Souza"
               {...register("full_name")}
+              aria-invalid={!!errors.full_name}
+              aria-describedby={errors.full_name ? "full-name-error" : undefined}
             />
             {errors.full_name && (
-              <p className="text-xs text-destructive">
+              <p id="full-name-error" className="text-xs text-destructive">
                 {errors.full_name.message}
               </p>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="aluno@email.com"
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-xs text-destructive">
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="med-cert">Certificados médicos</Label>
-              <Input
-                id="med-cert"
-                type="number"
-                min={0}
-                {...register("medical_certificates")}
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="email">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="aluno@email.com"
+              {...register("email")}
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "email-error" : undefined}
+            />
+            {errors.email && (
+              <p id="email-error" className="text-xs text-destructive">
+                {errors.email.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">

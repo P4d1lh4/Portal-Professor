@@ -221,7 +221,6 @@ def main() -> None:
                 "email":                email,
                 "academic_period_id":   period_id,
                 "enrollment_date":      str(date(today.year, 2 if p_idx == 0 else 7, 1)),
-                "medical_certificates": random.randint(0, 3),
                 "is_active":            True,
             }
             try:

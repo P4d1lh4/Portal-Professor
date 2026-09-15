@@ -20,6 +20,8 @@ export const queryClient: QueryClient = new QueryClient({
       gcTime: 1000 * 60 * 10, // 10 minutos: mantém em memória após sair da tela
       retry: 1,
       refetchOnWindowFocus: false,
+      // ponytail: true descartaria o rascunho da Chamada, que é refeito a cada
+      // `day` novo (AttendancePage); ligar só com o reset preso a módulo/data (F-14).
       refetchOnReconnect: false,
     },
   },
