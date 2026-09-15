@@ -77,23 +77,13 @@ class TestValidateRow:
         assert err is None
         assert data["email"] == "ana@example.com"
 
-    def test_medical_certificates_inteiro(self):
+    def test_contador_de_atestados_nao_e_importado(self):
+        # Alteração 64: a contagem vem da lista de atestados (trigger da 0003).
         raw = {
             "student_number": "2024001",
             "full_name": "Ana",
             "enrollment_date": "2024-02-01",
             "medical_certificates": "3",
-        }
-        data, err = _validate_row(raw, idx=2)
-        assert err is None
-        assert data["medical_certificates"] == 3
-
-    def test_medical_certificates_invalido_ignorado(self):
-        raw = {
-            "student_number": "2024001",
-            "full_name": "Ana",
-            "enrollment_date": "2024-02-01",
-            "medical_certificates": "abc",
         }
         data, err = _validate_row(raw, idx=2)
         assert err is None

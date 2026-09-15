@@ -36,17 +36,17 @@ router = APIRouter(tags=["importação"])
 _COORD_ADMIN = require_role("coordinator", "admin")
 
 REQUIRED_COLS = {"student_number", "full_name", "enrollment_date"}
-OPTIONAL_COLS = {"email", "medical_certificates", "referral_info", "observations"}
+OPTIONAL_COLS = {"email", "referral_info", "observations"}
 ALL_COLS = REQUIRED_COLS | OPTIONAL_COLS
 
 # Cabeçalhos do export (services/exports.py, build_students_csv), já sem acento.
-# "Ativo" é ignorado: aluno importado entra sempre ativo.
+# "Ativo" e "Atestados médicos" são ignorados: aluno importado entra ativo, e a
+# contagem de atestados vem da lista (trigger da 0003, alteração 64).
 _HEADER_ALIASES = {
     "matricula": "student_number",
     "nome": "full_name",
     "e-mail": "email",
     "data de matricula": "enrollment_date",
-    "atestados medicos": "medical_certificates",
     "encaminhamento": "referral_info",
     "observacoes": "observations",
 }
@@ -160,11 +160,6 @@ def _validate_row(raw: dict, idx: int) -> tuple[dict | None, str | None]:
     }
     if raw.get("email"):
         data["email"] = raw["email"]
-    if raw.get("medical_certificates"):
-        try:
-            data["medical_certificates"] = int(raw["medical_certificates"])
-        except ValueError:
-            pass
     if raw.get("referral_info"):
         data["referral_info"] = raw["referral_info"]
     if raw.get("observations"):

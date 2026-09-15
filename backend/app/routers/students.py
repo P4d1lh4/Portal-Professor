@@ -5,7 +5,6 @@ from ..db import fetch_all, get_admin_db
 from ..deps import get_current_user, require_role
 from ..schemas.common import Paginated
 from ..schemas.students import (
-    AbsenceUpdate,
     ModuleGradeSummary,
     Student,
     StudentCreate,
@@ -414,7 +413,6 @@ def update_professor_student(
             "full_name",
             "email",
             "enrollment_date",
-            "medical_certificates",
             "referral_info",
             "observations",
         }
@@ -562,24 +560,4 @@ def get_student_absences(
         "medical_certificates": student.data["medical_certificates"],
         "absences_by_module": by_module,
     }
-
-
-@router.put("/professor/students/{student_id}/absences")
-def update_student_absences(
-    student_id: str,
-    body: AbsenceUpdate,
-    current_user: Profile = Depends(require_role("professor", "coordinator", "admin")),
-) -> dict:
-    db = get_admin_db()
-
-    assert_can_access_student(db, current_user, student_id)
-
-    update_data: dict = {}
-    if body.medical_certificates is not None:
-        update_data["medical_certificates"] = body.medical_certificates
-
-    if update_data:
-        db.table("students").update(update_data).eq("id", student_id).execute()
-
-    return {"message": "Atualizado com sucesso."}
 

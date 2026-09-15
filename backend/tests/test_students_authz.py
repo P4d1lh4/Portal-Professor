@@ -48,9 +48,3 @@ def test_coordenador_nao_dono_delete_403_sem_escrita(db):
     resp = client.delete("/api/professor/students/s1")
     assert resp.status_code == 403
     assert not db.writes
-
-
-def test_coordenador_nao_dono_absences_put_403_sem_escrita(db):
-    resp = client.put("/api/professor/students/s1/absences", json={"medical_certificates": 5})
-    assert resp.status_code == 403
-    assert not db.writes

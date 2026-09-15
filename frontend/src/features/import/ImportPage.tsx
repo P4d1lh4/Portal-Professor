@@ -217,7 +217,7 @@ export default function ImportPage() {
                 <p className="font-semibold mb-1">Colunas obrigatórias:</p>
                 <p>Matrícula, Nome, Data de matrícula</p>
                 <p className="font-semibold mt-2 mb-1">Colunas opcionais:</p>
-                <p>E-mail, Atestados médicos, Encaminhamento, Observações</p>
+                <p>E-mail, Encaminhamento, Observações</p>
                 <p className="font-sans mt-2">
                   Também valem os nomes técnicos (student_number, full_name, enrollment_date…).
                   Data em AAAA-MM-DD ou DD/MM/AAAA.
