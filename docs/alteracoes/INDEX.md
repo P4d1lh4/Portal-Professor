@@ -36,6 +36,8 @@ Status: Não iniciada · Em andamento · Em revisão · Em testes · Concluída 
 | 51 | [Fase 3] F-S1: filtro por situação na tela de Notas (Em risco, Aprovado, Recuperação, Reprovado por nota/faltas), pela regra única e pelo `risk` do backend | 🟠 Alta | ✅ Concluída | ✅ vitest · 2 mutações pegas | [51-notas-filtro-situacao.md](51-notas-filtro-situacao.md) |
 | 52 | [Fase 3] P-N4: frequência real na tela de Notas — "N chamadas registradas" e "% das aulas" por aluno | 🟡 Média | ✅ Concluída | ✅ vitest · mutação pega | [52-notas-frequencia-real.md](52-notas-frequencia-real.md) |
 | 53 | [Fase 3] F-08: Notas e Chamada em cards no celular, só com CSS (mesma marcação); P/F/J com 44 px | 🟠 Alta | ✅ Concluída | ✅ conferido em 375 e 800 px · tsc/eslint/vitest | [53-mobile-notas-chamada.md](53-mobile-notas-chamada.md) |
+| 54 | [Fase 4] F-10/F-11: 5 tipos mortos, `UnderConstruction`, `RoleBadge`, `tooltip.tsx` e `@radix-ui/react-tooltip` removidos | 🔵 Baixa | ✅ Concluída | ✅ tsc/eslint/vitest/build | [54-codigo-morto-frontend.md](54-codigo-morto-frontend.md) |
+| 55 | [Fase 4] F-13: página 404 no lugar do redirecionamento silencioso para o painel | 🔵 Baixa | ✅ Concluída | ✅ vitest | [55-pagina-404.md](55-pagina-404.md) |
 
 ## Correções pós-merge (revisão adversarial do PR #28)
 
