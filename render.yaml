@@ -12,7 +12,13 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /api/healthz
-    autoDeploy: true
+    # O serviço de produção foi criado à mão, não por este Blueprint: quem manda
+    # é o painel do Render. Estes valores repetem o painel (alteração 70): deploy
+    # só depois dos checks do CI verdes, e só quando o commit mexe em backend/.
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - backend/**
     envVars:
       - key: SUPABASE_URL
         sync: false
