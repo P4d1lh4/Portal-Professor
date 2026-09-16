@@ -88,7 +88,7 @@ export default function ResetPasswordPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <GraduationCap className="h-6 w-6" />
           </div>
-          <h1 className="font-display text-3xl font-medium tracking-tight">
+          <h1 className="text-2xl">
             Aplicação Professor
           </h1>
         </div>

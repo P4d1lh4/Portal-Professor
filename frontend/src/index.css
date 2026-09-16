@@ -41,44 +41,49 @@
     --input: 35 25% 82%;
     --ring: 257 25% 47%;
 
-    --radius: 0.75rem;
+    /* Menu lateral: escuro nos dois temas (Portal-Redesenho, 2026-09) */
+    --rail: 220 6% 9.6%;
+
+    --radius: 0.625rem;
   }
 
   .dark {
-    /* Aurora · escuro */
-    --background: 257 28% 12%;
-    --foreground: 36 38% 91%;
+    /* Grafite · escuro (Portal-Redesenho-Escuro, 2026-09) */
+    --background: 210 5% 7.8%; /* #131415 */
+    --foreground: 60 7% 94.5%; /* #F2F2F0 */
 
-    --card: 257 28% 16%;
-    --card-foreground: 36 38% 91%;
+    --card: 220 5% 11.6%; /* #1C1D1F */
+    --card-foreground: 60 7% 94.5%;
 
-    --popover: 257 28% 16%;
-    --popover-foreground: 36 38% 91%;
+    --popover: 220 5% 11.6%;
+    --popover-foreground: 60 7% 94.5%;
 
-    --primary: 248 39% 73%;
-    --primary-foreground: 257 28% 12%;
+    --primary: 60 8% 92.4%; /* #EDEDEA */
+    --primary-foreground: 220 6% 9.6%; /* #17181A */
 
-    --secondary: 20 71% 68%;
-    --secondary-foreground: 257 28% 12%;
+    --secondary: 210 5% 17.3%; /* #2A2C2E */
+    --secondary-foreground: 60 7% 94.5%;
 
-    --muted: 257 27% 19%;
-    --muted-foreground: 266 14% 66%;
+    --muted: 210 5% 15.3%; /* #252729 */
+    --muted-foreground: 210 2% 63.5%; /* #A0A2A4 */
 
-    --accent: 264 28% 23%;
-    --accent-foreground: 248 39% 88%;
+    --accent: 210 5% 17.3%; /* #2A2C2E */
+    --accent-foreground: 60 7% 94.5%;
 
-    --destructive: 0 56% 58%;
-    --destructive-foreground: 36 38% 91%;
+    --destructive: 5.5 81% 68.6%; /* #F07A6E */
+    --destructive-foreground: 220 6% 9.6%;
 
-    --success: 161 25% 60%;
-    --success-foreground: 257 28% 12%;
+    --success: 152 47% 52.9%; /* #4FBF8B */
+    --success-foreground: 158 33% 9.4%;
 
-    --warning: 20 71% 68%;
-    --warning-foreground: 257 28% 12%;
+    --warning: 40 74% 52.9%; /* #E0A62E */
+    --warning-foreground: 40 52% 9%;
 
-    --border: 263 23% 23%;
-    --input: 263 23% 23%;
-    --ring: 248 39% 73%;
+    --border: 210 4% 18.8%; /* #2E3032 */
+    --input: 210 4% 18.8%;
+    --ring: 60 8% 92.4%;
+
+    --rail: 210 8% 4.7%; /* #0B0C0D */
   }
 }
 
@@ -91,7 +96,7 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   h1, h2, h3, h4 {
-    @apply font-display tracking-tight;
-    font-weight: 500;
+    @apply tracking-tight;
+    font-weight: 600;
   }
 }

@@ -5,6 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Iniciais das duas primeiras palavras: "Ana Beatriz Silva" → "AB". */
+export function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+}
+
 /** Nota com uma casa e vírgula decimal: 7.5 → "7,5". */
 export function formatGrade(n: number): string {
   return n.toFixed(1).replace(".", ",");

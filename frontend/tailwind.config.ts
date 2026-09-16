@@ -15,13 +15,13 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["Inter Tight", "system-ui", "sans-serif"],
-        display: ["Source Serif 4", "Georgia", "serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        rail: "hsl(var(--rail))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {

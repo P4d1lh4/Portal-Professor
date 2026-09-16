@@ -44,10 +44,10 @@ async function conferirCodigo(code = "abcd-efgh-jkmn") {
 async function preencher(confirmar = DADOS.password) {
   await userEvent.type(await screen.findByLabelText("Nome completo"), DADOS.full_name);
   await userEvent.type(screen.getByLabelText("Usuário"), DADOS.username);
-  await userEvent.type(screen.getByLabelText("E-mail"), DADOS.email);
+  await userEvent.type(screen.getByLabelText("E-mail institucional"), DADOS.email);
   await userEvent.type(screen.getByLabelText("Senha"), DADOS.password);
   await userEvent.type(screen.getByLabelText("Confirmar senha"), confirmar);
-  await userEvent.click(screen.getByRole("button", { name: "Criar conta" }));
+  await userEvent.click(screen.getByRole("button", { name: "Criar conta e entrar" }));
 }
 
 describe("SignupPage — cadastro por convite (registro 69)", () => {
@@ -62,7 +62,8 @@ describe("SignupPage — cadastro por convite (registro 69)", () => {
     renderPage();
     await conferirCodigo();
 
-    expect(await screen.findByText(/Convite para Professor\(a\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/Convite válido para/)).toBeInTheDocument();
+    expect(screen.getByText("Professor(a)")).toBeInTheDocument();
     expect(m.checkInvite).toHaveBeenCalledWith("abcd-efgh-jkmn");
 
     await preencher();
