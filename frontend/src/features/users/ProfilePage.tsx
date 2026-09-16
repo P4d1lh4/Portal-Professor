@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { initials } from "@/lib/utils";
 
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 
@@ -33,15 +34,6 @@ const ROLE_VARIANT: Record<
   professor: "outline",
 };
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
-
 export default function ProfilePage() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -58,7 +50,7 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-medium tracking-tight">
+        <h1 className="text-xl">
           Meu perfil
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
@@ -74,7 +66,7 @@ export default function ProfilePage() {
                 <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
               )}
               <AvatarFallback className="text-lg font-medium">
-                {getInitials(profile.full_name)}
+                {initials(profile.full_name)}
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col gap-1.5">

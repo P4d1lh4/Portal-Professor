@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
-import { AlertTriangle } from "lucide-react";
 
-import { formatGrade } from "@/lib/utils";
+import { formatGrade, initials } from "@/lib/utils";
 
 export interface AtRiskItem {
   enrollment_id: string;
@@ -20,31 +19,38 @@ const VISIBLE = 8;
 /** Alunos em risco nos módulos do professor (P-N1), do mais urgente ao menos. */
 export function AtRiskCard({ items }: { items: AtRiskItem[] }) {
   return (
-    <div className="rounded-xl border bg-card p-5 space-y-3">
-      <h2 className="flex items-center gap-2 font-semibold text-sm">
-        <AlertTriangle className="h-4 w-4 text-warning" aria-hidden="true" />
-        Alunos em risco
-        <span className="font-normal text-muted-foreground">({items.length})</span>
+    <section className="rounded-xl border bg-card px-[18px] pb-2.5 pt-4">
+      <h2 className="mb-2 flex items-baseline gap-1.5 text-[13.5px]">
+        Precisa de atenção
+        <span className="font-mono text-xs font-normal text-muted-foreground">
+          {items.length}
+        </span>
       </h2>
 
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="pb-2 text-sm text-muted-foreground">
           Nenhum aluno perto do limite de faltas ou com nota abaixo de 5.
         </p>
       ) : (
-        <ul className="divide-y text-sm">
+        <ul>
           {items.slice(0, VISIBLE).map((r) => (
-            <li key={r.enrollment_id} className="flex items-center justify-between gap-3 py-2">
-              <div className="min-w-0">
-                <p className="truncate font-medium">{r.full_name}</p>
-                <p className="text-xs text-muted-foreground">
+            <li key={r.enrollment_id} className="flex items-center gap-[11px] border-t py-[9px]">
+              <span
+                className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-muted-foreground"
+                aria-hidden="true"
+              >
+                {initials(r.full_name)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold">{r.full_name}</p>
+                <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
                   {r.module_code} · {r.absences}/{r.max_absences} faltas · final{" "}
                   {formatGrade(r.final_grade)} · risco: {r.reasons.join(" e ")}
                 </p>
               </div>
               <Link
                 to={`/grades?module=${r.module_id}`}
-                className="shrink-0 text-xs font-medium text-primary hover:underline"
+                className="shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Ver notas
               </Link>
@@ -54,8 +60,10 @@ export function AtRiskCard({ items }: { items: AtRiskItem[] }) {
       )}
 
       {items.length > VISIBLE && (
-        <p className="text-xs text-muted-foreground">e mais {items.length - VISIBLE}.</p>
+        <p className="border-t pt-2 text-xs text-muted-foreground">
+          e mais {items.length - VISIBLE}.
+        </p>
       )}
-    </div>
+    </section>
   );
 }

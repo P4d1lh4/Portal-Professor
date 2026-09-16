@@ -57,16 +57,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   const navItems: CommandEntry[] = [
     {
-      label: "Dashboard",
+      label: "Visão geral",
       icon: LayoutDashboard,
       action: () => go("/dashboard"),
       roles: ["admin", "coordinator", "professor"],
+      keywords: "dashboard painel inicio",
     },
     {
-      label: "Períodos Acadêmicos",
+      label: "Períodos",
       icon: CalendarRange,
       action: () => go("/periods"),
       roles: ["admin", "coordinator"],
+      keywords: "periodos academicos",
     },
     {
       label: "Módulos",
@@ -82,11 +84,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       keywords: "aluno matricula",
     },
     {
-      label: "Lançar Notas",
+      label: "Notas e faltas",
       icon: ClipboardList,
       action: () => go("/grades"),
       roles: ["coordinator", "professor"],
-      keywords: "notas faltas grade",
+      keywords: "lancar notas faltas grade",
     },
     {
       label: "Chamada",
@@ -96,7 +98,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       keywords: "chamada frequencia presenca falta",
     },
     {
-      label: "Importação CSV",
+      label: "Importação",
       icon: Upload,
       action: () => go("/import"),
       roles: ["coordinator", "admin"],

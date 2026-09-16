@@ -1,14 +1,5 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import {
   BookOpen,
   GraduationCap,
@@ -18,7 +9,7 @@ import {
 
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/PageHeader";
 import {
   Table,
   TableBody,
@@ -27,10 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import api from "@/lib/axios";
-import { AtRiskCard, type AtRiskItem } from "./AtRiskCard";
-import { useActivePeriods } from "@/features/periods/usePeriods";
-import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -38,6 +25,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import api from "@/lib/axios";
+import { AtRiskCard, type AtRiskItem } from "./AtRiskCard";
+import { useActivePeriods } from "@/features/periods/usePeriods";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +63,35 @@ interface DashboardData {
   at_risk?: AtRiskItem[];               // professor
 }
 
+// ─── Tons ─────────────────────────────────────────────────────────────────────
+
+type Tone = "neutral" | "success" | "warning" | "destructive";
+
+// Régua da aprovação: ≥70% ok, ≥50% atenção, abaixo disso crítico.
+const rateTone = (rate: number): Tone =>
+  rate >= 70 ? "success" : rate >= 50 ? "warning" : "destructive";
+
+const TONE_TEXT: Record<Tone, string> = {
+  neutral: "text-foreground",
+  success: "text-success",
+  warning: "text-warning",
+  destructive: "text-destructive",
+};
+
+const TONE_BAR: Record<Tone, string> = {
+  neutral: "bg-muted-foreground",
+  success: "bg-success",
+  warning: "bg-warning",
+  destructive: "bg-destructive",
+};
+
+const TONE_CHIP: Record<Tone, string> = {
+  neutral: "bg-accent text-muted-foreground",
+  success: "bg-success/15 text-success",
+  warning: "bg-warning/15 text-warning",
+  destructive: "bg-destructive/15 text-destructive",
+};
+
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
 function StatCard({
@@ -79,74 +99,78 @@ function StatCard({
   label,
   value,
   sub,
+  tone = "neutral",
 }: {
   icon: React.ElementType;
   label: string;
   value: string | number;
   sub?: string;
+  tone?: Tone;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-5 flex items-start gap-4">
-      <div className="rounded-lg bg-primary/10 p-2.5 flex-shrink-0">
-        <Icon className="h-5 w-5 text-primary" />
+    <div className="rounded-xl border bg-card px-4 py-[15px]">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "flex h-[26px] w-[26px] items-center justify-center rounded-md",
+            TONE_CHIP[tone],
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
       </div>
-      <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
-        <p className="font-display text-3xl font-medium tabular-nums tracking-tight mt-0.5">
-          {value}
-        </p>
-        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-      </div>
+      <p
+        className={cn(
+          "mt-3 font-mono text-[28px] font-semibold leading-none tracking-tight tabular-nums",
+          TONE_TEXT[tone],
+        )}
+      >
+        {value}
+      </p>
+      {sub && <p className="mt-[7px] text-[11.5px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }
 
-// ─── Chart ────────────────────────────────────────────────────────────────────
+// ─── Distribuição ─────────────────────────────────────────────────────────────
 
-const BUCKET_COLORS: Record<string, string> = {
-  "9–10": "hsl(var(--success))",
-  "7–8.9": "hsl(var(--primary))",
-  "5–6.9": "hsl(var(--warning))",
-  "0–4.9": "hsl(var(--destructive))",
+const BUCKET_BAR: Record<string, string> = {
+  "9–10": "bg-success/80",
+  "7–8.9": "bg-success",
+  "5–6.9": "bg-warning",
+  "0–4.9": "bg-destructive",
 };
 
-function GradeDistChart({ data }: { data: GradeBucket[] }) {
-  const total = data.reduce((s, d) => s + d.count, 0);
-  if (total === 0) {
+function GradeDistribution({ data }: { data: GradeBucket[] }) {
+  const max = Math.max(0, ...data.map((d) => d.count));
+  if (max === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-8">
+      <p className="py-8 text-center text-sm text-muted-foreground">
         Nenhuma nota lançada ainda.
       </p>
     );
   }
+  // A API manda da faixa mais baixa para a mais alta; a lista mostra a melhor primeiro.
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis
-          dataKey="label"
-          tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-        />
-        <YAxis
-          allowDecimals={false}
-          tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-        />
-        <Tooltip
-          contentStyle={{
-            background: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "8px",
-            fontSize: "13px",
-          }}
-          formatter={(v) => [v, "alunos"]}
-        />
-        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-          {data.map((d) => (
-            <Cell key={d.label} fill={BUCKET_COLORS[d.label] ?? "hsl(var(--primary))"} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ul>
+      {[...data].reverse().map((d) => (
+        <li key={d.label} className="flex items-center gap-3 py-1.5">
+          <span className="w-[52px] shrink-0 font-mono text-xs text-muted-foreground">
+            {d.label}
+          </span>
+          <div className="h-[22px] flex-1 overflow-hidden rounded-[5px] bg-muted" aria-hidden="true">
+            <div
+              className={cn("h-full rounded-[5px]", BUCKET_BAR[d.label] ?? "bg-primary")}
+              style={{ width: `${(d.count / max) * 100}%` }}
+            />
+          </div>
+          <span className="w-[34px] shrink-0 text-right font-mono text-[12.5px] font-semibold tabular-nums">
+            {d.count}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -167,60 +191,56 @@ function ModulesTable({
     );
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-24">Código</TableHead>
-            <TableHead>Nome</TableHead>
-            {showProfessor && <TableHead>Professor</TableHead>}
-            <TableHead className="w-20 text-center">Alunos</TableHead>
-            <TableHead className="w-24 text-center">Aprovados</TableHead>
-            <TableHead className="w-28 text-center">Rep. faltas</TableHead>
-            <TableHead className="w-24 text-center">Aprovação</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((m) => (
+    <Table className="min-w-[560px]">
+      <TableHeader className="bg-transparent">
+        <TableRow>
+          <TableHead className="w-24 pl-0">Código</TableHead>
+          <TableHead>Módulo</TableHead>
+          {showProfessor && <TableHead>Professor</TableHead>}
+          <TableHead className="w-20 text-right">Alunos</TableHead>
+          <TableHead className="w-40 pr-0">Aprovação</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((m) => {
+          const tone = rateTone(m.approval_rate);
+          return (
             <TableRow key={m.id}>
-              <TableCell>
-                <span className="font-mono text-xs font-semibold text-muted-foreground">
-                  {m.code}
-                </span>
+              <TableCell className="pl-0 font-mono text-xs font-semibold text-muted-foreground">
+                {m.code}
               </TableCell>
-              <TableCell className="font-medium text-sm">{m.name}</TableCell>
+              <TableCell className="text-[13.5px] font-semibold">{m.name}</TableCell>
               {showProfessor && (
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-[13px] text-muted-foreground">
                   {m.professor ?? "—"}
                 </TableCell>
               )}
-              <TableCell className="text-center font-mono text-sm">
+              <TableCell className="text-right font-mono text-[13px] tabular-nums">
                 {m.students}
               </TableCell>
-              <TableCell className="text-center">
-                <span className="font-mono text-sm text-success">{m.approved}</span>
-              </TableCell>
-              <TableCell className="text-center">
-                <span className="font-mono text-sm text-destructive">{m.reproved_abs}</span>
-              </TableCell>
-              <TableCell className="text-center">
-                <Badge
-                  variant={
-                    m.approval_rate >= 70
-                      ? "success"
-                      : m.approval_rate >= 50
-                        ? "secondary"
-                        : "destructive"
-                  }
-                >
-                  {m.approval_rate}%
-                </Badge>
+              <TableCell className="pr-0">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-[3px] bg-accent" aria-hidden="true">
+                    <div
+                      className={cn("h-full rounded-[3px]", TONE_BAR[tone])}
+                      style={{ width: `${Math.min(100, m.approval_rate)}%` }}
+                    />
+                  </div>
+                  <span
+                    className={cn(
+                      "w-[38px] text-right font-mono text-xs font-semibold tabular-nums",
+                      TONE_TEXT[tone],
+                    )}
+                  >
+                    {m.approval_rate}%
+                  </span>
+                </div>
               </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -256,43 +276,36 @@ export default function DashboardPage() {
   const modules = data?.modules_detail ?? data?.modules_breakdown ?? [];
   const dist = data?.grade_distribution ?? [];
   const summary = data?.summary;
+  const rate = summary?.approval_rate ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-3xl font-medium tracking-tight">
-            Olá, {profile?.full_name.split(" ")[0]}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1.5">
-            {ROLE_LABEL[profile?.role ?? ""] ?? ""}
-          </p>
-        </div>
-
-        {isCoordOrAdmin && activePeriods.length > 1 && (
-          <Select
-            value={selectedPeriod ?? ""}
-            onValueChange={setPeriodId}
-          >
-            <SelectTrigger className="w-52">
-              <SelectValue placeholder="Período" />
-            </SelectTrigger>
-            <SelectContent>
-              {activePeriods.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+    <div className="space-y-3.5">
+      <PageHeader
+        eyebrow={data?.period?.name ?? ROLE_LABEL[profile?.role ?? ""]}
+        title="Visão geral do período"
+        actions={
+          isCoordOrAdmin && activePeriods.length > 1 ? (
+            <Select value={selectedPeriod ?? ""} onValueChange={setPeriodId}>
+              <SelectTrigger className="w-52">
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                {activePeriods.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : undefined
+        }
+      />
 
       {isLoading ? (
-        <div className="space-y-4">
+        <div className="space-y-3.5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-xl" />
+              <Skeleton key={i} className="h-[104px] rounded-xl" />
             ))}
           </div>
           <Skeleton className="h-60 rounded-xl" />
@@ -300,28 +313,22 @@ export default function DashboardPage() {
       ) : !data ? null : (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(178px,1fr))] gap-3">
             {isProfessor ? (
               <>
-                <StatCard
-                  icon={BookOpen}
-                  label="Módulos"
-                  value={summary?.modules ?? 0}
-                />
-                <StatCard
-                  icon={Users}
-                  label="Alunos (total)"
-                  value={summary?.students ?? 0}
-                />
+                <StatCard icon={BookOpen} label="Módulos" value={summary?.modules ?? 0} />
+                <StatCard icon={Users} label="Alunos (total)" value={summary?.students ?? 0} />
                 <StatCard
                   icon={GraduationCap}
                   label="Aprovados"
                   value={summary?.approvals ?? 0}
+                  tone="success"
                 />
                 <StatCard
                   icon={TrendingUp}
                   label="Taxa de aprovação"
-                  value={`${summary?.approval_rate ?? 0}%`}
+                  value={`${rate}%`}
+                  tone={rateTone(rate)}
                 />
               </>
             ) : (
@@ -332,48 +339,40 @@ export default function DashboardPage() {
                   value={summary?.students ?? 0}
                   sub={data.period?.name}
                 />
-                <StatCard
-                  icon={BookOpen}
-                  label="Módulos"
-                  value={summary?.modules ?? 0}
-                />
+                <StatCard icon={BookOpen} label="Módulos" value={summary?.modules ?? 0} />
                 <StatCard
                   icon={GraduationCap}
                   label="Aprovados"
                   value={summary?.approved ?? 0}
                   sub={`de ${summary?.enrollments ?? 0} matrículas`}
+                  tone="success"
                 />
                 <StatCard
                   icon={TrendingUp}
                   label="Taxa de aprovação"
-                  value={`${summary?.approval_rate ?? 0}%`}
+                  value={`${rate}%`}
+                  tone={rateTone(rate)}
                 />
               </>
             )}
           </div>
 
-          {/* P-N1: quem o professor precisa olhar antes do fechamento */}
-          {isProfessor && <AtRiskCard items={data.at_risk ?? []} />}
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-start gap-3">
+            <section className="rounded-xl border bg-card px-[18px] pb-[18px] pt-4">
+              <h2 className="mb-3.5 text-[13.5px]">Distribuição de notas finais</h2>
+              <GradeDistribution data={dist} />
+            </section>
 
-          {/* Charts + table */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Grade distribution */}
-            <div className="rounded-xl border bg-card p-5 space-y-3">
-              <h2 className="font-semibold text-sm">Distribuição de notas finais</h2>
-              <GradeDistChart data={dist} />
-            </div>
-
-            {/* Módulos breakdown */}
-            <div className="rounded-xl border bg-card p-5 space-y-3">
-              <h2 className="font-semibold text-sm">
-                {isProfessor ? "Seus módulos" : "Módulos do período"}
-              </h2>
-              <ModulesTable
-                rows={modules}
-                showProfessor={!isProfessor}
-              />
-            </div>
+            {/* P-N1: quem o professor precisa olhar antes do fechamento */}
+            {isProfessor && <AtRiskCard items={data.at_risk ?? []} />}
           </div>
+
+          <section className="rounded-xl border bg-card px-[18px] pb-1.5 pt-4">
+            <h2 className="mb-1.5 text-[13.5px]">
+              {isProfessor ? "Seus módulos" : "Módulos do período"}
+            </h2>
+            <ModulesTable rows={modules} showProfessor={!isProfessor} />
+          </section>
         </>
       )}
     </div>

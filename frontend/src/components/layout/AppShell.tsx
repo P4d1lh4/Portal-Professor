@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Sidebar } from "./Sidebar";
+import { RailContent, Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import {
   Sheet,
@@ -11,12 +11,10 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { SidebarNav } from "./Sidebar";
 import { CommandPaletteHost } from "@/components/shared/CommandPaletteHost";
 
 export function AppShell() {
   const { profile, session } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Se a sessão já chegou mas o profile ainda está sendo carregado
@@ -41,48 +39,39 @@ export function AppShell() {
         Pular para o conteúdo
       </a>
 
-      {/* Sidebar — desktop */}
-      <div className="hidden md:flex md:flex-col">
-        <Sidebar role={profile.role} collapsed={collapsed} />
+      {/* Menu lateral — desktop */}
+      <div className="hidden md:flex">
+        <Sidebar role={profile.role} />
       </div>
 
-      {/* Sidebar — mobile (drawer) */}
+      {/* Menu lateral — mobile (gaveta) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-64 p-0">
-          <SheetTitle className="flex h-14 items-center gap-2 border-b px-4 text-sm">
-            Aplicação Professor
-          </SheetTitle>
+        <SheetContent
+          side="left"
+          className="flex w-64 flex-col gap-0 border-none bg-rail p-2.5 text-white"
+        >
+          <SheetTitle className="sr-only">Aplicação Professor</SheetTitle>
           <SheetDescription className="sr-only">
             Menu de navegação principal
           </SheetDescription>
-          <div className="py-4">
-            <SidebarNav
-              role={profile.role}
-              onNavigate={() => setMobileOpen(false)}
-            />
-          </div>
+          <RailContent
+            role={profile.role}
+            onNavigate={() => setMobileOpen(false)}
+          />
         </SheetContent>
       </Sheet>
 
       {/* Main */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar
-          onToggleSidebar={() => {
-            // Em mobile abre o drawer; em desktop colapsa a sidebar
-            if (window.innerWidth < 768) {
-              setMobileOpen(true);
-            } else {
-              setCollapsed((v) => !v);
-            }
-          }}
-        />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Topbar onOpenMenu={() => setMobileOpen(true)} />
 
         <main
           className="flex-1 overflow-y-auto"
           id="main-content"
           tabIndex={-1}
         >
-          <div className="container mx-auto p-6">
+          {/* O PageHeader desfaz este padding para virar faixa — ver lá. */}
+          <div className="px-5 pb-6 pt-5">
             <Outlet />
           </div>
         </main>
