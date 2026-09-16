@@ -41,8 +41,11 @@
     --input: 35 25% 82%;
     --ring: 257 25% 47%;
 
-    /* Menu lateral: escuro nos dois temas (Portal-Redesenho, 2026-09) */
-    --rail: 220 6% 9.6%;
+    /* Menu lateral bege, com texto em tinta (contraste AA no bege) */
+    --rail: 35 30% 80%; /* #DBCFBD */
+    --rail-foreground: 270 20% 16%;
+    --rail-muted: 272 14% 34%;
+    --rail-subtle: 272 12% 38%;
 
     --radius: 0.625rem;
   }
@@ -84,6 +87,10 @@
     --ring: 60 8% 92.4%;
 
     --rail: 210 8% 4.7%; /* #0B0C0D */
+    /* Texto branco com as mesmas opacidades de antes (white, /60, /45) */
+    --rail-foreground: 0 0% 100%;
+    --rail-muted: 0 0% 100% / 0.6;
+    --rail-subtle: 0 0% 100% / 0.45;
   }
 }
 

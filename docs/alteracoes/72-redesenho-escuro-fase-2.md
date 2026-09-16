@@ -27,6 +27,7 @@ Levar ao app a arquitetura de navegação do design e o visual das telas restant
   - `features/auth/{ForgotPasswordPage,ResetPasswordPage}.tsx`;
   - `features/dashboard/DashboardPage.tsx`.
 - `features/modules/useModules.ts`: parâmetro `enabled`.
+- **Menu lateral:** `index.css`, `tailwind.config.ts`, `components/layout/{Sidebar,AppShell}.tsx`, `features/auth/LoginPage.tsx`.
 - **Testes:** `GradesPage.test.tsx` (filtro em chips), `AttendancePage.test.tsx` (botão do módulo na coluna). Os dois mocam `periodsApi`.
 
 ## Alterações realizadas
@@ -60,6 +61,8 @@ Levar ao app a arquitetura de navegação do design e o visual das telas restant
 - **Importação:** dois cards, "Arquivo" (área de arrastar e colunas) e "Prévia" (válidas, com erro e "Importar N alunos"). Precisa de período ativo na barra.
 - **Esqueci e redefinir senha:** no card do cadastro.
 - **Legibilidade:** o `RiskBadge` usava `text-warning-foreground`, quase preto no tema escuro, e passou para `text-warning`.
+- **Menu lateral no tema claro (pedido do dono):** bege (`--rail` #DBCFBD) com texto em tinta. As cores do menu viraram tokens (`--rail-foreground`, `--rail-muted`, `--rail-subtle`); no escuro eles repetem o branco, /60 e /45 de antes, então o escuro não muda. O painel da marca no login usa os mesmos tokens.
+- **Menu que não recolhia:** ele expandia também com `focus-within`, e o link clicado guardava o foco, então o menu seguia aberto depois de navegar e tirar o mouse. Agora só o hover expande e o menu some quando o mouse sai (pedido do dono). No teclado, os itens seguem focáveis com o nome acessível; só o rótulo visível não aparece.
 
 ## Motivo técnico
 
