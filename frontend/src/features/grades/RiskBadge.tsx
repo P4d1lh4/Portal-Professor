@@ -19,8 +19,8 @@ export function RiskBadge({
   if (reasons.length === 0) return null;
 
   return (
-    <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-warning/15 px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">
-      <AlertTriangle className="h-3 w-3 text-warning" aria-hidden="true" />
+    <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold text-warning">
+      <AlertTriangle className="h-3 w-3" aria-hidden="true" />
       Em risco: {reasons.join(" e ")}
     </span>
   );

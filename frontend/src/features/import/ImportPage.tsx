@@ -1,30 +1,15 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { CheckCircle2, FileText, Loader2, Upload, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, TriangleAlert, Upload, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { useActivePeriods } from "@/features/periods/usePeriods";
+import { useSelectedPeriod } from "@/features/periods/useSelectedPeriod";
 import api from "@/lib/axios";
+import { cn, formatFileSize } from "@/lib/utils";
 
 interface ValidRow {
   student_number: string;
@@ -74,17 +59,36 @@ async function callImport(
   return resp.data;
 }
 
+function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <>
+      <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-primary font-mono text-[11px] font-semibold text-primary-foreground">
+        {n}
+      </span>
+      <h2 className="text-[13.5px] font-semibold">{children}</h2>
+    </>
+  );
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
 export default function ImportPage() {
   const { profile } = useAuth();
   const canImport = profile?.role === "coordinator" || profile?.role === "admin";
 
-  const { data: periods = [], isLoading: periodsLoading } = useActivePeriods();
-  const [periodId, setPeriodId] = useState("");
+  // O período vem da barra superior. A tela só importa para período ativo,
+  // como antes (a lista antiga só oferecia os ativos).
+  const { period, periodId = "", isLoading: periodsLoading } = useSelectedPeriod();
+  const periodOk = !!period?.is_active;
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  // Prévia/resultado valem só para o período em que foram gerados: trocar o
+  // período na barra superior não pode importar a prévia de outro.
+  const [phaseFor, setPhaseFor] = useState("");
+  const view: Phase = phaseFor === periodId ? phase : "idle";
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted[0]) {
@@ -102,11 +106,12 @@ export default function ImportPage() {
   });
 
   const handlePreview = async () => {
-    if (!file || !periodId) return;
+    if (!file || !periodId || !periodOk) return;
     setLoading(true);
     try {
       const data = await callImport(periodId, file, true);
       setPreview(data as PreviewResult);
+      setPhaseFor(periodId);
       setPhase("preview");
     } catch (err: unknown) {
       const msg =
@@ -118,7 +123,7 @@ export default function ImportPage() {
   };
 
   const handleConfirm = async () => {
-    if (!file || !periodId) return;
+    if (!file || !periodId || !periodOk) return;
     setLoading(true);
     try {
       const data = await callImport(periodId, file, false);
@@ -142,10 +147,15 @@ export default function ImportPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <PageHeader
-        title="Importação de Alunos"
-        description="Importe alunos em lote via arquivo CSV."
+        eyebrow="Dados"
+        title="Importação de alunos"
+        description={
+          periodOk
+            ? `Os alunos entram em ${period?.name}.`
+            : "Importe alunos em lote via arquivo CSV."
+        }
       />
 
       {!canImport ? (
@@ -154,248 +164,215 @@ export default function ImportPage() {
         </p>
       ) : (
         <>
-          {/* Step 1 — Configuração */}
-          <div className="rounded-xl border bg-card p-6 space-y-4">
-            <h2 className="font-semibold text-sm">1. Selecione o período e o arquivo</h2>
-
-            {periodsLoading ? (
-              <Skeleton className="h-9 w-52" />
-            ) : (
-              <Select value={periodId} onValueChange={setPeriodId}>
-                <SelectTrigger className="w-full sm:w-64">
-                  <SelectValue placeholder="Selecione um período" />
-                </SelectTrigger>
-                <SelectContent>
-                  {periods.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {/* Dropzone */}
-            <div
-              {...getRootProps()}
-              className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-10 cursor-pointer transition-colors ${
-                isDragActive
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50 hover:bg-accent/30"
-              }`}
+          {!periodsLoading && !periodOk && (
+            <p
+              role="status"
+              className="flex items-center gap-2.5 rounded-[10px] border border-warning/30 bg-warning/10 px-3.5 py-3 text-[12.5px] font-semibold text-warning"
             >
-              <input {...getInputProps()} />
-              {file ? (
-                <div className="flex items-center gap-2 text-sm">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span className="font-medium">{file.name}</span>
-                  <span className="text-muted-foreground">
-                    ({(file.size / 1024).toFixed(1)} KB)
-                  </span>
+              <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Escolha um período ativo na barra superior.
+            </p>
+          )}
+
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] items-start gap-3">
+            {/* Passo 1 — Arquivo */}
+            <section className="rounded-xl border bg-card p-[18px]">
+              <div className="mb-3.5 flex items-center gap-[9px]">
+                <StepTitle n={1}>Arquivo</StepTitle>
+              </div>
+
+              <div
+                {...getRootProps()}
+                className={cn(
+                  "flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed p-[26px] text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isDragActive
+                    ? "border-foreground bg-accent"
+                    : "border-border bg-muted/40 hover:border-foreground hover:bg-accent/60"
+                )}
+              >
+                <input {...getInputProps()} />
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border bg-card">
+                  <Upload className="h-[18px] w-[18px]" aria-hidden="true" />
+                </span>
+                <p className="break-all text-[13.5px] font-semibold">
+                  {file ? file.name : "Escolher arquivo CSV"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {isDragActive
+                    ? "Solte o arquivo aqui…"
+                    : file
+                      ? `${formatFileSize(file.size)} · trocar arquivo`
+                      : "ou arraste o arquivo para cá"}
+                </p>
+              </div>
+
+              <div className="mt-3.5 rounded-[10px] border bg-muted/40 px-3.5 py-3">
+                <p className="mb-1.5 text-xs font-semibold">Colunas obrigatórias</p>
+                <p className="font-mono text-[11.5px] leading-relaxed text-muted-foreground">
+                  Matrícula · Nome · Data de matrícula
+                </p>
+                <p className="mb-1.5 mt-2.5 text-xs font-semibold">Opcionais</p>
+                <p className="font-mono text-[11.5px] leading-relaxed text-muted-foreground">
+                  E-mail · Encaminhamento · Observações
+                </p>
+                <p className="mt-2.5 text-[11.5px] text-muted-foreground">
+                  O CSV exportado pelo sistema pode ser reimportado como está. Data em
+                  AAAA-MM-DD ou DD/MM/AAAA; também valem os nomes técnicos
+                  (student_number, full_name, enrollment_date…).
+                </p>
+              </div>
+            </section>
+
+            {/* Passo 2 — Prévia / resultado */}
+            <section className="rounded-xl border bg-card p-[18px]">
+              {view === "done" && result ? (
+                <div className="space-y-3.5">
+                  <div className="flex items-center gap-[9px]">
+                    <StepTitle n={2}>Resultado</StepTitle>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-8 w-8 shrink-0 text-success" aria-hidden="true" />
+                    <div>
+                      <p className="text-[13.5px] font-semibold">
+                        {plural(result.imported, "aluno importado", "alunos importados")} com sucesso
+                      </p>
+                      {result.invalid_count > 0 && (
+                        <p className="text-[12.5px] text-muted-foreground">
+                          {plural(result.invalid_count, "linha ignorada", "linhas ignoradas")} por erro.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {result.errors_on_save.length > 0 && (
+                    <div className="space-y-1 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3 py-2.5">
+                      <p className="flex items-center gap-1 text-xs font-semibold text-destructive">
+                        <XCircle className="h-3 w-3" aria-hidden="true" />
+                        Erros durante a gravação
+                      </p>
+                      {result.errors_on_save.map((e, i) => (
+                        <p key={i} className="break-all font-mono text-[11px] text-muted-foreground">
+                          {e}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  <Button variant="outline" className="h-[42px] font-semibold" onClick={reset}>
+                    Nova importação
+                  </Button>
                 </div>
+              ) : view === "preview" && preview ? (
+                <>
+                  <div className="mb-3.5 flex flex-wrap items-center gap-[9px]">
+                    <StepTitle n={2}>
+                      Prévia — {plural(preview.total, "linha", "linhas")}
+                    </StepTitle>
+                    <div className="ml-auto flex gap-1.5">
+                      <Badge variant="success" className="px-2.5 py-1 text-[11.5px]">
+                        {preview.valid_count} válidas
+                      </Badge>
+                      {preview.invalid_count > 0 && (
+                        <Badge variant="destructive" className="px-2.5 py-1 text-[11.5px]">
+                          {preview.invalid_count} com erro
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {preview.valid.length > 0 && (
+                    <ul
+                      aria-label="Alunos a importar"
+                      className="mb-3 max-h-80 overflow-y-auto rounded-[10px] border"
+                    >
+                      {preview.valid.map((r, i) => (
+                        <li
+                          key={i}
+                          className="flex items-center gap-3 border-b px-3 py-[9px] last:border-b-0"
+                        >
+                          <span className="w-[74px] shrink-0 truncate font-mono text-[11.5px] text-muted-foreground">
+                            {r.student_number}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
+                            {r.full_name}
+                          </span>
+                          <span className="shrink-0 font-mono text-[11.5px] text-muted-foreground">
+                            {r.enrollment_date.split("-").reverse().join("/")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {preview.invalid.length > 0 && (
+                    <ul
+                      aria-label="Linhas com erro (serão ignoradas)"
+                      className="max-h-80 overflow-y-auto rounded-[10px] border border-destructive/30 bg-destructive/10"
+                    >
+                      {preview.invalid.map((r, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-3 border-b border-destructive/20 px-3 py-[9px] last:border-b-0"
+                        >
+                          <span className="w-[52px] shrink-0 font-mono text-[11.5px] text-destructive">
+                            L{r.line}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12.5px] font-semibold text-destructive">
+                              {r.error.replace(/^Linha \d+: /, "")}
+                            </p>
+                            <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                              {Object.values(r.raw).join(";")}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      className="h-[42px] font-semibold"
+                      onClick={handleConfirm}
+                      disabled={preview.valid_count === 0 || loading || !periodOk}
+                    >
+                      {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Importar {plural(preview.valid_count, "aluno", "alunos")}
+                    </Button>
+                    <Button variant="outline" className="h-[42px] font-semibold" onClick={reset}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </>
               ) : (
                 <>
-                  <Upload className="h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground text-center">
-                    {isDragActive
-                      ? "Solte o arquivo aqui…"
-                      : "Arraste um arquivo CSV ou clique para selecionar"}
+                  <div className="mb-3.5 flex items-center gap-[9px]">
+                    <StepTitle n={2}>Prévia</StepTitle>
+                  </div>
+                  <p className="text-[12.5px] text-muted-foreground">
+                    Escolha o arquivo e confira a prévia antes de importar. Nada é
+                    gravado até você confirmar.
                   </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      className="h-[42px] font-semibold"
+                      onClick={handlePreview}
+                      disabled={!file || !periodOk || loading}
+                    >
+                      {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Visualizar prévia
+                    </Button>
+                    {file && (
+                      <Button variant="outline" className="h-[42px] font-semibold" onClick={reset}>
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
                 </>
               )}
-            </div>
-
-            {/* Hint sobre colunas */}
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer select-none hover:text-foreground">
-                Formato esperado do CSV
-              </summary>
-              <div className="mt-2 rounded-md bg-muted p-3 font-mono leading-relaxed">
-                <p className="font-sans mb-2">
-                  O CSV de alunos exportado pelo sistema pode ser importado de volta como está.
-                </p>
-                <p className="font-semibold mb-1">Colunas obrigatórias:</p>
-                <p>Matrícula, Nome, Data de matrícula</p>
-                <p className="font-semibold mt-2 mb-1">Colunas opcionais:</p>
-                <p>E-mail, Encaminhamento, Observações</p>
-                <p className="font-sans mt-2">
-                  Também valem os nomes técnicos (student_number, full_name, enrollment_date…).
-                  Data em AAAA-MM-DD ou DD/MM/AAAA.
-                </p>
-                <p className="font-semibold mt-2 mb-1">Exemplo:</p>
-                <p>Matrícula;Nome;Data de matrícula</p>
-                <p>2024001;Ana Silva;01/02/2024</p>
-                <p>2024002;Bruno Costa;2024-02-01</p>
-              </div>
-            </details>
-
-            <div className="flex gap-2">
-              <Button
-                onClick={handlePreview}
-                disabled={!file || !periodId || loading}
-              >
-                {loading && phase === "idle" && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                Visualizar prévia
-              </Button>
-              {(file || phase !== "idle") && (
-                <Button variant="outline" onClick={reset}>
-                  Limpar
-                </Button>
-              )}
-            </div>
+            </section>
           </div>
-
-          {/* Step 2 — Preview */}
-          {phase === "preview" && preview && (
-            <div className="rounded-xl border bg-card p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-sm">
-                  2. Prévia — {preview.total} linha
-                  {preview.total !== 1 ? "s" : ""} no arquivo
-                </h2>
-                <div className="flex gap-2">
-                  <Badge variant="success">{preview.valid_count} válidas</Badge>
-                  {preview.invalid_count > 0 && (
-                    <Badge variant="destructive">
-                      {preview.invalid_count} inválidas
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* Valid rows */}
-              {preview.valid.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                    Alunos a importar
-                  </p>
-                  <div className="rounded-lg border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-28">Matrícula</TableHead>
-                          <TableHead>Nome</TableHead>
-                          <TableHead className="w-32">Data matrícula</TableHead>
-                          <TableHead>E-mail</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {preview.valid.map((r, i) => (
-                          <TableRow key={i}>
-                            <TableCell className="font-mono text-xs">
-                              {r.student_number}
-                            </TableCell>
-                            <TableCell className="text-sm">{r.full_name}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {r.enrollment_date}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {r.email ?? "—"}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-
-              {/* Invalid rows */}
-              {preview.invalid.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-destructive mb-2 uppercase tracking-wide">
-                    Linhas com erro (serão ignoradas)
-                  </p>
-                  <div className="rounded-lg border border-destructive/30 overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16">Linha</TableHead>
-                          <TableHead>Erro</TableHead>
-                          <TableHead>Dados recebidos</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {preview.invalid.map((r, i) => (
-                          <TableRow key={i}>
-                            <TableCell className="font-mono text-xs">
-                              {r.line}
-                            </TableCell>
-                            <TableCell className="text-xs text-destructive">
-                              {r.error}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground font-mono">
-                              {Object.values(r.raw).filter(Boolean).join(" · ")}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-2">
-                <Button
-                  onClick={handleConfirm}
-                  disabled={preview.valid_count === 0 || loading}
-                >
-                  {loading && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-                  Confirmar importação ({preview.valid_count} alunos)
-                </Button>
-                <Button variant="outline" onClick={reset}>
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3 — Result */}
-          {phase === "done" && result && (
-            <div className="rounded-xl border bg-card p-6 space-y-4">
-              <h2 className="font-semibold text-sm">3. Resultado</h2>
-
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-8 w-8 text-success flex-shrink-0" />
-                <div>
-                  <p className="font-medium">
-                    {result.imported} aluno
-                    {result.imported !== 1 ? "s" : ""} importado
-                    {result.imported !== 1 ? "s" : ""} com sucesso
-                  </p>
-                  {result.invalid_count > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {result.invalid_count} linha
-                      {result.invalid_count !== 1 ? "s" : ""} ignorada
-                      {result.invalid_count !== 1 ? "s" : ""} por erro.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {result.errors_on_save.length > 0 && (
-                <div className="rounded-lg border border-destructive/30 p-3 space-y-1">
-                  <p className="text-xs font-medium text-destructive flex items-center gap-1">
-                    <XCircle className="h-3 w-3" />
-                    Erros durante a gravação
-                  </p>
-                  {result.errors_on_save.map((e, i) => (
-                    <p key={i} className="text-xs text-muted-foreground font-mono">
-                      {e}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              <Button variant="outline" onClick={reset}>
-                Nova importação
-              </Button>
-            </div>
-          )}
         </>
       )}
     </div>

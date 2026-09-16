@@ -110,13 +110,12 @@ const ROLE_LABEL: Record<UserRole, string> = {
   professor: "Professor",
 };
 
-// O menu é escuro nos dois temas (--rail), então o texto dele é branco fixo.
+// Cores do menu vêm dos tokens --rail-* (bege no claro, quase preto no escuro).
 const ITEM =
-  "flex h-11 w-full items-center gap-3 rounded-[11px] px-3 text-[13.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60";
-const IDLE = "text-white/60 hover:bg-white/[.07] hover:text-white";
-// Menu recolhido: o rótulo só aparece quando ele expande (hover ou foco).
-const FADE =
-  "opacity-0 transition-opacity group-hover/rail:opacity-100 group-focus-within/rail:opacity-100";
+  "flex h-11 w-full items-center gap-3 rounded-[11px] px-3 text-[13.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rail-foreground/60";
+const IDLE = "text-rail-muted hover:bg-rail-foreground/[.07] hover:text-rail-foreground";
+// Menu recolhido: o rótulo só aparece enquanto o mouse está em cima.
+const FADE = "opacity-0 transition-opacity group-hover/rail:opacity-100";
 
 interface RailContentProps {
   role: UserRole;
@@ -135,7 +134,7 @@ export function RailContent({ role, rail, onNavigate }: RailContentProps) {
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary text-primary-foreground">
           <GraduationCap className="h-[18px] w-[18px]" />
         </span>
-        <span className={cn("whitespace-nowrap text-[13.5px] font-semibold text-white", fade)}>
+        <span className={cn("whitespace-nowrap text-[13.5px] font-semibold text-rail-foreground", fade)}>
           Aplicação Professor
         </span>
       </div>
@@ -146,7 +145,7 @@ export function RailContent({ role, rail, onNavigate }: RailContentProps) {
       >
         <p
           className={cn(
-            "mb-1.5 whitespace-nowrap px-2 text-[10px] font-bold uppercase tracking-[.13em] text-white/45",
+            "mb-1.5 whitespace-nowrap px-2 text-[10px] font-bold uppercase tracking-[.13em] text-rail-subtle",
             fade,
           )}
         >
@@ -228,15 +227,15 @@ function RailFooter({ fade, onNavigate }: { fade?: string; onNavigate?: () => vo
               {profile.avatar_url && (
                 <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
               )}
-              <AvatarFallback className="bg-white/10 text-xs text-white/85">
+              <AvatarFallback className="bg-rail-foreground/10 text-xs text-rail-foreground/85">
                 {initials(profile.full_name)}
               </AvatarFallback>
             </Avatar>
             <span className={cn("min-w-0 text-left", fade)}>
-              <span className="block truncate text-[12.5px] text-white">
+              <span className="block truncate text-[12.5px] text-rail-foreground">
                 {profile.full_name}
               </span>
-              <span className="block truncate text-[11px] font-normal text-white/60">
+              <span className="block truncate text-[11px] font-normal text-rail-muted">
                 {ROLE_LABEL[profile.role]}
               </span>
             </span>
@@ -280,11 +279,12 @@ function RailFooter({ fade, onNavigate }: { fade?: string; onNavigate?: () => vo
 export function Sidebar({ role }: { role: UserRole }) {
   return (
     <>
-      {/* Reserva a largura do menu recolhido; expandido, ele passa por cima do conteúdo. */}
+      {/* Reserva a largura do menu recolhido; expandido, ele passa por cima do conteúdo.
+          Só o hover expande (pedido do dono): com foco, o link clicado segurava o menu aberto. */}
       <div className="w-16 shrink-0" aria-hidden="true" />
       <aside
         aria-label="Barra lateral"
-        className="group/rail fixed inset-y-0 left-0 z-40 flex w-16 flex-col overflow-hidden bg-rail px-2.5 py-3 transition-[width,box-shadow] duration-200 hover:w-[218px] hover:shadow-[18px_0_44px_rgba(0,0,0,.35)] focus-within:w-[218px] focus-within:shadow-[18px_0_44px_rgba(0,0,0,.35)] motion-reduce:transition-none"
+        className="group/rail fixed inset-y-0 left-0 z-40 flex w-16 flex-col overflow-hidden bg-rail px-2.5 py-3 transition-[width,box-shadow] duration-200 hover:w-[218px] hover:shadow-[18px_0_44px_rgba(60,45,30,.18)] dark:hover:shadow-[18px_0_44px_rgba(0,0,0,.35)] motion-reduce:transition-none"
       >
         <RailContent role={role} rail />
       </aside>

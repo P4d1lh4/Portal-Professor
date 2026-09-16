@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -18,17 +17,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import api from "@/lib/axios";
 import { AtRiskCard, type AtRiskItem } from "./AtRiskCard";
-import { useActivePeriods } from "@/features/periods/usePeriods";
+import { useSelectedPeriod } from "@/features/periods/useSelectedPeriod";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -255,22 +247,18 @@ const ROLE_LABEL: Record<string, string> = {
 export default function DashboardPage() {
   const { profile } = useAuth();
   const isProfessor = profile?.role === "professor";
-  const isCoordOrAdmin =
-    profile?.role === "coordinator" || profile?.role === "admin";
-
-  const { data: activePeriods = [] } = useActivePeriods();
-  const [periodId, setPeriodId] = useState("");
-  const selectedPeriod = periodId || activePeriods[0]?.id;
+  // O período vem da barra superior (useSelectedPeriod).
+  const { periodId, isLoading: periodsLoading } = useSelectedPeriod();
 
   const { data, isLoading } = useQuery<DashboardData>({
-    queryKey: ["dashboard", selectedPeriod ?? ""],
+    queryKey: ["dashboard", periodId ?? ""],
     queryFn: () =>
       api
         .get("/api/dashboard", {
-          params: selectedPeriod ? { period_id: selectedPeriod } : undefined,
+          params: periodId ? { period_id: periodId } : undefined,
         })
         .then((r) => r.data),
-    enabled: !!profile,
+    enabled: !!profile && !periodsLoading,
   });
 
   const modules = data?.modules_detail ?? data?.modules_breakdown ?? [];
@@ -283,25 +271,9 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow={data?.period?.name ?? ROLE_LABEL[profile?.role ?? ""]}
         title="Visão geral do período"
-        actions={
-          isCoordOrAdmin && activePeriods.length > 1 ? (
-            <Select value={selectedPeriod ?? ""} onValueChange={setPeriodId}>
-              <SelectTrigger className="w-52">
-                <SelectValue placeholder="Período" />
-              </SelectTrigger>
-              <SelectContent>
-                {activePeriods.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : undefined
-        }
       />
 
-      {isLoading ? (
+      {isLoading || periodsLoading ? (
         <div className="space-y-3.5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (

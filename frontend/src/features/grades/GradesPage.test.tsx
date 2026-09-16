@@ -18,6 +18,7 @@ const m = vi.hoisted(() => ({
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ profile: { role: "professor" } }) }));
 vi.mock("@/features/modules/api", () => ({ modulesApi: { list: m.listModules } }));
+vi.mock("@/features/periods/api", () => ({ periodsApi: { list: async () => [] } }));
 vi.mock("@/features/exports/api", () => ({ exportsApi: {} }));
 vi.mock("@/features/attendance/api", () => ({ attendanceApi: { list: m.listAttendance } }));
 vi.mock("./api", () => ({
@@ -85,6 +86,8 @@ async function digitarProva(user: ReturnType<typeof userEvent.setup>, valor: str
 }
 
 const linhaDaAna = () => screen.getByRole("row", { name: /Ana Souza/ });
+const situacao = (name: RegExp) =>
+  within(screen.getByRole("group", { name: "Filtrar por situação" })).getByRole("button", { name });
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -171,7 +174,7 @@ describe("GradesPage: filtro por situação (F-S1)", () => {
     const user = renderPage();
     await screen.findByText("Bruno Lima");
 
-    await user.selectOptions(screen.getByLabelText("Filtrar por situação"), "recuperacao");
+    await user.click(situacao(/Recuperação/));
 
     expect(screen.getByText("Ana Souza")).toBeInTheDocument();
     expect(screen.queryByText("Bruno Lima")).toBeNull();
@@ -183,7 +186,7 @@ describe("GradesPage: filtro por situação (F-S1)", () => {
     const user = renderPage();
     await screen.findByText("Ana Souza");
 
-    await user.selectOptions(screen.getByLabelText("Filtrar por situação"), "risco");
+    await user.click(situacao(/Em risco/));
 
     expect(screen.getByText("Bruno Lima")).toBeInTheDocument();
     expect(screen.queryByText("Ana Souza")).toBeNull();
