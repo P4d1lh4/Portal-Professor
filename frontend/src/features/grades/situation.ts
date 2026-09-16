@@ -4,13 +4,17 @@ import type { StudentGradeRow } from "./api";
 /** Filtro da tela de Notas (F-S1): uma situação da regra única ou "em risco". */
 export type Situation = "" | Status | "risco";
 
-export const SITUATION_OPTIONS: { value: Situation; label: string }[] = [
-  { value: "", label: "Todas as situações" },
-  { value: "risco", label: "Em risco" },
+export const SITUATION_OPTIONS: {
+  value: Situation;
+  label: string;
+  tone?: "warning" | "destructive";
+}[] = [
+  { value: "", label: "Todos" },
+  { value: "risco", label: "Em risco", tone: "warning" },
+  { value: "recuperacao", label: "Recuperação", tone: "warning" },
+  { value: "rep_faltas", label: "Rep. faltas", tone: "destructive" },
+  { value: "reprovado", label: "Reprovado", tone: "destructive" },
   { value: "aprovado", label: "Aprovado" },
-  { value: "recuperacao", label: "Recuperação" },
-  { value: "reprovado", label: "Reprovado por nota" },
-  { value: "rep_faltas", label: "Reprovado por faltas" },
 ];
 
 export function matchesSituation(

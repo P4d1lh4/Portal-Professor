@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { AlertCircle, BookOpen, ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertCircle, BookOpen, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSelectedPeriod } from "@/features/periods/useSelectedPeriod";
 import {
   useModules,
   useCreateModule,
@@ -26,13 +27,23 @@ import {
 import { ModuleDialog } from "./ModuleDialog";
 import type { ModuleItem } from "./api";
 
+const TH = "h-[42px] px-3 text-[11px] font-semibold uppercase";
+
 export default function ModulesPage() {
-  const navigate = useNavigate();
   const { profile } = useAuth();
   const canEdit = profile?.role !== "professor";
   const isProfessor = profile?.role === "professor";
 
-  const { data: modules = [], isLoading, isError, error } = useModules();
+  // Módulos do período escolhido na barra superior.
+  const { periodId, period, isLoading: periodsLoading } = useSelectedPeriod();
+  const {
+    data: modules = [],
+    isLoading: modulesLoading,
+    isError,
+    error,
+  } = useModules(periodId, !periodsLoading);
+  // Consulta desligada não conta como carregando: soma a espera dos períodos.
+  const isLoading = periodsLoading || modulesLoading;
   const createMutation = useCreateModule();
   const updateMutation = useUpdateModule();
   const deleteMutation = useDeleteModule();
@@ -84,15 +95,12 @@ export default function ModulesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Módulos"
-        description={
-          isProfessor
-            ? "Seus módulos neste período."
-            : "Gerencie os módulos/disciplinas por período."
-        }
+        eyebrow="Gestão acadêmica"
+        title="Módulos do período"
+        description={period?.name}
         actions={
           canEdit ? (
-            <Button onClick={openCreate}>
+            <Button onClick={openCreate} className="font-semibold">
               <Plus />
               Novo módulo
             </Button>
@@ -128,84 +136,76 @@ export default function ModulesPage() {
           onAction={canEdit ? openCreate : undefined}
         />
       ) : (
-        <div className="rounded-xl border bg-card">
-          <Table>
+        // Em tela estreita a tabela rola na horizontal dentro do card.
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <Table className={isProfessor ? "min-w-[720px]" : "min-w-[880px]"}>
             <TableHeader>
-              <TableRow>
-                <TableHead className="w-24">Código</TableHead>
-                <TableHead>Nome</TableHead>
-                <TableHead>Período</TableHead>
-                {!isProfessor && <TableHead>Professor</TableHead>}
-                <TableHead className="w-16 text-center">Créditos</TableHead>
-                <TableHead className="w-20 text-center">Faltas máx.</TableHead>
-                <TableHead className="w-24">Status</TableHead>
-                <TableHead className="w-28 text-right">Ações</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={`${TH} w-[100px] pl-[18px]`}>Código</TableHead>
+                <TableHead className={TH}>Módulo</TableHead>
+                {!isProfessor && <TableHead className={TH}>Professor</TableHead>}
+                <TableHead className={`${TH} w-[78px] text-center`}>Créd.</TableHead>
+                <TableHead className={`${TH} w-[96px] text-center`}>Faltas máx.</TableHead>
+                <TableHead className={`${TH} w-[100px]`}>Situação</TableHead>
+                <TableHead className={`${TH} w-[150px] pr-[18px] text-right`}>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {modules.map((mod) => (
                 <TableRow key={mod.id}>
-                  <TableCell>
-                    <span className="font-mono text-xs font-semibold text-muted-foreground">
-                      {mod.code}
-                    </span>
+                  <TableCell className="py-3 pl-[18px] pr-3 font-mono text-xs font-semibold text-muted-foreground">
+                    {mod.code}
                   </TableCell>
-                  <TableCell className="font-medium">{mod.name}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {mod.academic_period?.name ?? "—"}
+                  <TableCell className="px-3 py-3 text-[13.5px] font-semibold">
+                    {mod.name}
                   </TableCell>
                   {!isProfessor && (
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="px-3 py-3 text-[13px] text-muted-foreground">
                       {mod.professor?.full_name ?? "—"}
                     </TableCell>
                   )}
-                  <TableCell className="text-center font-mono text-sm">
+                  <TableCell className="px-3 py-3 text-center font-mono text-[13px]">
                     {mod.credits}
                   </TableCell>
-                  <TableCell className="text-center font-mono text-sm">
+                  <TableCell className="px-3 py-3 text-center font-mono text-[13px]">
                     {mod.max_absences}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="px-3 py-3">
                     {mod.is_active ? (
                       <Badge variant="success">Ativo</Badge>
                     ) : (
                       <Badge variant="secondary">Inativo</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      {/* Professor pode ir direto para notas do módulo */}
-                      {isProfessor && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Lançar notas"
-                          onClick={() =>
-                            navigate(`/grades?module=${mod.id}`)
-                          }
-                        >
-                          <ClipboardList className="h-4 w-4" />
-                        </Button>
-                      )}
+                  <TableCell className="py-3 pl-3 pr-[18px]">
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="h-9 px-[11px] text-[12.5px] font-semibold"
+                      >
+                        <Link to={`/grades?module=${mod.id}`}>Notas</Link>
+                      </Button>
                       {canEdit && (
                         <>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             aria-label="Editar módulo"
+                            className="text-muted-foreground [&_svg]:size-3.5"
                             onClick={() => openEdit(mod)}
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             aria-label="Excluir módulo"
-                            className="text-destructive hover:text-destructive"
+                            className="text-destructive hover:border-destructive hover:bg-destructive/10 hover:text-destructive [&_svg]:size-3.5"
                             onClick={() => handleDelete(mod)}
                             disabled={deleteMutation.isPending}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 />
                           </Button>
                         </>
                       )}

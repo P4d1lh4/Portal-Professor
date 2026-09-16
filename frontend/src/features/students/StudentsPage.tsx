@@ -11,28 +11,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { FilterChips } from "@/components/shared/FilterChips";
+import { InitialsAvatar } from "@/components/shared/InitialsAvatar";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/shared/Pagination";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { badgeVariants } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { usePeriods } from "@/features/periods/usePeriods";
+import { cn } from "@/lib/utils";
+import { useSelectedPeriod } from "@/features/periods/useSelectedPeriod";
 import {
   useStudentsByPeriod,
   useProfessorStudents,
@@ -48,32 +36,35 @@ import type { ListPeriodStudentsParams, StudentItem } from "./api";
 
 const PAGE_SIZE = 25;
 
-function AbsenceProgress({
-  absences,
-  max,
-}: {
-  absences: number;
-  max: number;
-}) {
+// ponytail: a rota de coord/admin só filtra por active_only (sem "só inativos"
+// nem "em risco de faltas"); a do professor não filtra, então lá não há chips.
+type StatusFilter = "active" | "all";
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: "active", label: "Ativos" },
+  { value: "all", label: "Todos" },
+];
+
+const ABSENCE_TONE = {
+  destructive: { bar: "bg-destructive", text: "text-destructive" },
+  warning: { bar: "bg-warning", text: "text-warning" },
+  success: { bar: "bg-success", text: "text-success" },
+};
+
+function AbsenceProgress({ absences, max }: { absences: number; max: number }) {
   const pct = Math.min((absences / Math.max(max, 1)) * 100, 100);
-  const color =
-    pct >= 80
-      ? "bg-destructive"
-      : pct >= 50
-        ? "bg-warning"
-        : "bg-success";
+  const tone = ABSENCE_TONE[pct >= 80 ? "destructive" : pct >= 50 ? "warning" : "success"];
   return (
-    <div className="flex items-center gap-2 min-w-[80px]">
-      <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${color}`}
+    <span className="flex items-center gap-[9px]">
+      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-accent">
+        <span
+          className={cn("block h-full rounded-full transition-all", tone.bar)}
           style={{ width: `${pct}%` }}
         />
-      </div>
-      <span className="font-mono text-xs text-muted-foreground">
+      </span>
+      <span className={cn("font-mono text-[11.5px] font-semibold", tone.text)}>
         {absences}/{max}
       </span>
-    </div>
+    </span>
   );
 }
 
@@ -82,14 +73,11 @@ export default function StudentsPage() {
   const isProfessor = profile?.role === "professor";
   const isCoordinator = profile?.role === "coordinator";
 
-  // Lista TODOS os períodos que o usuário pode acessar (ativos e inativos),
-  // não apenas os ativos — coord/admin frequentemente precisam consultar
-  // alunos de períodos passados. O backend já filtra por papel.
-  const { data: availablePeriods = [] } = usePeriods();
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
-  const periodId = selectedPeriodId || availablePeriods[0]?.id;
+  // O período vem da barra superior (vale para todas as telas).
+  const { period, periodId } = useSelectedPeriod();
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [page, setPage] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StudentItem | undefined>();
@@ -100,7 +88,7 @@ export default function StudentsPage() {
   // Reset de página quando filtros ou período mudam
   useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, periodId]);
+  }, [debouncedSearch, periodId, statusFilter]);
 
   const listParams = useMemo<ListPeriodStudentsParams>(() => {
     const params: ListPeriodStudentsParams = {
@@ -108,8 +96,9 @@ export default function StudentsPage() {
       offset: page * PAGE_SIZE,
     };
     if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+    if (statusFilter === "all") params.active_only = false;
     return params;
-  }, [debouncedSearch, page]);
+  }, [debouncedSearch, page, statusFilter]);
 
   // Mesma paginação e busca no servidor para os dois papéis (P-Q8); cada um
   // só dispara a sua query.
@@ -174,28 +163,26 @@ export default function StudentsPage() {
     }
   };
 
+  // Só a rota do professor traz módulos e faltas por aluno; a de coord/admin
+  // devolve o aluno "cru", então essas colunas ficariam sempre vazias.
+  const showModules = isProfessor;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <PageHeader
+        eyebrow={isProfessor ? "Seus módulos" : period?.name}
         title="Alunos"
-        description={
-          isProfessor
-            ? "Alunos matriculados nos seus módulos."
-            : "Gerencie os alunos do período selecionado."
-        }
         actions={
           <>
-            {!isProfessor && periodId && (
+            {!isProfessor && period && (
               <Button
                 variant="outline"
-                onClick={() => {
-                  const period = availablePeriods.find((p) => p.id === periodId);
-                  if (!period) return;
+                onClick={() =>
                   exportStudents.mutate({
                     periodId: period.id,
                     periodName: period.name,
-                  });
-                }}
+                  })
+                }
                 disabled={exportStudents.isPending}
               >
                 <FileSpreadsheet className="h-4 w-4" />
@@ -211,27 +198,16 @@ export default function StudentsPage() {
       />
 
       {/* Filtros */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {(isCoordinator || profile?.role === "admin") && (
-          <Select
-            value={selectedPeriodId || periodId || ""}
-            onValueChange={setSelectedPeriodId}
-          >
-            <SelectTrigger className="w-full sm:w-52">
-              <SelectValue placeholder="Selecione um período" />
-            </SelectTrigger>
-            <SelectContent>
-              {availablePeriods.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                  {!p.is_active && " (inativo)"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        {!isProfessor && (
+          <FilterChips
+            label="Filtrar por situação"
+            options={STATUS_FILTERS}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
         )}
-
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar por nome ou matrícula…"
@@ -282,105 +258,81 @@ export default function StudentsPage() {
           onAction={!search ? openCreate : undefined}
         />
       ) : (
-        <>
-          {/* Tabela — desktop */}
-          <div className="hidden md:block rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-28">Matrícula</TableHead>
-                  <TableHead>Nome</TableHead>
-                  {isProfessor && (
-                    <TableHead className="w-40">Faltas (módulos)</TableHead>
-                  )}
-                  <TableHead className="w-24">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students.map((student) => (
-                  <TableRow
-                    key={student.id}
-                    className="cursor-pointer"
+        <section className="overflow-x-auto rounded-xl border bg-card">
+          {/* Cabeçalho só visual: cada linha é um botão que já lê o próprio conteúdo */}
+          <div
+            aria-hidden="true"
+            className="hidden items-center gap-3 border-b bg-muted/40 px-[18px] py-[11px] text-[11px] font-semibold uppercase text-muted-foreground md:flex"
+          >
+            <span className="min-w-[150px] flex-1">Aluno</span>
+            {showModules && (
+              <>
+                <span className="w-[200px] shrink-0">Módulos</span>
+                <span className="w-[140px] shrink-0">Faltas</span>
+              </>
+            )}
+            <span className="w-[100px] shrink-0 text-right">Situação</span>
+          </div>
+
+          <ul>
+            {students.map((student) => {
+              const modules = student.enrolled_modules ?? [];
+              return (
+                <li key={student.id} className="border-b">
+                  {/* Abaixo de md a linha quebra (faltas descem) em vez de rolar */}
+                  <button
+                    type="button"
                     onClick={() => setDetailId(student.id)}
+                    className="flex w-full flex-wrap items-center gap-3 px-[18px] py-[11px] text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:flex-nowrap"
                   >
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {student.student_number}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {student.full_name}
-                    </TableCell>
-                    {isProfessor && (
-                      <TableCell>
-                        {student.enrolled_modules &&
-                        student.enrolled_modules.length > 0 ? (
-                          <AbsenceProgress
-                            absences={student.total_absences ?? 0}
-                            max={student.enrolled_modules.reduce(
-                              (s, m) => s + m.max_absences,
-                              0
-                            )}
-                          />
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            —
-                          </span>
-                        )}
-                      </TableCell>
+                    <span className="flex min-w-0 flex-1 items-center gap-[11px] md:min-w-[150px]">
+                      <InitialsAvatar name={student.full_name} />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {student.full_name}
+                        </span>
+                        <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
+                          {student.student_number}
+                        </span>
+                      </span>
+                    </span>
+                    {showModules && (
+                      <>
+                        <span className="hidden w-[200px] shrink-0 truncate font-mono text-[11.5px] text-muted-foreground md:block">
+                          {modules.map((m) => m.module_code).join(" · ") || "—"}
+                        </span>
+                        <span className="w-full max-md:order-last max-md:pl-[45px] md:w-[140px] md:shrink-0">
+                          {modules.length > 0 ? (
+                            <AbsenceProgress
+                              absences={student.total_absences ?? 0}
+                              max={modules.reduce((s, m) => s + m.max_absences, 0)}
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </span>
+                      </>
                     )}
-                    <TableCell>
-                      {student.is_active ? (
-                        <Badge variant="success">Ativo</Badge>
-                      ) : (
-                        <Badge variant="secondary">Inativo</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Cards — mobile */}
-          <div className="grid gap-3 md:hidden">
-            {students.map((student) => (
-              <button
-                key={student.id}
-                className="w-full rounded-xl border bg-card p-4 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => setDetailId(student.id)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-sm">{student.full_name}</p>
-                    <p className="font-mono text-xs text-muted-foreground mt-0.5">
-                      {student.student_number}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={student.is_active ? "success" : "secondary"}
-                  >
-                    {student.is_active ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
-
-                {isProfessor &&
-                  student.enrolled_modules &&
-                  student.enrolled_modules.length > 0 && (
-                    <div className="mt-2">
-                      <AbsenceProgress
-                        absences={student.total_absences ?? 0}
-                        max={student.enrolled_modules.reduce(
-                          (s, m) => s + m.max_absences,
-                          0
+                    <span className="shrink-0 text-right md:w-[100px]">
+                      <span
+                        className={cn(
+                          badgeVariants({
+                            variant: student.is_active ? "success" : "secondary",
+                          }),
+                          "text-[11.5px]",
                         )}
-                      />
-                    </div>
-                  )}
-              </button>
-            ))}
-          </div>
+                      >
+                        {student.is_active ? "Ativo" : "Inativo"}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 px-[18px] py-3">
+            <p className="text-[12.5px] text-muted-foreground">
               {total} aluno{total !== 1 ? "s" : ""}{" "}
               {search ? `encontrado${total !== 1 ? "s" : ""}` : "no total"}
             </p>
@@ -393,7 +345,7 @@ export default function StudentsPage() {
               disabled={isPlaceholderData}
             />
           </div>
-        </>
+        </section>
       )}
 
       {/* Slide-over de detalhe */}

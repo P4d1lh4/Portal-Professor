@@ -1,33 +1,15 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  History,
-} from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, History } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Badge } from "@/components/ui/badge";
+import { FilterChips, type FilterChipOption } from "@/components/shared/FilterChips";
+import { badgeVariants } from "@/components/ui/badge";
 import { Pagination } from "@/components/shared/Pagination";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import { useAuditLog } from "./useAudit";
 import type { AuditAction, AuditLogEntry } from "./api";
@@ -47,53 +29,58 @@ const ENTITY_LABELS: Record<string, string> = {
   medical_certificate_attachments: "Anexos de atestado",
 };
 
+const ENTITY_FILTERS: FilterChipOption<string>[] = [
+  { value: "__all", label: "Todas as entidades" },
+  ...Object.entries(ENTITY_LABELS).map(([value, label]) => ({ value, label })),
+];
+
 const ACTION_LABELS: Record<AuditAction, string> = {
   insert: "Criação",
   update: "Alteração",
   delete: "Exclusão",
 };
 
-function ActionBadge({ action }: { action: AuditAction }) {
-  if (action === "insert") return <Badge variant="success">{ACTION_LABELS[action]}</Badge>;
-  if (action === "delete") return <Badge variant="destructive">{ACTION_LABELS[action]}</Badge>;
-  return <Badge variant="secondary">{ACTION_LABELS[action]}</Badge>;
-}
+const ACTION_VARIANT = {
+  insert: "success",
+  update: "secondary",
+  delete: "destructive",
+} as const;
+
+const DIFF_CELL = "px-3 py-2 font-mono text-[11.5px] break-all";
 
 function DiffBlock({ entry }: { entry: AuditLogEntry }) {
-  const before = entry.before_data ?? {};
-  const after = entry.after_data ?? {};
-  const keys = Array.from(
-    new Set([...Object.keys(before), ...Object.keys(after)]),
-  );
+  const before: Record<string, unknown> = entry.before_data ?? {};
+  const after: Record<string, unknown> = entry.after_data ?? {};
+  let keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)]));
+  // Na alteração, só o que mudou; criação e exclusão mostram tudo.
+  if (entry.action === "update") {
+    keys = keys.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+  }
 
   if (keys.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground italic">
+      <p className="text-xs italic text-muted-foreground">
         Nenhum campo registrado.
       </p>
     );
   }
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3 text-xs">
-      <table className="w-full">
-        <thead className="text-muted-foreground">
+    <div className="overflow-hidden rounded-[10px] border">
+      <table className="w-full table-fixed text-left">
+        <thead className="border-b bg-muted/40 text-[11px] font-semibold uppercase text-muted-foreground">
           <tr>
-            <th className="pb-2 text-left font-medium">Campo</th>
-            <th className="pb-2 text-left font-medium">Antes</th>
-            <th className="pb-2 text-left font-medium">Depois</th>
+            <th className="w-[35%] px-3 py-2 font-semibold sm:w-[150px]">Campo</th>
+            <th className="px-3 py-2 font-semibold">Antes</th>
+            <th className="px-3 py-2 font-semibold">Depois</th>
           </tr>
         </thead>
         <tbody>
           {keys.map((k) => (
-            <tr key={k} className="border-t border-border/50">
-              <td className="py-1 pr-3 font-mono text-[11px]">{k}</td>
-              <td className="py-1 pr-3 font-mono text-[11px] text-destructive">
-                {formatValue((before as Record<string, unknown>)[k])}
-              </td>
-              <td className="py-1 font-mono text-[11px] text-success">
-                {formatValue((after as Record<string, unknown>)[k])}
-              </td>
+            <tr key={k} className="border-b last:border-0">
+              <td className={DIFF_CELL}>{k}</td>
+              <td className={cn(DIFF_CELL, "text-destructive")}>{formatValue(before[k])}</td>
+              <td className={cn(DIFF_CELL, "text-success")}>{formatValue(after[k])}</td>
             </tr>
           ))}
         </tbody>
@@ -138,35 +125,23 @@ export default function AuditLogPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Auditoria"
-        description="Histórico de alterações em notas, alunos, módulos e períodos."
-      />
+    <div className="space-y-3">
+      <PageHeader eyebrow="Administração" title="Registro de auditoria" />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Select
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterChips
+          label="Filtrar por entidade"
+          options={ENTITY_FILTERS}
           value={entity}
-          onValueChange={(v) => {
+          onChange={(v) => {
             setEntity(v);
             setPage(0);
           }}
-        >
-          <SelectTrigger className="w-full sm:w-56">
-            <SelectValue placeholder="Filtrar por entidade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all">Todas as entidades</SelectItem>
-            {Object.entries(ENTITY_LABELS).map(([k, v]) => (
-              <SelectItem key={k} value={k}>
-                {v}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <p className="text-xs text-muted-foreground sm:ml-auto">
-          {total > 0 ? `${total} registros` : "Sem registros"}
+        />
+        <p className="ml-auto text-[12.5px] text-muted-foreground">
+          {total > 0
+            ? `${total.toLocaleString("pt-BR")} registro${total !== 1 ? "s" : ""}`
+            : "Sem registros"}
         </p>
       </div>
 
@@ -190,63 +165,58 @@ export default function AuditLogPage() {
         />
       ) : (
         <>
-          <div className="rounded-xl border bg-card overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-40">Data/Hora</TableHead>
-                  <TableHead className="w-32">Tipo</TableHead>
-                  <TableHead className="w-32">Entidade</TableHead>
-                  <TableHead>Resumo</TableHead>
-                  <TableHead className="w-44">Autor</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((entry) => {
-                  const isOpen = expanded.has(entry.id);
-                  return (
-                    <Fragment key={entry.id}>
-                      <TableRow
-                        className="cursor-pointer"
-                        onClick={() => toggle(entry.id)}
+          <section className="overflow-hidden rounded-xl border bg-card">
+            <ul>
+              {items.map((entry) => {
+                const isOpen = expanded.has(entry.id);
+                const Chevron = isOpen ? ChevronUp : ChevronDown;
+                const when = new Date(entry.created_at);
+                return (
+                  <li key={entry.id} className="border-b last:border-0">
+                    {/* Linhas quebram em telas estreitas em vez de rolar */}
+                    <button
+                      type="button"
+                      aria-expanded={isOpen}
+                      onClick={() => toggle(entry.id)}
+                      className="flex w-full flex-wrap items-center gap-3 px-[18px] py-[11px] text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    >
+                      <time
+                        dateTime={entry.created_at}
+                        title={format(when, "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        className="w-[120px] shrink-0 font-mono text-[11.5px] text-muted-foreground"
                       >
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {format(new Date(entry.created_at), "dd/MM/yyyy HH:mm", {
-                            locale: ptBR,
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <ActionBadge action={entry.action} />
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {ENTITY_LABELS[entry.entity] ?? entry.entity}
-                        </TableCell>
-                        <TableCell className="text-sm">{entry.summary}</TableCell>
-                        <TableCell className="text-xs">
-                          {entry.actor_name}
-                        </TableCell>
-                        <TableCell>
-                          {isOpen ? (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                      {isOpen && (
-                        <TableRow>
-                          <TableCell colSpan={6} className="bg-muted/20 p-4">
-                            <DiffBlock entry={entry} />
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                        {format(when, "dd/MM HH:mm", { locale: ptBR })}
+                      </time>
+                      <span
+                        className={cn(
+                          badgeVariants({ variant: ACTION_VARIANT[entry.action] }),
+                          "shrink-0 text-[11.5px]",
+                        )}
+                      >
+                        {ACTION_LABELS[entry.action]}
+                      </span>
+                      <span className="w-[90px] shrink-0 text-xs text-muted-foreground">
+                        {ENTITY_LABELS[entry.entity] ?? entry.entity}
+                      </span>
+                      <span className="min-w-[140px] flex-1 text-[13.5px]">{entry.summary}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {entry.actor_name}
+                      </span>
+                      <Chevron
+                        aria-hidden="true"
+                        className="h-[15px] w-[15px] shrink-0 text-muted-foreground"
+                      />
+                    </button>
+                    {isOpen && (
+                      <div className="px-[18px] pb-3.5">
+                        <DiffBlock entry={entry} />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
 
           <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </>

@@ -3,13 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  GraduationCap,
-  Loader2,
-} from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/lib/supabase";
@@ -17,13 +11,8 @@ import { useAuth, useAuthStore } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
+const LABEL = "text-[12.5px] font-semibold text-muted-foreground";
 
 const schema = z
   .object({
@@ -82,126 +71,122 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/60 p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <GraduationCap className="h-6 w-6" />
-          </div>
-          <h1 className="text-2xl">
-            Aplicação Professor
-          </h1>
-        </div>
-
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl">Definir nova senha</CardTitle>
-            <CardDescription>
+    <div className="flex min-h-screen items-center justify-center bg-background px-5 py-8">
+      <div className="w-full max-w-[520px] rounded-[14px] border bg-card p-7">
+        <div className="mb-5 flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-primary text-primary-foreground">
+            <LockKeyhole className="h-4 w-4" />
+          </span>
+          <div>
+            <h1 className="text-[19px]">Definir nova senha</h1>
+            <p className="mt-0.5 text-[12.5px] text-muted-foreground">
               {noSession
                 ? "Link inválido ou expirado."
                 : "Escolha uma nova senha para acessar sua conta."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              </div>
-            ) : noSession ? (
-              <div className="space-y-4">
-                <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                  O link de recuperação expirou ou já foi utilizado. Solicite
-                  um novo e-mail para redefinir a senha.
-                </p>
-                <Button asChild className="w-full">
-                  <Link to="/forgot-password">Solicitar novo link</Link>
-                </Button>
-                <Button asChild variant="ghost" className="w-full">
-                  <Link to="/login">
-                    <ArrowLeft className="h-4 w-4" />
-                    Voltar para o login
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <form
-                onSubmit={handleSubmit(onSubmit)}
-                noValidate
-                className="space-y-4"
-              >
-                <div className="space-y-1.5">
-                  <Label htmlFor="password">Nova senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="new-password"
-                      placeholder="Mínimo 8 caracteres"
-                      className="pr-10"
-                      {...register("password")}
-                      aria-describedby={
-                        errors.password ? "password-error" : undefined
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                      onClick={() => setShowPassword((v) => !v)}
-                      aria-label={
-                        showPassword ? "Ocultar senha" : "Exibir senha"
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p id="password-error" className="text-xs text-destructive">
-                      {errors.password.message}
-                    </p>
-                  )}
-                </div>
+            </p>
+          </div>
+        </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="confirm">Confirmar senha</Label>
+        {isLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : noSession ? (
+          <div className="space-y-[22px]">
+            <p className="rounded-[10px] border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-[12.5px] text-destructive">
+              O link de recuperação expirou ou já foi utilizado. Solicite
+              um novo e-mail para redefinir a senha.
+            </p>
+            {/* No celular o botão principal fica em cima, largura toda. */}
+            <div className="flex flex-col-reverse gap-2.5 sm:flex-row">
+              <Button asChild variant="outline" className="h-11 px-4 text-[13.5px] font-semibold">
+                <Link to="/login">Voltar</Link>
+              </Button>
+              <Button asChild className="h-11 font-semibold sm:flex-1">
+                <Link to="/forgot-password">Solicitar novo link</Link>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-[22px]"
+          >
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className={LABEL}>Nova senha</Label>
+                <div className="relative">
                   <Input
-                    id="confirm"
+                    id="password"
                     type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
-                    placeholder="Repita a senha"
-                    {...register("confirm")}
+                    placeholder="Mínimo 8 caracteres"
+                    className="h-11 pr-11"
+                    {...register("password")}
                     aria-describedby={
-                      errors.confirm ? "confirm-error" : undefined
+                      errors.password ? "password-error" : undefined
                     }
                   />
-                  {errors.confirm && (
-                    <p id="confirm-error" className="text-xs text-destructive">
-                      {errors.confirm.message}
-                    </p>
-                  )}
+                  <button
+                    type="button"
+                    className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={
+                      showPassword ? "Ocultar senha" : "Exibir senha"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
+                {errors.password && (
+                  <p id="password-error" className="text-xs text-destructive">
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="animate-spin" />
-                      Salvando…
-                    </>
-                  ) : (
-                    "Salvar nova senha"
-                  )}
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm" className={LABEL}>Confirmar senha</Label>
+                <Input
+                  id="confirm"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="Repita a senha"
+                  className="h-11"
+                  {...register("confirm")}
+                  aria-describedby={
+                    errors.confirm ? "confirm-error" : undefined
+                  }
+                />
+                {errors.confirm && (
+                  <p id="confirm-error" className="text-xs text-destructive">
+                    {errors.confirm.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="h-11 w-full font-semibold"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Salvando…
+                </>
+              ) : (
+                "Salvar nova senha"
+              )}
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );
