@@ -44,6 +44,7 @@ Com `period_id`, o dashboard do professor mostra só os módulos dele naquele pe
 
 - **Antes da correção:** os 3 testes novos falhavam (`KeyError: 'period'` e `assert 200 == 404`). Pedindo `p2`, o endpoint devolvia `{'modules': 2, 'students': 3, ...}`, com `ANA1` (de `p1`) em "Seus módulos" e a aluna dele em "Precisa de atenção".
 - **Depois:** os 3 passam. O fake aplica os `.eq`/`.in_` da consulta nas linhas, então um filtro que falte aparece como módulo ou aluno a mais.
+- **Mutações, 4 pegas:** tirar o filtro por `academic_period_id` (2 falham), devolver o período na resposta vazia, trocar o 404 por um período falso e tirar `period` da resposta (1 falha cada).
 - **Suíte do backend**, num venv com o `requirements.txt` e as variáveis stub do CI (o Python global tem FastAPI 0.115, que falha no `test_me_sem_token_retorna_401` por ser anterior à 0.122): 407 passed, 2 skipped, cobertura 85%.
 
 ## Resultado dos testes
