@@ -38,6 +38,10 @@ updates:
       # TS 7 (nativo) sem suporte no typescript-eslint 8 (peer <6.1) (PR #58).
       - dependency-name: typescript
         versions: [">=7"]
+      # tailwind-merge 3 só suporta Tailwind CSS v4; o projeto está no v3.4 (PR #115).
+      # Remover junto com a migração para o Tailwind v4.
+      - dependency-name: tailwind-merge
+        versions: [">=3"]
 
   # GitHub Actions usadas no CI
   - package-ecosystem: github-actions
