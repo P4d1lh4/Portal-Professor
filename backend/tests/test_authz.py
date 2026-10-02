@@ -240,8 +240,8 @@ class TestDashboardAuthz:
         })
         monkeypatch.setattr(dashboard_router, "get_admin_db", lambda: db)
 
-        # period_id alheio é ignorado: o professor só enxerga os módulos dele.
-        resp = client.get("/api/dashboard?period_id=periodo-alheio")
+        # O filtro por período está em test_dashboard_professor_period.py.
+        resp = client.get("/api/dashboard")
         assert resp.status_code == 200
         assert resp.json()["summary"] == {
             "modules": 1, "students": 2, "approvals": 1, "approval_rate": 50,

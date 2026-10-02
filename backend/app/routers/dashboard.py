@@ -3,11 +3,11 @@ Dashboard — dados agregados por papel.
 
 GET /api/dashboard
   - admin/coordinator: visão geral do período selecionado
-  - professor: visão dos seus módulos
+  - professor: visão dos seus módulos no período selecionado
 """
 import asyncio
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..db import fetch_all, get_admin_db
 from ..deps import get_current_user
@@ -31,6 +31,18 @@ def _grade_bucket(final: float) -> str:
 BUCKETS = ["0–4.9", "5–6.9", "7–8.9", "9–10"]
 
 
+def _get_period(db, period_id: str) -> dict:
+    resp = (
+        db.table("academic_periods")
+        .select("id, name, is_active")
+        .eq("id", period_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Período não encontrado.")
+    return resp.data[0]
+
+
 @router.get("/dashboard")
 async def get_dashboard(
     period_id: str | None = Query(None),
@@ -41,16 +53,23 @@ async def get_dashboard(
 
     # ── Professor ─────────────────────────────────────────────────────────────
     if role == "professor":
-        mods_resp = await asyncio.to_thread(
-            lambda: db.table("modules")
+        # Sem period_id, todos os módulos: o front sempre manda o período da
+        # barra superior (useSelectedPeriod cai no ativo) quando o professor tem algum.
+        period = await asyncio.to_thread(_get_period, db, period_id) if period_id else None
+        mods_query = (
+            db.table("modules")
             .select("id, name, code, max_absences, is_active")
             .eq("professor_id", current_user.id)
-            .execute()
         )
+        if period:
+            mods_query = mods_query.eq("academic_period_id", period["id"])
+        mods_resp = await asyncio.to_thread(mods_query.execute)
         modules = mods_resp.data or []
         if not modules:
+            # period fica None: o professor não leciona nele, e o nome não vaza.
             return {
                 "role": role,
+                "period": None,
                 "summary": {"modules": 0, "students": 0, "approvals": 0, "approval_rate": 0},
                 "modules_detail": [],
                 "grade_distribution": [],
@@ -135,6 +154,7 @@ async def get_dashboard(
 
         return {
             "role": role,
+            "period": period,
             "summary": {
                 "modules": len(modules),
                 "students": total_students,
