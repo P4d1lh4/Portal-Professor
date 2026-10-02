@@ -18,13 +18,6 @@ import { Pagination } from "@/components/shared/Pagination";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -34,7 +27,10 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { FilterChips, type FilterChipOption } from "@/components/shared/FilterChips";
+import { InitialsAvatar } from "@/components/shared/InitialsAvatar";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { cn } from "@/lib/utils";
 import type { Profile, UserRole } from "@/types";
 
 import { InviteDialog } from "./InviteDialog";
@@ -57,24 +53,36 @@ const ROLE_LABEL: Record<UserRole, string> = {
   professor: "Professor",
 };
 
-const ROLE_VARIANT: Record<
-  UserRole,
-  "default" | "secondary" | "outline"
-> = {
-  admin: "default",
-  coordinator: "secondary",
-  professor: "outline",
+// Administrador em destaque; os demais papéis em tom neutro.
+const ROLE_PILL: Record<UserRole, string> = {
+  admin: "text-foreground",
+  coordinator: "",
+  professor: "bg-transparent",
 };
 
-type RoleFilter = "all" | UserRole;
-type StatusFilter = "all" | "active" | "inactive";
+// ponytail: escolha única, como no desenho — some a combinação papel + inativos
+// e o filtro só de administradores; volta a dois grupos de chips se fizer falta.
+type UserFilter = "all" | "coordinator" | "professor" | "inactive";
+
+const FILTERS: FilterChipOption<UserFilter>[] = [
+  { value: "all", label: "Todos os papéis" },
+  { value: "coordinator", label: "Coordenação" },
+  { value: "professor", label: "Professores" },
+  { value: "inactive", label: "Inativos" },
+];
+
+const COLUMNS = [
+  ["Pessoa", ""],
+  ["Papel", "w-[150px]"],
+  ["Situação", "w-[110px]"],
+  ["Ações", "w-[120px] text-right"],
+] as const;
 
 export default function UsersPage() {
   const { profile } = useAuth();
 
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [filter, setFilter] = useState<UserFilter>("all");
   const [page, setPage] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Profile | undefined>();
@@ -84,19 +92,19 @@ export default function UsersPage() {
   // Volta para a primeira página quando os filtros mudam
   useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, roleFilter, statusFilter]);
+  }, [debouncedSearch, filter]);
 
   const queryParams = useMemo<ListUsersParams>(() => {
     const params: ListUsersParams = {
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
+      // Fora do chip "Inativos", a lista mostra só quem está ativo (como antes).
+      is_active: filter !== "inactive",
     };
     if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-    if (roleFilter !== "all") params.role = roleFilter;
-    if (statusFilter === "active") params.is_active = true;
-    else if (statusFilter === "inactive") params.is_active = false;
+    if (filter === "coordinator" || filter === "professor") params.role = filter;
     return params;
-  }, [debouncedSearch, roleFilter, statusFilter, page]);
+  }, [debouncedSearch, filter, page]);
 
   const { data, isLoading, isError, error, isPlaceholderData } =
     useUsers(queryParams);
@@ -108,6 +116,7 @@ export default function UsersPage() {
 
   const users = data?.items ?? [];
   const total = data?.total ?? 0;
+  const filtered = !!search || filter !== "all";
 
   const openCreate = () => {
     setEditing(undefined);
@@ -145,10 +154,10 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <PageHeader
-        title="Usuários"
-        description="Gerencie administradores, coordenadores e professores."
+        eyebrow="Administração"
+        title="Usuários e convites"
         actions={
           <>
             <InviteDialog>
@@ -166,44 +175,23 @@ export default function UsersPage() {
       />
 
       {/* Filtros */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[180px] flex-1 sm:max-w-[300px]">
+          <Search className="absolute left-[11px] top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, e-mail ou usuário…"
+            placeholder="Nome, e-mail ou usuário"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="rounded-[10px] bg-card pl-[34px] text-[13.5px]"
             aria-label="Buscar usuários"
           />
         </div>
-        <Select
-          value={roleFilter}
-          onValueChange={(v) => setRoleFilter(v as RoleFilter)}
-        >
-          <SelectTrigger className="w-full sm:w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os papéis</SelectItem>
-            <SelectItem value="admin">Administradores</SelectItem>
-            <SelectItem value="coordinator">Coordenadores</SelectItem>
-            <SelectItem value="professor">Professores</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-        >
-          <SelectTrigger className="w-full sm:w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Ativos</SelectItem>
-            <SelectItem value="inactive">Inativos</SelectItem>
-            <SelectItem value="all">Todos</SelectItem>
-          </SelectContent>
-        </Select>
+        <FilterChips
+          label="Filtrar usuários"
+          options={FILTERS}
+          value={filter}
+          onChange={setFilter}
+        />
       </div>
 
       {isLoading ? (
@@ -224,40 +212,33 @@ export default function UsersPage() {
       ) : users.length === 0 ? (
         <EmptyState
           icon={UsersIcon}
-          title={
-            search || roleFilter !== "all" || statusFilter !== "active"
-              ? "Nenhum usuário encontrado"
-              : "Nenhum usuário cadastrado"
-          }
+          title={filtered ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
           description={
-            search || roleFilter !== "all" || statusFilter !== "active"
+            filtered
               ? "Ajuste os filtros ou tente outra busca."
               : "Adicione o primeiro usuário clicando em Novo usuário."
           }
-          actionLabel={
-            !search && roleFilter === "all" && statusFilter === "active"
-              ? "Novo usuário"
-              : undefined
-          }
-          onAction={
-            !search && roleFilter === "all" && statusFilter === "active"
-              ? openCreate
-              : undefined
-          }
+          actionLabel={filtered ? undefined : "Novo usuário"}
+          onAction={filtered ? undefined : openCreate}
         />
       ) : (
         <>
-          {/* Tabela — desktop */}
-          <div className="hidden md:block rounded-xl border bg-card">
-            <Table>
+          {/* Em telas estreitas a tabela rola na horizontal dentro do card */}
+          <section className="overflow-hidden rounded-xl border bg-card">
+            <Table className="min-w-[700px]">
               <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead className="w-36">Usuário</TableHead>
-                  <TableHead className="w-32">Papel</TableHead>
-                  <TableHead className="w-24">Status</TableHead>
-                  <TableHead className="w-28 text-right">Ações</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  {COLUMNS.map(([label, width]) => (
+                    <TableHead
+                      key={label}
+                      className={cn(
+                        "h-auto px-[18px] py-[11px] text-[11px] font-semibold uppercase",
+                        width,
+                      )}
+                    >
+                      {label}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -265,48 +246,67 @@ export default function UsersPage() {
                   const isSelf = u.id === profile?.id;
                   return (
                     <TableRow key={u.id}>
-                      <TableCell className="font-medium">
-                        {u.full_name}
-                        {isSelf && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            (você)
-                          </span>
-                        )}
+                      <TableCell className="px-[18px] py-2.5">
+                        <div className="flex items-center gap-[11px]">
+                          <InitialsAvatar
+                            name={u.full_name}
+                            className={u.role === "admin" ? "text-foreground" : undefined}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold">
+                              {u.full_name}
+                              {isSelf && (
+                                <span className="font-normal text-muted-foreground">
+                                  {" "}(você)
+                                </span>
+                              )}
+                            </p>
+                            <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                              {u.email} ·{" "}
+                              <span className="font-mono">@{u.username}</span>
+                            </p>
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {u.email}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        @{u.username}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={ROLE_VARIANT[u.role]}>
+                      <TableCell className="px-[18px] py-2.5">
+                        <Badge
+                          variant="secondary"
+                          className={cn("whitespace-nowrap text-[11.5px]", ROLE_PILL[u.role])}
+                        >
                           {ROLE_LABEL[u.role]}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {u.is_active ? (
-                          <Badge variant="success">Ativo</Badge>
-                        ) : (
-                          <Badge variant="secondary">Inativo</Badge>
-                        )}
+                      <TableCell className="px-[18px] py-2.5">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-[7px] text-[12.5px] font-semibold",
+                            u.is_active ? "text-success" : "text-muted-foreground",
+                          )}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="h-[7px] w-[7px] rounded-full bg-current"
+                          />
+                          {u.is_active ? "Ativo" : "Inativo"}
+                        </span>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
+                      <TableCell className="px-[18px] py-2.5">
+                        <div className="flex justify-end gap-1.5">
                           <Button
                             type="button"
                             size="icon"
-                            variant="ghost"
+                            variant="outline"
                             onClick={() => openEdit(u)}
                             aria-label={`Editar ${u.full_name}`}
+                            className="text-muted-foreground hover:bg-card hover:text-foreground"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </Button>
                           {u.is_active ? (
                             <Button
                               type="button"
                               size="icon"
-                              variant="ghost"
+                              variant="outline"
                               disabled={isSelf}
                               onClick={() => handleDeactivate(u)}
                               aria-label={`Desativar ${u.full_name}`}
@@ -317,19 +317,19 @@ export default function UsersPage() {
                               }
                               className="text-destructive hover:bg-destructive/10 hover:text-destructive disabled:text-muted-foreground"
                             >
-                              <UserX className="h-4 w-4" />
+                              <UserX className="h-3.5 w-3.5" />
                             </Button>
                           ) : (
                             <Button
                               type="button"
                               size="icon"
-                              variant="ghost"
+                              variant="outline"
                               onClick={() => handleReactivate(u)}
                               aria-label={`Reativar ${u.full_name}`}
                               title="Reativar usuário"
-                              className="text-success hover:bg-success/10"
+                              className="text-success hover:bg-success/10 hover:text-success"
                             >
-                              <RotateCcw className="h-4 w-4" />
+                              <RotateCcw className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>
@@ -339,89 +339,12 @@ export default function UsersPage() {
                 })}
               </TableBody>
             </Table>
-          </div>
-
-          {/* Cards — mobile */}
-          <div className="grid gap-3 md:hidden">
-            {users.map((u) => {
-              const isSelf = u.id === profile?.id;
-              return (
-                <div
-                  key={u.id}
-                  className="rounded-xl border bg-card p-4 space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm">
-                        {u.full_name}
-                        {isSelf && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            (você)
-                          </span>
-                        )}
-                      </p>
-                      <p className="font-mono text-xs text-muted-foreground">
-                        @{u.username}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {u.email}
-                      </p>
-                    </div>
-                    <Badge variant={u.is_active ? "success" : "secondary"}>
-                      {u.is_active ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Badge variant={ROLE_VARIANT[u.role]}>
-                      {ROLE_LABEL[u.role]}
-                    </Badge>
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEdit(u)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Editar
-                      </Button>
-                      {u.is_active ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          disabled={isSelf}
-                          onClick={() => handleDeactivate(u)}
-                          className="text-destructive disabled:text-muted-foreground"
-                        >
-                          <UserX className="h-3.5 w-3.5" />
-                          Desativar
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleReactivate(u)}
-                          className="text-success"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                          Reativar
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          </section>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {total} usuário{total !== 1 ? "s" : ""}{" "}
-              {search || roleFilter !== "all" || statusFilter !== "active"
-                ? `encontrado${total !== 1 ? "s" : ""}`
-                : "no total"}
+              {filtered ? `encontrado${total !== 1 ? "s" : ""}` : "no total"}
             </p>
 
             <Pagination

@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
-  CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
   ClipboardList,
   FileSpreadsheet,
   Loader2,
@@ -15,20 +17,13 @@ import {
 } from "lucide-react";
 import { useDownloadModuleAttendance } from "@/features/exports/useExports";
 
-import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { InitialsAvatar } from "@/components/shared/InitialsAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -37,8 +32,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useModules } from "@/features/modules/useModules";
+import { cn } from "@/lib/utils";
+import { ModuleTabs, ModuleWorkspace } from "@/features/modules/ModuleWorkspace";
+import { moduleEyebrow, usePeriodModules } from "@/features/modules/usePeriodModules";
 import { RiskBadge } from "@/features/grades/RiskBadge";
+import { useModuleGrades } from "@/features/grades/useGrades";
 
 import {
   useAttendanceDay,
@@ -47,7 +45,6 @@ import {
   useSaveAttendance,
 } from "./useAttendance";
 import type { AttendanceStatus } from "./api";
-import { cardTable } from "@/components/ui/card-table";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,13 +60,20 @@ function formatDateBR(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-const STATUS_LABEL: Record<AttendanceStatus, string> = {
-  present: "Presente",
-  absent: "Falta",
-  justified: "Justificado",
-};
+// Meio-dia local: somar um dia nunca cruza a data por causa do fuso.
+function shiftDate(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
-// ─── Botão de status (segmento) ───────────────────────────────────────────────
+// ─── Botão de status ──────────────────────────────────────────────────────────
+
+const STATUS_STYLE: Record<AttendanceStatus, { letter: string; active: string }> = {
+  present: { letter: "P", active: "border-success bg-success text-success-foreground" },
+  absent: { letter: "F", active: "border-destructive bg-destructive text-destructive-foreground" },
+  justified: { letter: "J", active: "border-warning bg-warning text-warning-foreground" },
+};
 
 interface StatusButtonProps {
   active: boolean;
@@ -86,31 +90,6 @@ function StatusButton({
   ariaLabel,
   disabled = false,
 }: StatusButtonProps) {
-  const base =
-    // 44 px no celular (alvo de toque mínimo; F-08), compacto no desktop.
-    "h-11 w-12 md:h-8 md:w-9 inline-flex items-center justify-center text-xs font-semibold transition-colors border";
-  const styles: Record<AttendanceStatus, { active: string; inactive: string }> = {
-    present: {
-      active: "bg-success text-white border-success",
-      inactive: "bg-card border-input text-muted-foreground hover:bg-success/10",
-    },
-    absent: {
-      active: "bg-destructive text-white border-destructive",
-      inactive:
-        "bg-card border-input text-muted-foreground hover:bg-destructive/10",
-    },
-    justified: {
-      active: "bg-warning text-white border-warning",
-      inactive:
-        "bg-card border-input text-muted-foreground hover:bg-warning/10",
-    },
-  };
-  const rounded =
-    variant === "present"
-      ? "rounded-l-md"
-      : variant === "justified"
-        ? "rounded-r-md -ml-px"
-        : "-ml-px";
   return (
     <button
       type="button"
@@ -118,9 +97,15 @@ function StatusButton({
       aria-pressed={active}
       onClick={onClick}
       disabled={disabled}
-      className={`${base} ${rounded} ${active ? styles[variant].active : styles[variant].inactive} disabled:opacity-50 disabled:cursor-not-allowed`}
+      className={cn(
+        // 44 px de altura: alvo de toque mínimo (F-08).
+        "inline-flex h-11 w-[52px] items-center justify-center rounded-[10px] border text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        active
+          ? STATUS_STYLE[variant].active
+          : "bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+      )}
     >
-      {variant === "present" ? "P" : variant === "absent" ? "F" : "J"}
+      {STATUS_STYLE[variant].letter}
     </button>
   );
 }
@@ -128,38 +113,28 @@ function StatusButton({
 // ─── Página ────────────────────────────────────────────────────────────────────
 
 export default function AttendancePage() {
-  const { profile } = useAuth();
-  const isProfessor = profile?.role === "professor";
-
   const [searchParams, setSearchParams] = useSearchParams();
-  const urlModule = searchParams.get("module") ?? "";
   const urlDate = searchParams.get("date") ?? "";
 
-  const [selectedModuleId, setSelectedModuleId] = useState(urlModule);
   const [selectedDate, setSelectedDate] = useState(urlDate || todayISO());
   const [search, setSearch] = useState("");
 
   const {
-    data: modules = [],
+    modules,
+    activeModule,
     isLoading: modulesLoading,
     isError: modulesError,
     error: modulesErrorObj,
-  } = useModules();
-
-  useEffect(() => {
-    if (modules.length > 0 && !selectedModuleId) {
-      setSelectedModuleId(urlModule || modules[0].id);
-    }
-  }, [modules, selectedModuleId, urlModule]);
-
-  const activeModuleId = selectedModuleId || modules[0]?.id;
-  const activeModule = modules.find((m) => m.id === activeModuleId);
+  } = usePeriodModules();
+  const activeModuleId = activeModule?.id;
 
   const { data: day, isLoading: dayLoading } = useAttendanceDay(
     activeModuleId,
     selectedDate,
   );
   const { data: history = [] } = useModuleAttendance(activeModuleId);
+  // Faltas acumuladas por aluno: a mesma query da tela de Notas (e do RiskBadge).
+  const { data: gradeRows } = useModuleGrades(activeModuleId);
   const saveMut = useSaveAttendance(activeModuleId ?? "", selectedDate);
   const deleteMut = useDeleteAttendance(activeModuleId ?? "");
 
@@ -191,6 +166,11 @@ export default function AttendancePage() {
         e.student_number.toLowerCase().includes(q),
     );
   }, [day, search]);
+
+  const absencesByEnrollment = useMemo(
+    () => new Map(gradeRows?.map((r) => [r.enrollment_id, r.absences])),
+    [gradeRows],
+  );
 
   const counts = useMemo(() => {
     let p = 0,
@@ -225,12 +205,11 @@ export default function AttendancePage() {
 
   const handleModuleChange = async (id: string) => {
     if (!(await confirmDiscard())) return;
-    setSelectedModuleId(id);
     updateUrl(id, selectedDate);
   };
 
   const handleDateChange = async (d: string) => {
-    if (!(await confirmDiscard())) return;
+    if (!d || !(await confirmDiscard())) return;
     setSelectedDate(d);
     if (activeModuleId) updateUrl(activeModuleId, d);
   };
@@ -271,104 +250,43 @@ export default function AttendancePage() {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
-  const isLoading = modulesLoading || dayLoading;
-  const noEntries = day?.entries.length === 0;
   const periodClosed = activeModule?.academic_period?.is_active === false;
   const exportAttendance = useDownloadModuleAttendance();
+  const maxAbsences = activeModule?.max_absences ?? 0;
+
+  const header = (
+    <PageHeader
+      eyebrow={activeModule ? moduleEyebrow(activeModule) : undefined}
+      title={activeModule?.name ?? "Chamada"}
+      actions={
+        activeModule ? (
+          <Button
+            variant="outline"
+            onClick={() =>
+              exportAttendance.mutate({
+                moduleId: activeModule.id,
+                moduleCode: activeModule.code,
+              })
+            }
+            disabled={exportAttendance.isPending}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Exportar CSV
+          </Button>
+        ) : undefined
+      }
+      tabs={activeModule ? <ModuleTabs moduleId={activeModule.id} /> : undefined}
+    />
+  );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Chamada"
-        description={
-          isProfessor
-            ? "Registre a frequência dos seus alunos por dia de aula."
-            : "Visualize e edite registros de frequência por módulo."
-        }
-        actions={
-          activeModule ? (
-            <Button
-              variant="outline"
-              onClick={() =>
-                exportAttendance.mutate({
-                  moduleId: activeModule.id,
-                  moduleCode: activeModule.code,
-                })
-              }
-              disabled={exportAttendance.isPending}
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              Exportar CSV
-            </Button>
-          ) : undefined
-        }
-      />
-
-      {/* Controles: módulo + data */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {modules.length > 0 && modules.length <= 4 ? (
-          <div className="flex flex-wrap gap-2">
-            {modules.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => handleModuleChange(m.id)}
-                className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  activeModuleId === m.id
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card hover:bg-accent/50"
-                }`}
-              >
-                {m.code}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <Select
-            value={activeModuleId ?? ""}
-            onValueChange={handleModuleChange}
-          >
-            <SelectTrigger className="w-full sm:w-64">
-              <SelectValue placeholder="Selecione um módulo" />
-            </SelectTrigger>
-            <SelectContent>
-              {modules.map((m) => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.code} — {m.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <div className="flex items-center gap-2">
-          <CalendarDays
-            className="h-4 w-4 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => handleDateChange(e.target.value)}
-            className="w-44"
-            aria-label="Data da chamada"
-          />
-        </div>
-
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar aluno…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-            aria-label="Buscar aluno"
-          />
-        </div>
-      </div>
-
-      {/* Conteúdo */}
-      {isLoading ? (
+    <ModuleWorkspace
+      modules={modules}
+      activeId={activeModuleId}
+      onSelect={handleModuleChange}
+      header={header}
+    >
+      {modulesLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
@@ -383,72 +301,95 @@ export default function AttendancePage() {
             "Verifique sua conexão e tente novamente."
           }
         />
-      ) : !activeModuleId || modules.length === 0 ? (
+      ) : !activeModule ? (
         <EmptyState
           icon={ClipboardList}
           title="Nenhum módulo disponível"
-          description="Não há módulos atribuídos a você no momento."
-        />
-      ) : noEntries ? (
-        <EmptyState
-          icon={Users}
-          title="Nenhum aluno matriculado"
-          description="Este módulo ainda não possui alunos matriculados."
+          description="Não há módulos neste período para você."
         />
       ) : (
         <>
-          {/* Cabeçalho do dia + ações em massa */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {activeModule?.name}
-              </span>
-              {" · "}
-              {formatDateBR(selectedDate)}
-              {" · "}
-              <span className="text-success font-medium">{counts.present} P</span>
-              {" / "}
-              <span className="text-destructive font-medium">
-                {counts.absent} F
-              </span>
-              {" / "}
-              <span className="text-warning font-medium">
-                {counts.justified} J
-              </span>
-              {day?.record_id ? (
-                <span className="ml-2 text-xs">(registrada)</span>
-              ) : (
-                <span className="ml-2 text-xs italic">(rascunho)</span>
-              )}
+          {/* Data, ações em massa e contagem do dia */}
+          <div className="mb-3 flex flex-wrap items-center gap-2.5">
+            <div className="flex h-10 items-center overflow-hidden rounded-[10px] border bg-card">
+              <button
+                type="button"
+                aria-label="Dia anterior"
+                onClick={() => handleDateChange(shiftDate(selectedDate, -1))}
+                className="flex h-full w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                aria-label="Data da chamada"
+                className="h-full border-x bg-transparent px-3 font-mono text-[13.5px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:[color-scheme:dark]"
+              />
+              <button
+                type="button"
+                aria-label="Dia seguinte"
+                onClick={() => handleDateChange(shiftDate(selectedDate, 1))}
+                className="flex h-full w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => markAll("present")}
-                disabled={periodClosed}
-              >
-                <Check className="h-4 w-4" />
-                Todos presentes
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => markAll("absent")}
-                disabled={periodClosed}
-              >
-                <X className="h-4 w-4" />
-                Todos faltas
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-[10px]"
+              onClick={() => markAll("present")}
+              disabled={periodClosed || !day?.entries.length}
+            >
+              <Check className="h-4 w-4" />
+              Todos presentes
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-[10px]"
+              onClick={() => markAll("absent")}
+              disabled={periodClosed || !day?.entries.length}
+            >
+              <X className="h-4 w-4" />
+              Todos faltas
+            </Button>
+
+            {isDirty ? (
+              <span className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-warning/30 bg-warning/10 px-[13px] text-[12.5px] font-semibold text-warning">
+                <CircleAlert className="h-3.5 w-3.5" aria-hidden="true" />
+                Rascunho não salvo
+              </span>
+            ) : (
+              day?.record_id && (
+                <span className="text-[12.5px] text-muted-foreground">Chamada registrada</span>
+              )
+            )}
+
+            {day && day.entries.length > 0 && (
+              <div className="flex flex-wrap gap-2 lg:ml-auto">
+                <span className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-success/15 px-[13px] text-[12.5px] font-semibold text-success">
+                  <span className="font-mono text-base">{counts.present}</span>
+                  presente{counts.present !== 1 ? "s" : ""}
+                </span>
+                <span className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-destructive/15 px-[13px] text-[12.5px] font-semibold text-destructive">
+                  <span className="font-mono text-base">{counts.absent}</span>
+                  falta{counts.absent !== 1 ? "s" : ""}
+                </span>
+                <span className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-warning/15 px-[13px] text-[12.5px] font-semibold text-warning">
+                  <span className="font-mono text-base">{counts.justified}</span>
+                  justificada{counts.justified !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
           </div>
 
           {periodClosed && (
-            <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
-              <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
+            <div className="mb-3 flex items-center gap-2 rounded-[10px] border border-warning/30 bg-warning/10 px-4 py-3 text-[13px] text-warning">
+              <AlertCircle className="h-4 w-4 shrink-0" />
               <span>
                 Este período acadêmico está encerrado. A chamada está em modo
                 somente leitura.
@@ -456,97 +397,153 @@ export default function AttendancePage() {
             </div>
           )}
 
-          <div className="rounded-xl border bg-card overflow-x-auto">
-            <Table className={cardTable.table}>
-              <TableHeader className={cardTable.header}>
-                <TableRow>
-                  <TableHead className="w-28">Matrícula</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead className="w-44 text-center">Frequência</TableHead>
-                  <TableHead className="w-32 text-right">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className={cardTable.body}>
-                {filteredEntries.map((row) => {
-                  const status = draft[row.enrollment_id] ?? "present";
-                  return (
-                    // Card no celular (F-08): nome e matrícula à esquerda,
-                    // P/F/J grandes à direita; o botão ativo já diz o status.
-                    <TableRow
-                      key={row.enrollment_id}
-                      className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5 px-4 py-3 md:table-row md:p-0"
-                    >
-                      <TableCell className={`${cardTable.cell} col-start-1 row-start-2 font-mono text-xs text-muted-foreground`}>
-                        {row.student_number}
-                      </TableCell>
-                      <TableCell className={`${cardTable.cell} col-start-1 row-start-1 font-medium text-sm`}>
-                        {row.full_name}
-                        <RiskBadge moduleId={activeModuleId} enrollmentId={row.enrollment_id} />
-                      </TableCell>
-                      <TableCell className={`${cardTable.cell} col-start-2 row-span-2 row-start-1 text-center`}>
-                        <div className="inline-flex">
-                          <StatusButton
-                            variant="present"
-                            active={status === "present"}
-                            disabled={periodClosed}
-                            onClick={() => setStatus(row.enrollment_id, "present")}
-                            ariaLabel={`Marcar ${row.full_name} como presente`}
-                          />
-                          <StatusButton
-                            variant="absent"
-                            active={status === "absent"}
-                            disabled={periodClosed}
-                            onClick={() => setStatus(row.enrollment_id, "absent")}
-                            ariaLabel={`Marcar ${row.full_name} como falta`}
-                          />
-                          <StatusButton
-                            variant="justified"
-                            active={status === "justified"}
-                            disabled={periodClosed}
-                            onClick={() => setStatus(row.enrollment_id, "justified")}
-                            ariaLabel={`Marcar ${row.full_name} como justificado`}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden text-right text-xs text-muted-foreground md:table-cell">
-                        {STATUS_LABEL[status]}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          {dayLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
+          ) : day?.entries.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="Nenhum aluno matriculado"
+              description="Este módulo ainda não possui alunos matriculados."
+            />
+          ) : (
+            <>
+              <div className="relative mb-3 w-full sm:w-64">
+                <Search className="absolute left-[11px] top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar aluno…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-[34px] rounded-[10px] bg-card pl-[34px]"
+                  aria-label="Buscar aluno"
+                />
+              </div>
 
-          {filteredEntries.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center">
-              Nenhum aluno encontrado para "{search}".
-            </p>
+              <div className="overflow-hidden rounded-xl border bg-card">
+                <Table>
+                  <TableHeader className="sr-only">
+                    <TableRow>
+                      <TableHead>Aluno</TableHead>
+                      <TableHead>Frequência</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEntries.map((row) => {
+                      const status = draft[row.enrollment_id] ?? "present";
+                      const absences = absencesByEnrollment.get(row.enrollment_id);
+                      return (
+                        <TableRow key={row.enrollment_id}>
+                          <TableCell className="py-[11px] pl-4 pr-2 sm:pl-[18px]">
+                            <div className="flex min-w-0 items-center gap-3.5">
+                              <InitialsAvatar name={row.full_name} className="hidden h-9 w-9 sm:flex" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold">
+                                  {row.full_name}
+                                  <RiskBadge moduleId={activeModuleId} enrollmentId={row.enrollment_id} />
+                                </p>
+                                <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                                  {row.student_number}
+                                  {absences != null && ` · ${absences}/${maxAbsences} faltas`}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-px py-[11px] pl-2 pr-4 sm:pr-[18px]">
+                            <div className="flex gap-1.5">
+                              <StatusButton
+                                variant="present"
+                                active={status === "present"}
+                                disabled={periodClosed}
+                                onClick={() => setStatus(row.enrollment_id, "present")}
+                                ariaLabel={`Marcar ${row.full_name} como presente`}
+                              />
+                              <StatusButton
+                                variant="absent"
+                                active={status === "absent"}
+                                disabled={periodClosed}
+                                onClick={() => setStatus(row.enrollment_id, "absent")}
+                                ariaLabel={`Marcar ${row.full_name} como falta`}
+                              />
+                              <StatusButton
+                                variant="justified"
+                                active={status === "justified"}
+                                disabled={periodClosed}
+                                onClick={() => setStatus(row.enrollment_id, "justified")}
+                                ariaLabel={`Marcar ${row.full_name} como justificado`}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                {filteredEntries.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    Nenhum aluno encontrado para "{search}".
+                  </p>
+                )}
+              </div>
+            </>
           )}
 
-          {/* Observações + ações */}
-          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="att-notes"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Observações do dia (opcional)
-              </label>
-              <Input
-                id="att-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Conteúdo da aula, eventos, etc."
-                disabled={periodClosed}
-              />
-            </div>
+          {/* Histórico recente */}
+          {history.length > 0 && (
+            <section className="mt-3 rounded-xl border bg-card px-[18px] py-3.5">
+              <h2 className="mb-2.5 text-[13.5px]">Últimas chamadas</h2>
+              <div className="flex flex-wrap gap-2">
+                {history.slice(0, 10).map((h) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    aria-current={h.attendance_date === selectedDate ? "date" : undefined}
+                    aria-label={`Chamada de ${formatDateBR(h.attendance_date)}, ${h.total_absent} falta${h.total_absent !== 1 ? "s" : ""}`}
+                    onClick={() => handleDateChange(h.attendance_date)}
+                    className={cn(
+                      "inline-flex h-9 items-center gap-2 rounded-[10px] border px-3 font-mono text-[12.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      h.attendance_date === selectedDate
+                        ? "border-primary bg-accent"
+                        : "bg-card hover:border-foreground/30",
+                    )}
+                  >
+                    {h.attendance_date.slice(8, 10)}/{h.attendance_date.slice(5, 7)}
+                    <span className={h.total_absent === 0 ? "text-success" : "text-destructive"}>
+                      {h.total_absent}F
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
-            <div className="flex gap-2">
+          {/* Barra fixa no pé: observações, contagem e salvar */}
+          <div className="min-h-4 flex-1" aria-hidden="true" />
+          <div className="sticky bottom-0 z-20 -mx-5 -mb-6 flex flex-wrap items-center gap-3 border-t bg-card px-5 py-[11px]">
+            <label htmlFor="att-notes" className="sr-only">
+              Observações do dia (opcional)
+            </label>
+            <Input
+              id="att-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Conteúdo da aula (opcional)"
+              disabled={periodClosed || !day}
+              className="h-10 min-w-[180px] flex-1 rounded-[10px] bg-card sm:max-w-[400px]"
+            />
+            <div className="ml-auto flex items-center gap-3">
+              {day && day.entries.length > 0 && (
+                <span className="hidden text-[12.5px] text-muted-foreground sm:inline">
+                  {Object.keys(draft).length} de {day.entries.length} marcados
+                </span>
+              )}
               {day?.record_id && (
                 <Button
                   type="button"
                   variant="outline"
+                  className="h-11 rounded-[10px]"
                   onClick={handleDelete}
                   disabled={deleteMut.isPending || periodClosed}
                 >
@@ -556,6 +553,7 @@ export default function AttendancePage() {
               )}
               <Button
                 type="button"
+                className="h-11 rounded-[10px] px-[18px]"
                 onClick={handleSave}
                 disabled={!isDirty || saveMut.isPending || periodClosed}
               >
@@ -568,38 +566,10 @@ export default function AttendancePage() {
               </Button>
             </div>
           </div>
-
-          {/* Histórico recente */}
-          {history.length > 0 && (
-            <div className="space-y-2 pt-4">
-              <h2 className="text-sm font-medium text-muted-foreground">
-                Últimas chamadas
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {history.slice(0, 10).map((h) => (
-                  <button
-                    key={h.id}
-                    type="button"
-                    onClick={() => handleDateChange(h.attendance_date)}
-                    className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
-                      h.attendance_date === selectedDate
-                        ? "bg-primary/10 text-primary border-primary"
-                        : "bg-card hover:bg-accent/50"
-                    }`}
-                  >
-                    {formatDateBR(h.attendance_date)}
-                    <span className="ml-2 text-muted-foreground">
-                      {h.total_absent}F
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </>
       )}
 
       {confirmDialog}
-    </div>
+    </ModuleWorkspace>
   );
 }

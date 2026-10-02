@@ -59,18 +59,18 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Painel da marca — some no celular */}
-      <aside className="hidden min-w-[280px] flex-1 flex-col justify-between bg-rail p-11 text-white md:flex">
+      <aside className="hidden min-w-[280px] flex-1 flex-col justify-between bg-rail p-11 text-rail-foreground md:flex">
         <Brand />
         <div>
           <p className="max-w-[380px] text-[26px] font-semibold leading-tight tracking-tight">
             Notas, faltas e chamada no mesmo lugar — por período e por módulo.
           </p>
-          <p className="mt-3.5 max-w-[360px] text-[13.5px] text-white/60">
+          <p className="mt-3.5 max-w-[360px] text-[13.5px] text-rail-muted">
             Acesso para administração, coordenação e professores, com registro
             de auditoria de cada alteração.
           </p>
         </div>
-        <p className="font-mono text-[11px] text-white/60">
+        <p className="font-mono text-[11px] text-rail-muted">
           uso interno da instituição
         </p>
       </aside>
