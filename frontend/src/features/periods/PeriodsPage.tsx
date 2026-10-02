@@ -17,14 +17,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import {
   usePeriods,
   useClonePeriod,
@@ -41,6 +34,9 @@ function formatDate(d?: string | null) {
   if (!d) return "—";
   return format(new Date(d + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR });
 }
+
+const TEXT_BTN = "h-9 px-[11px] text-[12.5px] font-semibold [&_svg]:size-3.5";
+const ICON_BTN = "text-muted-foreground [&_svg]:size-3.5";
 
 export default function PeriodsPage() {
   const { profile } = useAuth();
@@ -89,11 +85,12 @@ export default function PeriodsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Períodos Acadêmicos"
+        eyebrow="Gestão acadêmica"
+        title="Períodos acadêmicos"
         description="Gerencie os períodos letivos da instituição."
         actions={
           isAdmin ? (
-            <Button onClick={openCreate}>
+            <Button onClick={openCreate} className="font-semibold">
               <Plus />
               Novo período
             </Button>
@@ -102,9 +99,9 @@ export default function PeriodsPage() {
       />
 
       {isLoading ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} className="h-[76px] w-full rounded-xl" />
           ))}
         </div>
       ) : periods.length === 0 ? (
@@ -120,106 +117,95 @@ export default function PeriodsPage() {
           onAction={isAdmin ? openCreate : undefined}
         />
       ) : (
-        <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Coordenador</TableHead>
-                <TableHead>Início</TableHead>
-                <TableHead>Fim</TableHead>
-                <TableHead>Status</TableHead>
-                {(isAdmin || canSync) && (
-                  <TableHead className="w-44 text-right">Ações</TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {periods.map((period) => (
-                <TableRow key={period.id}>
-                  <TableCell className="font-medium">{period.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {period.coordinator?.full_name ?? "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {formatDate(period.start_date)}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {formatDate(period.end_date)}
-                  </TableCell>
-                  <TableCell>
+        <div className="flex flex-col gap-3">
+          {periods.map((period) => (
+            <section
+              key={period.id}
+              aria-label={period.name}
+              className={cn(
+                "rounded-xl border bg-card px-[18px] py-4",
+                period.is_active && "border-foreground/15",
+              )}
+            >
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-[180px] flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-semibold tracking-tight">{period.name}</h2>
                     {period.is_active ? (
                       <Badge variant="success">Ativo</Badge>
                     ) : (
-                      <Badge variant="secondary">Inativo</Badge>
+                      <Badge variant="secondary">Encerrado</Badge>
                     )}
-                  </TableCell>
-                  {(isAdmin || canSync) && (
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {canSync && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Baixar relatório do período"
-                            onClick={() =>
-                              downloadReport.mutate({
-                                periodId: period.id,
-                                periodName: period.name,
-                              })
-                            }
-                            disabled={downloadReport.isPending}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canSync && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Sincronizar planilha"
-                            onClick={() => setSyncPeriod(period)}
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {isAdmin && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`Novo período a partir de ${period.name}`}
-                              title="Novo período a partir deste (copia os módulos)"
-                              onClick={() => openClone(period)}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Editar período"
-                              onClick={() => openEdit(period)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Excluir período"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setDeleting(period)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                  <p className="mt-1 text-[12.5px] text-muted-foreground">
+                    {period.coordinator?.full_name ?? "Sem coordenador"} ·{" "}
+                    {formatDate(period.start_date)} a {formatDate(period.end_date)}
+                  </p>
+                </div>
+
+                {canSync && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button
+                      variant="outline"
+                      className={TEXT_BTN}
+                      aria-label="Baixar relatório do período"
+                      onClick={() =>
+                        downloadReport.mutate({
+                          periodId: period.id,
+                          periodName: period.name,
+                        })
+                      }
+                      disabled={downloadReport.isPending}
+                    >
+                      <Download />
+                      Relatório
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className={TEXT_BTN}
+                      aria-label="Sincronizar planilha"
+                      onClick={() => setSyncPeriod(period)}
+                    >
+                      <RefreshCw />
+                      Sincronizar
+                    </Button>
+                    {isAdmin && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className={ICON_BTN}
+                          aria-label={`Novo período a partir de ${period.name}`}
+                          title="Novo período a partir deste (copia os módulos)"
+                          onClick={() => openClone(period)}
+                        >
+                          <Copy />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className={ICON_BTN}
+                          aria-label="Editar período"
+                          onClick={() => openEdit(period)}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          aria-label="Excluir período"
+                          className="text-destructive hover:border-destructive hover:bg-destructive/10 hover:text-destructive [&_svg]:size-3.5"
+                          onClick={() => setDeleting(period)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 

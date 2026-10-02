@@ -4,10 +4,11 @@ import { modulesApi, type ModuleCreate, type ModuleUpdate } from "./api";
 
 export const MODULES_KEY = ["modules"] as const;
 
-export function useModules(periodId?: string) {
+export function useModules(periodId?: string, enabled = true) {
   return useQuery({
     queryKey: periodId ? [...MODULES_KEY, { periodId }] : MODULES_KEY,
     queryFn: () => modulesApi.list(periodId),
+    enabled,
   });
 }
 

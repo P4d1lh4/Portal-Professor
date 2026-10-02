@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   AlertCircle,
+  Check,
   CheckCircle2,
   ClipboardList,
   FileSpreadsheet,
@@ -11,22 +12,16 @@ import {
   Upload,
 } from "lucide-react";
 
-import { useAuth } from "@/hooks/useAuth";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { GradeBadge } from "@/components/shared/GradeBadge";
+import { FilterChips } from "@/components/shared/FilterChips";
+import { InitialsAvatar } from "@/components/shared/InitialsAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -36,8 +31,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cardTable } from "@/components/ui/card-table";
-import { formatGrade } from "@/lib/utils";
-import { useModules } from "@/features/modules/useModules";
+import { cn, formatGrade } from "@/lib/utils";
+import { classifyStatus, type Status } from "@/lib/classification";
+import { ModuleTabs, ModuleWorkspace } from "@/features/modules/ModuleWorkspace";
+import { moduleEyebrow, usePeriodModules } from "@/features/modules/usePeriodModules";
 import { useModuleAttendance } from "@/features/attendance/useAttendance";
 import { useDownloadModuleGrades } from "@/features/exports/useExports";
 import { useImportGrades, useModuleGrades, useUpdateGrade } from "./useGrades";
@@ -127,7 +124,7 @@ function GradeCell({
         }
       }}
       onKeyDown={onKeyDown}
-      className="h-8 w-full md:w-20 text-center font-mono text-sm tabular-nums px-1 disabled:opacity-60 disabled:cursor-not-allowed"
+      className="h-10 w-full rounded-[10px] bg-card px-1 text-center font-mono text-[15px] tabular-nums hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-60 md:w-[74px]"
     />
   );
 }
@@ -192,34 +189,41 @@ function useRowStatuses(moduleId: string) {
   return { statuses, save };
 }
 
+// ─── Tons ─────────────────────────────────────────────────────────────────────
+
+const STATUS_TEXT: Record<Status, string> = {
+  aprovado: "text-success",
+  recuperacao: "text-warning",
+  rep_faltas: "text-destructive",
+  reprovado: "text-destructive",
+};
+
+// Faltas sobre o máximo: ≥80% crítico, ≥50% atenção.
+const absenceTone = (absences: number, max: number) => {
+  const p = absences / Math.max(max, 1);
+  return p >= 0.8
+    ? { bar: "bg-destructive", text: "text-destructive" }
+    : p >= 0.5
+      ? { bar: "bg-warning", text: "text-warning" }
+      : { bar: "bg-success", text: "text-success" };
+};
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function GradesPage() {
-  const { profile } = useAuth();
-  const isProfessor = profile?.role === "professor";
-
-  const [searchParams, setSearchParams] = useSearchParams();
-  const urlModuleId = searchParams.get("module") ?? "";
-  const [selectedModuleId, setSelectedModuleId] = useState(urlModuleId);
+  const [, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [situation, setSituation] = useState<Situation>("");
 
   const {
-    data: modules = [],
+    modules,
+    activeModule,
     isLoading: modulesLoading,
     isError: modulesError,
     error: modulesErrorObj,
-  } = useModules();
+  } = usePeriodModules();
 
-  // Once modules load, default to URL param or first module
-  useEffect(() => {
-    if (modules.length > 0 && !selectedModuleId) {
-      setSelectedModuleId(urlModuleId || modules[0].id);
-    }
-  }, [modules, selectedModuleId, urlModuleId]);
-
-  const activeModuleId = selectedModuleId || modules[0]?.id;
-  const activeModule = modules.find((m) => m.id === activeModuleId);
+  const activeModuleId = activeModule?.id;
   const maxAbsences = activeModule?.max_absences ?? 0;
 
   const { data: rows = [], isLoading: gradesLoading } =
@@ -264,8 +268,16 @@ export default function GradesPage() {
   }, [rows, debouncedSearch, maxAbsences, situation]);
   const isFiltering = !!search || !!situation;
 
+  const situationChips = useMemo(
+    () =>
+      SITUATION_OPTIONS.map((o) => ({
+        ...o,
+        count: rows.filter((r) => matchesSituation(r, maxAbsences, o.value)).length,
+      })),
+    [rows, maxAbsences]
+  );
+
   const handleModuleChange = (id: string) => {
-    setSelectedModuleId(id);
     setSearchParams({ module: id });
   };
 
@@ -298,22 +310,296 @@ export default function GradesPage() {
       }
     };
 
-  const isLoading = modulesLoading || gradesLoading;
   const periodClosed =
     activeModule?.academic_period?.is_active === false;
 
+  const header = (
+    <PageHeader
+      eyebrow={activeModule ? moduleEyebrow(activeModule) : undefined}
+      title={activeModule?.name ?? "Notas e faltas"}
+      actions={
+        activeModule ? (
+          <Button
+            variant="outline"
+            onClick={() =>
+              exportGrades.mutate({
+                moduleId: activeModule.id,
+                moduleCode: activeModule.code,
+              })
+            }
+            disabled={exportGrades.isPending}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Exportar CSV
+          </Button>
+        ) : undefined
+      }
+      tabs={activeModule ? <ModuleTabs moduleId={activeModule.id} /> : undefined}
+    />
+  );
+
+  const headCls = "h-[42px] px-3 text-[11px] font-semibold uppercase text-muted-foreground";
+  const cellCls = `${cardTable.cell} md:px-3 md:py-2.5`;
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Notas e Faltas"
-        description={
-          isProfessor
-            ? "Lançamento inline de notas e faltas dos seus módulos."
-            : "Visualização e edição de notas por módulo."
-        }
-        actions={
-          activeModule ? (
-            <div className="flex flex-wrap gap-2">
+    <ModuleWorkspace
+      modules={modules}
+      activeId={activeModuleId}
+      onSelect={handleModuleChange}
+      header={header}
+    >
+      {modulesLoading || gradesLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : modulesError ? (
+        <EmptyState
+          icon={AlertCircle}
+          title="Erro ao carregar módulos"
+          description={
+            (modulesErrorObj as Error)?.message ??
+            "Verifique sua conexão e tente novamente."
+          }
+        />
+      ) : !activeModule ? (
+        <EmptyState
+          icon={ClipboardList}
+          title="Nenhum módulo disponível"
+          description="Não há módulos neste período para você."
+        />
+      ) : (
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <FilterChips
+              label="Filtrar por situação"
+              options={situationChips}
+              value={situation}
+              onChange={setSituation}
+            />
+            <div className="relative w-full sm:w-52">
+              <Search className="absolute left-[11px] top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar aluno…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-[34px] rounded-[10px] bg-card pl-[34px]"
+                aria-label="Buscar aluno"
+              />
+            </div>
+            <p className="text-[12.5px] text-muted-foreground sm:ml-auto">
+              Máx. {maxAbsences} falta{maxAbsences !== 1 ? "s" : ""}
+              {recordedClasses > 0 && (
+                <>
+                  {" · "}
+                  {recordedClasses} chamada{recordedClasses !== 1 ? "s" : ""} registrada
+                  {recordedClasses !== 1 ? "s" : ""}
+                </>
+              )}
+            </p>
+          </div>
+
+          {periodClosed && (
+            <div className="mb-3 flex items-center gap-2 rounded-[10px] border border-warning/30 bg-warning/10 px-4 py-3 text-[13px] text-warning">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>
+                Este período acadêmico está encerrado. As notas e faltas estão
+                em modo somente leitura.
+              </span>
+            </div>
+          )}
+
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={ClipboardList}
+              title={isFiltering ? "Nenhum aluno encontrado" : "Nenhum aluno matriculado"}
+              description={
+                isFiltering
+                  ? "Tente outro nome, matrícula ou situação."
+                  : "Este módulo não possui alunos matriculados."
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto rounded-xl border bg-card">
+              <Table className={`${cardTable.table} md:min-w-[820px]`}>
+                <TableHeader className={cardTable.header}>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className={cn(headCls, "pl-[18px]")}>Aluno</TableHead>
+                    <TableHead className={cn(headCls, "w-[98px] text-center")}>Tutoria</TableHead>
+                    <TableHead className={cn(headCls, "w-[98px] text-center")}>Prova</TableHead>
+                    <TableHead className={cn(headCls, "w-[98px] text-center")}>Recup.</TableHead>
+                    <TableHead className={cn(headCls, "w-[170px]")}>Faltas</TableHead>
+                    <TableHead className={cn(headCls, "w-[230px] pr-[18px] text-right")}>Final</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className={cardTable.body}>
+                  {filtered.map((row: StudentGradeRow, rowIdx) => {
+                    const status = statuses[row.enrollment_id] ?? "idle";
+                    const situationNow = classifyStatus(row.final_grade, row.absences, maxAbsences);
+                    const abs = absenceTone(row.absences, maxAbsences);
+
+                    return (
+                      // Card no celular (F-08): aluno; os quatro campos
+                      // rotulados; situação, final e "salvo".
+                      <TableRow
+                        key={row.enrollment_id}
+                        className="grid grid-cols-4 items-start gap-x-2 gap-y-2.5 px-4 py-3 md:table-row md:p-0"
+                      >
+                        <TableCell className={`${cellCls} col-span-4 md:pl-[18px]`}>
+                          <div className="flex min-w-0 items-center gap-[11px]">
+                            <InitialsAvatar name={row.full_name} />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold">{row.full_name}</p>
+                              <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                                {row.student_number}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        {/* Tutoria */}
+                        <TableCell
+                          data-label="Tutoria"
+                          className={`${cellCls} ${cardTable.label} text-center`}
+                        >
+                          <GradeCell
+                            value={row.tutor_grade}
+                            ariaLabel={`Tutoria de ${row.full_name}`}
+                            disabled={periodClosed}
+                            inputRef={makeRef(rowIdx, 0)}
+                            onKeyDown={handleKeyNav(rowIdx, 0)}
+                            onCommit={(v) =>
+                              save(row.enrollment_id, { tutor_grade: v })
+                            }
+                          />
+                        </TableCell>
+
+                        {/* Prova regular */}
+                        <TableCell
+                          data-label="Prova"
+                          className={`${cellCls} ${cardTable.label} text-center`}
+                        >
+                          <GradeCell
+                            value={row.regular_exam_grade}
+                            ariaLabel={`Prova regular de ${row.full_name}`}
+                            disabled={periodClosed}
+                            inputRef={makeRef(rowIdx, 1)}
+                            onKeyDown={handleKeyNav(rowIdx, 1)}
+                            onCommit={(v) =>
+                              save(row.enrollment_id, { regular_exam_grade: v })
+                            }
+                          />
+                        </TableCell>
+
+                        {/* Recuperação */}
+                        <TableCell
+                          data-label="Recup."
+                          className={`${cellCls} ${cardTable.label} text-center`}
+                        >
+                          <GradeCell
+                            value={row.makeup_exam_grade}
+                            ariaLabel={`Recuperação de ${row.full_name}`}
+                            disabled={periodClosed}
+                            inputRef={makeRef(rowIdx, 2)}
+                            onKeyDown={handleKeyNav(rowIdx, 2)}
+                            onCommit={(v) =>
+                              save(row.enrollment_id, { makeup_exam_grade: v })
+                            }
+                          />
+                        </TableCell>
+
+                        {/* Faltas: campo + barra sobre o máximo do módulo */}
+                        <TableCell
+                          data-label="Faltas"
+                          className={`${cellCls} ${cardTable.label}`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-full md:w-16 md:shrink-0">
+                              <GradeCell
+                                value={row.absences}
+                                ariaLabel={`Faltas de ${row.full_name}`}
+                                min={0}
+                                max={999}
+                                step={1}
+                                disabled={periodClosed}
+                                inputRef={makeRef(rowIdx, 3)}
+                                onKeyDown={handleKeyNav(rowIdx, 3)}
+                                onCommit={(v) =>
+                                  save(row.enrollment_id, { absences: Math.round(v) })
+                                }
+                              />
+                            </div>
+                            <div className="hidden min-w-10 flex-1 md:block">
+                              <div className="h-[5px] overflow-hidden rounded-[3px] bg-accent" aria-hidden="true">
+                                <div
+                                  className={cn("h-full rounded-[3px]", abs.bar)}
+                                  style={{ width: `${Math.min(100, (row.absences / Math.max(maxAbsences, 1)) * 100)}%` }}
+                                />
+                              </div>
+                              <p className={cn("mt-1 font-mono text-[10.5px] font-semibold tabular-nums", abs.text)}>
+                                {row.absences}/{maxAbsences}
+                              </p>
+                            </div>
+                          </div>
+                          {recordedClasses > 0 && (
+                            <span
+                              className="mt-0.5 block text-[10px] text-muted-foreground tabular-nums"
+                              title="Faltas sobre as chamadas já registradas no módulo"
+                            >
+                              {Math.round((row.absences / recordedClasses) * 100)}% das aulas
+                            </span>
+                          )}
+                        </TableCell>
+
+                        {/* Situação, final (calculada no servidor) e "salvo" */}
+                        <TableCell className={`${cellCls} col-span-4 md:pr-[18px]`}>
+                          <div className="flex items-center justify-between gap-2.5 md:justify-end">
+                            <SaveIndicator status={status} />
+                            <GradeBadge
+                              finalGrade={row.final_grade}
+                              absences={row.absences}
+                              maxAbsences={maxAbsences}
+                              className="px-2.5 py-1 text-[11.5px]"
+                            />
+                            <span
+                              className={cn(
+                                "min-w-[34px] text-right font-mono text-[17px] font-semibold tabular-nums",
+                                STATUS_TEXT[situationNow],
+                              )}
+                            >
+                              {formatGrade(row.final_grade)}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* Barra fixa no pé: salvamento, contagem e importação */}
+          <div className="min-h-4 flex-1" aria-hidden="true" />
+          <div className="sticky bottom-0 z-20 -mx-5 -mb-6 flex flex-wrap items-center gap-x-3.5 gap-y-2 border-t bg-card px-5 py-[11px]">
+            {periodClosed ? (
+              <span className="text-[13px] font-semibold text-muted-foreground">
+                Somente leitura
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-success">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-success/15">
+                  <Check className="h-[13px] w-[13px]" aria-hidden="true" />
+                </span>
+                Salvo automaticamente
+              </span>
+            )}
+            <span className="text-[12.5px] text-muted-foreground">
+              {filtered.length} aluno{filtered.length !== 1 ? "s" : ""}
+              {isFiltering ? ` encontrado${filtered.length !== 1 ? "s" : ""}` : " no total"}
+            </span>
+            <div className="ml-auto">
               <input
                 ref={importInput}
                 type="file"
@@ -334,296 +620,11 @@ export default function GradesPage() {
                 )}
                 Importar CSV
               </Button>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  exportGrades.mutate({
-                    moduleId: activeModule.id,
-                    moduleCode: activeModule.code,
-                  })
-                }
-                disabled={exportGrades.isPending}
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                Exportar CSV
-              </Button>
             </div>
-          ) : undefined
-        }
-      />
-
-      {/* Module selector — tabs if ≤4, dropdown if more */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {modules.length > 0 && modules.length <= 4 ? (
-          <div className="flex flex-wrap gap-2">
-            {modules.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => handleModuleChange(m.id)}
-                className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  activeModuleId === m.id
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card hover:bg-accent/50"
-                }`}
-              >
-                {m.code}
-              </button>
-            ))}
           </div>
-        ) : (
-          <Select
-            value={activeModuleId ?? ""}
-            onValueChange={handleModuleChange}
-          >
-            <SelectTrigger className="w-full sm:w-64">
-              <SelectValue placeholder="Selecione um módulo" />
-            </SelectTrigger>
-            <SelectContent>
-              {modules.map((m) => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.code} — {m.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar aluno…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-            aria-label="Buscar aluno"
-          />
-        </div>
-
-        {/* F-S1: filtro por situação (select nativo, como na ficha do aluno) */}
-        <select
-          aria-label="Filtrar por situação"
-          value={situation}
-          onChange={(e) => setSituation(e.target.value as Situation)}
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-52"
-        >
-          {SITUATION_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Content */}
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : modulesError ? (
-        <EmptyState
-          icon={AlertCircle}
-          title="Erro ao carregar módulos"
-          description={
-            (modulesErrorObj as Error)?.message ??
-            "Verifique sua conexão e tente novamente."
-          }
-        />
-      ) : !activeModuleId || modules.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="Nenhum módulo disponível"
-          description="Não há módulos atribuídos a você no momento."
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title={isFiltering ? "Nenhum aluno encontrado" : "Nenhum aluno matriculado"}
-          description={
-            isFiltering
-              ? "Tente outro nome, matrícula ou situação."
-              : "Este módulo não possui alunos matriculados."
-          }
-        />
-      ) : (
-        <>
-          {activeModule && (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {activeModule.name}
-              </span>
-              {" · "}máximo de {maxAbsences} falta
-              {maxAbsences !== 1 ? "s" : ""}
-              {recordedClasses > 0 && (
-                <>
-                  {" · "}
-                  {recordedClasses} chamada{recordedClasses !== 1 ? "s" : ""} registrada
-                  {recordedClasses !== 1 ? "s" : ""}
-                </>
-              )}
-            </p>
-          )}
-
-          {periodClosed && (
-            <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
-              <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
-              <span>
-                Este período acadêmico está encerrado. As notas e faltas estão
-                em modo somente leitura.
-              </span>
-            </div>
-          )}
-
-          <div className="rounded-xl border bg-card overflow-x-auto">
-            <Table className={cardTable.table}>
-              <TableHeader className={cardTable.header}>
-                <TableRow>
-                  <TableHead className="w-28">Matrícula</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead className="w-24 text-center">Tutoria</TableHead>
-                  <TableHead className="w-24 text-center">Prova reg.</TableHead>
-                  <TableHead className="w-28 text-center">Recuperação</TableHead>
-                  <TableHead className="w-20 text-center">Final</TableHead>
-                  <TableHead className="w-20 text-center">Faltas</TableHead>
-                  <TableHead className="w-28 text-center">Status</TableHead>
-                  <TableHead className="w-24" />
-                </TableRow>
-              </TableHeader>
-              <TableBody className={cardTable.body}>
-                {filtered.map((row: StudentGradeRow, rowIdx) => {
-                  const status = statuses[row.enrollment_id] ?? "idle";
-
-                  return (
-                    // Card no celular (F-08): nome; matrícula e situação;
-                    // os quatro campos rotulados; final e "salvo".
-                    <TableRow
-                      key={row.enrollment_id}
-                      className="grid grid-cols-4 items-start gap-x-2 gap-y-2 px-4 py-3 md:table-row md:p-0"
-                    >
-                      <TableCell className={`${cardTable.cell} col-span-2 col-start-1 row-start-2 self-center font-mono text-xs text-muted-foreground`}>
-                        {row.student_number}
-                      </TableCell>
-                      <TableCell className={`${cardTable.cell} col-span-4 col-start-1 row-start-1 font-medium text-sm`}>
-                        {row.full_name}
-                      </TableCell>
-
-                      {/* Tutoria */}
-                      <TableCell
-                        data-label="Tutoria"
-                        className={`${cardTable.cell} ${cardTable.label} col-start-1 row-start-3 text-center`}
-                      >
-                        <GradeCell
-                          value={row.tutor_grade}
-                          ariaLabel={`Tutoria de ${row.full_name}`}
-                          disabled={periodClosed}
-                          inputRef={makeRef(rowIdx, 0)}
-                          onKeyDown={handleKeyNav(rowIdx, 0)}
-                          onCommit={(v) =>
-                            save(row.enrollment_id, { tutor_grade: v })
-                          }
-                        />
-                      </TableCell>
-
-                      {/* Prova regular */}
-                      <TableCell
-                        data-label="Prova"
-                        className={`${cardTable.cell} ${cardTable.label} col-start-2 row-start-3 text-center`}
-                      >
-                        <GradeCell
-                          value={row.regular_exam_grade}
-                          ariaLabel={`Prova regular de ${row.full_name}`}
-                          disabled={periodClosed}
-                          inputRef={makeRef(rowIdx, 1)}
-                          onKeyDown={handleKeyNav(rowIdx, 1)}
-                          onCommit={(v) =>
-                            save(row.enrollment_id, { regular_exam_grade: v })
-                          }
-                        />
-                      </TableCell>
-
-                      {/* Recuperação */}
-                      <TableCell
-                        data-label="Recup."
-                        className={`${cardTable.cell} ${cardTable.label} col-start-3 row-start-3 text-center`}
-                      >
-                        <GradeCell
-                          value={row.makeup_exam_grade}
-                          ariaLabel={`Recuperação de ${row.full_name}`}
-                          disabled={periodClosed}
-                          inputRef={makeRef(rowIdx, 2)}
-                          onKeyDown={handleKeyNav(rowIdx, 2)}
-                          onCommit={(v) =>
-                            save(row.enrollment_id, { makeup_exam_grade: v })
-                          }
-                        />
-                      </TableCell>
-
-                      {/* Final — read-only, server-calculated */}
-                      <TableCell
-                        data-label="Final"
-                        className={`${cardTable.cell} ${cardTable.label} col-span-2 col-start-1 row-start-4 md:text-center`}
-                      >
-                        <span className="font-mono text-sm font-semibold tabular-nums">
-                          {formatGrade(row.final_grade)}
-                        </span>
-                      </TableCell>
-
-                      {/* Faltas */}
-                      <TableCell
-                        data-label="Faltas"
-                        className={`${cardTable.cell} ${cardTable.label} col-start-4 row-start-3 text-center`}
-                      >
-                        <GradeCell
-                          value={row.absences}
-                          ariaLabel={`Faltas de ${row.full_name}`}
-                          min={0}
-                          max={999}
-                          step={1}
-                          disabled={periodClosed}
-                          inputRef={makeRef(rowIdx, 3)}
-                          onKeyDown={handleKeyNav(rowIdx, 3)}
-                          onCommit={(v) =>
-                            save(row.enrollment_id, { absences: Math.round(v) })
-                          }
-                        />
-                        {recordedClasses > 0 && (
-                          <span
-                            className="mt-0.5 block text-[10px] text-muted-foreground tabular-nums"
-                            title="Faltas sobre as chamadas já registradas no módulo"
-                          >
-                            {Math.round((row.absences / recordedClasses) * 100)}% das aulas
-                          </span>
-                        )}
-                      </TableCell>
-
-                      {/* Status badge */}
-                      <TableCell className={`${cardTable.cell} col-span-2 col-start-3 row-start-2 self-center text-right md:text-center`}>
-                        <GradeBadge
-                          finalGrade={row.final_grade}
-                          absences={row.absences}
-                          maxAbsences={maxAbsences}
-                        />
-                      </TableCell>
-
-                      {/* Save indicator */}
-                      <TableCell className={`${cardTable.cell} col-span-2 col-start-3 row-start-4 self-center`}>
-                        <SaveIndicator status={status} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            {filtered.length} aluno{filtered.length !== 1 ? "s" : ""}
-            {isFiltering ? ` encontrado${filtered.length !== 1 ? "s" : ""}` : " no total"}
-          </p>
         </>
       )}
       {confirmDialog}
-    </div>
+    </ModuleWorkspace>
   );
 }

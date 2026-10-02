@@ -48,7 +48,7 @@ export function AppShell() {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
           side="left"
-          className="flex w-64 flex-col gap-0 border-none bg-rail p-2.5 text-white"
+          className="flex w-64 flex-col gap-0 border-none bg-rail p-2.5 text-rail-foreground"
         >
           <SheetTitle className="sr-only">Aplicação Professor</SheetTitle>
           <SheetDescription className="sr-only">

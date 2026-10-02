@@ -19,6 +19,7 @@ const m = vi.hoisted(() => ({
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ profile: { role: "professor" } }) }));
 vi.mock("@/features/modules/api", () => ({ modulesApi: { list: m.listModules } }));
+vi.mock("@/features/periods/api", () => ({ periodsApi: { list: async () => [] } }));
 vi.mock("@/features/grades/api", () => ({ gradesApi: { getByModule: m.getGrades } }));
 vi.mock("@/features/exports/api", () => ({
   exportsApi: { downloadModuleAttendance: m.downloadAttendance },
@@ -129,7 +130,7 @@ describe("AttendancePage: rascunho não salvo (F-01)", () => {
     const user = renderPage();
     await marcarFalta(user);
 
-    await user.click(screen.getByRole("button", { name: "FIS1" }));
+    await user.click(screen.getByRole("button", { name: /FIS1/ }));
     const dialog = await dialogoDescarte();
     await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
 
