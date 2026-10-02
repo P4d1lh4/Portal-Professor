@@ -44,7 +44,10 @@ const schema = z.object({
   is_active: z.boolean(),
 });
 
-type FormData = z.infer<typeof schema>;
+// No zod 4 o z.coerce aceita `unknown` na entrada: o formulário guarda o tipo
+// de entrada e o handleSubmit recebe o de saída, já convertido.
+type FormInput = z.input<typeof schema>;
+type FormData = z.output<typeof schema>;
 
 interface ModuleDialogProps {
   open: boolean;
@@ -100,7 +103,7 @@ export function ModuleDialog({
     watch,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({
+  } = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(schema),
     defaultValues: { credits: 4, max_absences: 10, is_active: true },
   });
